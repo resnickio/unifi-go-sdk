@@ -1,14 +1,57 @@
 package unifi
 
 type UserData struct {
-	Email       string   `json:"email"`
-	FullName    string   `json:"fullName"`
-	Role        string   `json:"role"`
-	RoleID      string   `json:"roleId"`
-	Status      string   `json:"status"`
-	LocalID     string   `json:"localId"`
-	Apps        []string `json:"apps"`
-	Controllers []string `json:"controllers"`
+	Email               string                 `json:"email"`
+	FullName            string                 `json:"fullName"`
+	Role                string                 `json:"role"`
+	RoleID              string                 `json:"roleId"`
+	Status              string                 `json:"status"`
+	LocalID             string                 `json:"localId"`
+	Apps                []string               `json:"apps"`
+	Controllers         []string               `json:"controllers"`
+	ConsoleGroupMembers []ConsoleGroupMember   `json:"consoleGroupMembers"`
+	Features            UserFeatures           `json:"features"`
+	Permissions         map[string][]string    `json:"permissions"`
+}
+
+type ConsoleGroupMember struct {
+	MAC            string         `json:"mac"`
+	Role           string         `json:"role"`
+	RoleAttributes RoleAttributes `json:"roleAttributes"`
+	SysID          int            `json:"sysId"`
+}
+
+type RoleAttributes struct {
+	Applications            map[string]ApplicationRole `json:"applications"`
+	CandidateRoles          []string                   `json:"candidateRoles"`
+	ConnectedState          string                     `json:"connectedState"`
+	ConnectedStateLastChanged string                   `json:"connectedStateLastChanged"`
+}
+
+type ApplicationRole struct {
+	Owned     bool `json:"owned"`
+	Required  bool `json:"required"`
+	Supported bool `json:"supported"`
+}
+
+type UserFeatures struct {
+	DeviceGroups       bool              `json:"deviceGroups"`
+	Floorplan          FloorplanFeature  `json:"floorplan"`
+	ManageApplications bool              `json:"manageApplications"`
+	Notifications      bool              `json:"notifications"`
+	Pion               bool              `json:"pion"`
+	WebRTC             WebRTCFeature     `json:"webrtc"`
+}
+
+type FloorplanFeature struct {
+	CanEdit bool `json:"canEdit"`
+	CanView bool `json:"canView"`
+}
+
+type WebRTCFeature struct {
+	ICERestart   bool `json:"iceRestart"`
+	MediaStreams bool `json:"mediaStreams"`
+	TwoWayAudio  bool `json:"twoWayAudio"`
 }
 
 type Hardware struct {
@@ -149,17 +192,17 @@ type ReportedState struct {
 }
 
 type Host struct {
-	ID                        string        `json:"id"`
-	HardwareID                string        `json:"hardwareId"`
-	Type                      string        `json:"type"`
-	IPAddress                 string        `json:"ipAddress"`
-	Owner                     bool          `json:"owner"`
-	IsBlocked                 bool          `json:"isBlocked"`
-	RegistrationTime          string        `json:"registrationTime"`
-	LastConnectionStateChange string        `json:"lastConnectionStateChange"`
-	LatestBackupTime          string        `json:"latestBackupTime"`
-	UserData                  UserData      `json:"userData"`
-	ReportedState             ReportedState `json:"reportedState"`
+	ID                        string         `json:"id"`
+	HardwareID                string         `json:"hardwareId"`
+	Type                      string         `json:"type"`
+	IPAddress                 string         `json:"ipAddress"`
+	Owner                     bool           `json:"owner"`
+	IsBlocked                 bool           `json:"isBlocked"`
+	RegistrationTime          string         `json:"registrationTime"`
+	LastConnectionStateChange string         `json:"lastConnectionStateChange"`
+	LatestBackupTime          string         `json:"latestBackupTime"`
+	UserData                  UserData       `json:"userData"`
+	ReportedState             *ReportedState `json:"reportedState"`
 }
 
 type APIResponse struct {
