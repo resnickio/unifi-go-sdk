@@ -163,3 +163,63 @@ func (c *Client) GetHost(ctx context.Context, id string) (*GetHostResponse, erro
 		TraceID: response.TraceID,
 	}, nil
 }
+
+func (c *Client) ListSites(ctx context.Context, opts *ListSitesOptions) (*ListSitesResponse, error) {
+	var response struct {
+		Data           []Site  `json:"data"`
+		HTTPStatusCode int     `json:"httpStatusCode"`
+		TraceID        string  `json:"traceId"`
+		NextToken      *string `json:"nextToken,omitempty"`
+	}
+
+	path := "/v1/sites"
+	params := url.Values{}
+	if opts != nil {
+		if opts.PageSize > 0 {
+			params.Set("pageSize", strconv.Itoa(opts.PageSize))
+		}
+		if opts.NextToken != "" {
+			params.Set("nextToken", opts.NextToken)
+		}
+	}
+	if len(params) > 0 {
+		path += "?" + params.Encode()
+	}
+
+	err := c.do(ctx, "GET", path, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &ListSitesResponse{
+		Sites:   response.Data,
+		TraceID: response.TraceID,
+	}
+	if response.NextToken != nil {
+		result.NextToken = *response.NextToken
+	}
+
+	return result, nil
+}
+
+func (c *Client) ListAllSites(ctx context.Context) ([]Site, error) {
+	var allSites []Site
+	var nextToken string
+
+	for {
+		opts := &ListSitesOptions{NextToken: nextToken}
+		resp, err := c.ListSites(ctx, opts)
+		if err != nil {
+			return nil, err
+		}
+
+		allSites = append(allSites, resp.Sites...)
+
+		if resp.NextToken == "" {
+			break
+		}
+		nextToken = resp.NextToken
+	}
+
+	return allSites, nil
+}

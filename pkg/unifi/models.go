@@ -182,3 +182,80 @@ type GetHostResponse struct {
 	Host    *Host
 	TraceID string
 }
+
+// Site represents a UniFi Network site.
+type Site struct {
+	SiteID     string         `json:"siteId"`
+	HostID     string         `json:"hostId"`
+	Meta       SiteMeta       `json:"meta"`
+	Statistics SiteStatistics `json:"statistics"`
+	Permission string         `json:"permission"`
+	IsOwner    bool           `json:"isOwner"`
+}
+
+type SiteMeta struct {
+	Name       string `json:"name"`
+	Desc       string `json:"desc"`
+	Timezone   string `json:"timezone"`
+	GatewayMAC string `json:"gatewayMac"`
+}
+
+type SiteStatistics struct {
+	Counts         SiteCounts       `json:"counts"`
+	Gateway        SiteGateway      `json:"gateway"`
+	ISPInfo        SiteISPInfo      `json:"ispInfo"`
+	Percentages    SitePercentages  `json:"percentages"`
+	InternetIssues []any            `json:"internetIssues"`
+}
+
+type SiteCounts struct {
+	CriticalNotification int `json:"criticalNotification"`
+	GatewayDevice        int `json:"gatewayDevice"`
+	GuestClient          int `json:"guestClient"`
+	LANConfiguration     int `json:"lanConfiguration"`
+	OfflineDevice        int `json:"offlineDevice"`
+	OfflineGatewayDevice int `json:"offlineGatewayDevice"`
+	OfflineWifiDevice    int `json:"offlineWifiDevice"`
+	OfflineWiredDevice   int `json:"offlineWiredDevice"`
+	PendingUpdateDevice  int `json:"pendingUpdateDevice"`
+	TotalDevice          int `json:"totalDevice"`
+	WANConfiguration     int `json:"wanConfiguration"`
+	WifiClient           int `json:"wifiClient"`
+	WifiConfiguration    int `json:"wifiConfiguration"`
+	WifiDevice           int `json:"wifiDevice"`
+	WiredClient          int `json:"wiredClient"`
+	WiredDevice          int `json:"wiredDevice"`
+}
+
+type SiteGateway struct {
+	HardwareID      string       `json:"hardwareId"`
+	InspectionState string       `json:"inspectionState"`
+	IPSMode         string       `json:"ipsMode"`
+	IPSSignature    IPSSignature `json:"ipsSignature"`
+	Shortname       string       `json:"shortname"`
+}
+
+type IPSSignature struct {
+	RulesCount int    `json:"rulesCount"`
+	Type       string `json:"type"`
+}
+
+type SiteISPInfo struct {
+	Name         string `json:"name"`
+	Organization string `json:"organization"`
+}
+
+type SitePercentages struct {
+	WANUptime float64 `json:"wanUptime"`
+}
+
+type ListSitesOptions struct {
+	PageSize  int
+	NextToken string
+}
+
+type ListSitesResponse struct {
+	Sites     []Site
+	TraceID   string
+	NextToken string
+}
