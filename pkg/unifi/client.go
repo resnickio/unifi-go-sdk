@@ -11,9 +11,9 @@ import (
 )
 
 type Client struct {
-	baseURL    string
-	apiKey     string
-	httpClient *http.Client
+	BaseURL    string
+	APIKey     string
+	HTTPClient *http.Client
 }
 
 const (
@@ -22,24 +22,24 @@ const (
 
 func NewClient(apiKey string) *Client {
 	return &Client{
-		baseURL:    defaultBaseURL,
-		apiKey:     apiKey,
-		httpClient: &http.Client{},
+		BaseURL:    defaultBaseURL,
+		APIKey:     apiKey,
+		HTTPClient: &http.Client{},
 	}
 }
 
 func (c *Client) do(ctx context.Context, method, path string, result interface{}) error {
-	url := c.baseURL + path
+	url := c.BaseURL + path
 
 	req, err := http.NewRequestWithContext(ctx, method, url, nil)
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)
 	}
 
-	req.Header.Set("X-API-KEY", c.apiKey)
+	req.Header.Set("X-API-KEY", c.APIKey)
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("executing request: %w", err)
 	}
