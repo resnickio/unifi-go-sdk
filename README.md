@@ -2,7 +2,9 @@
 
 [![CI](https://github.com/resnickio/unifi-go-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/resnickio/unifi-go-sdk/actions/workflows/ci.yml)
 
-Go SDK for the [UniFi Site Manager API](https://developer.ui.com/site-manager-api/gettingstarted).
+Go SDK for UniFi APIs:
+- **Site Manager API** - Cloud-based API for managing hosts, sites, and devices across your UniFi deployment
+- **Network API** - Local controller API for managing networks, firewall rules, WLANs, and more
 
 ## Purpose
 
@@ -14,7 +16,9 @@ This SDK is designed to support a Terraform provider for UniFi infrastructure ma
 go get github.com/resnickio/unifi-go-sdk
 ```
 
-## Usage
+## Site Manager API Usage
+
+The Site Manager API is a cloud-based API for read-only access to hosts, sites, and devices.
 
 ```go
 package main
@@ -40,13 +44,6 @@ func main() {
         fmt.Printf("Host: %s (%s)\n", host.ID, host.Type)
     }
 
-    // Get a specific host
-    resp, err := client.GetHost(context.Background(), "host-id")
-    if err != nil {
-        log.Fatal(err)
-    }
-    fmt.Printf("Host: %s\n", resp.Host.ID)
-
     // List all sites
     sites, err := client.ListAllSites(context.Background())
     if err != nil {
@@ -59,7 +56,7 @@ func main() {
 }
 ```
 
-## API Methods
+### Site Manager Methods
 
 | Method | Description |
 |--------|-------------|
@@ -70,6 +67,74 @@ func main() {
 | `ListAllSites(ctx)` | List all sites (handles pagination) |
 | `ListDevices(ctx, opts)` | List devices grouped by host |
 | `ListAllDevices(ctx)` | List all devices (handles pagination) |
+
+Get your API key from the [UniFi Site Manager](https://unifi.ui.com).
+
+## Network API Usage
+
+The Network API connects directly to a UniFi controller for full CRUD operations on network configuration.
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+
+    "github.com/resnickio/unifi-go-sdk/pkg/unifi"
+)
+
+func main() {
+    client, err := unifi.NewNetworkClient(unifi.NetworkClientConfig{
+        BaseURL:            "https://192.168.1.1",
+        Username:           "admin",
+        Password:           "password",
+        InsecureSkipVerify: true, // for self-signed certs
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    ctx := context.Background()
+
+    // Login to establish session
+    if err := client.Login(ctx); err != nil {
+        log.Fatal(err)
+    }
+    defer client.Logout(ctx)
+
+    // List networks
+    networks, err := client.ListNetworks(ctx)
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("Found %d networks\n", len(networks))
+
+    // Create a firewall rule
+    enabled := true
+    rule, err := client.CreateFirewallRule(ctx, &unifi.FirewallRule{
+        Name:    "Block IOT to LAN",
+        Enabled: &enabled,
+        Action:  "drop",
+        Ruleset: "LAN_IN",
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("Created rule: %s\n", rule.ID)
+}
+```
+
+### Network Methods
+
+| Resource | Methods |
+|----------|---------|
+| Networks | `ListNetworks`, `GetNetwork`, `CreateNetwork`, `UpdateNetwork`, `DeleteNetwork` |
+| Firewall Rules | `ListFirewallRules`, `GetFirewallRule`, `CreateFirewallRule`, `UpdateFirewallRule`, `DeleteFirewallRule` |
+| Firewall Groups | `ListFirewallGroups`, `GetFirewallGroup`, `CreateFirewallGroup`, `UpdateFirewallGroup`, `DeleteFirewallGroup` |
+| Port Forwards | `ListPortForwards`, `GetPortForward`, `CreatePortForward`, `UpdatePortForward`, `DeletePortForward` |
+| WLANs | `ListWLANs`, `GetWLAN`, `CreateWLAN`, `UpdateWLAN`, `DeleteWLAN` |
 
 ## Error Handling
 
@@ -130,15 +195,12 @@ client.HTTPClient = &http.Client{
 }
 ```
 
-## API Key
-
-Get your API key from the [UniFi Site Manager](https://unifi.ui.com).
-
 ## Status
 
-**Site Manager API** (cloud): Complete. All v1 read-only endpoints implemented.
-
-**Network API** (local controller): In progress. Session-based authentication and CRUD operations for networks, firewall rules, firewall groups, port forwards, and WLANs are implemented. See [#1](https://github.com/resnickio/unifi-go-sdk/issues/1) for tracking.
+| API | Status | Description |
+|-----|--------|-------------|
+| Site Manager | Complete | All v1 read-only endpoints (hosts, sites, devices) |
+| Network | Complete | Session auth, networks, firewall rules/groups, port forwards, WLANs |
 
 ## Model Provenance
 
