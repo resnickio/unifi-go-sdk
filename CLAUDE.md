@@ -71,6 +71,16 @@ This SDK is intended to support a Terraform provider. Prioritize type safety wit
 - **Over-engineering**: Avoid. Don't add abstractions, helpers, or features beyond what's requested
 - **Error handling**: Limit error body reads to prevent memory exhaustion (64KB max)
 
+## Status
+
+Site Manager API v1 read-only endpoints are complete:
+- `GET /v1/hosts` - ListHosts, ListAllHosts
+- `GET /v1/hosts/:id` - GetHost
+- `GET /v1/sites` - ListSites, ListAllSites
+- `GET /v1/devices` - ListDevices, ListAllDevices
+
+Next phase: Network API client (separate client, code generation from OpenAPI spec).
+
 ## Related Projects
 
 - **lexfrei/go-unifi**: Similar SDK using oapi-codegen with self-authored OpenAPI specs. We're not copying their code but can learn from their patterns (reality testing, middleware via RoundTripper).

@@ -128,6 +128,10 @@ client.HTTPClient = &http.Client{
 
 Get your API key from the [UniFi Site Manager](https://unifi.ui.com).
 
+## Status
+
+The Site Manager API v1 read-only endpoints are complete. Network API support is planned for a future release.
+
 ## License
 
 MIT
