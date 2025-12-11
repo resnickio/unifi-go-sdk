@@ -51,6 +51,7 @@ func TestSentinelErrors(t *testing.T) {
 		ErrUnauthorized,
 		ErrForbidden,
 		ErrNotFound,
+		ErrConflict,
 		ErrRateLimited,
 		ErrServerError,
 		ErrBadGateway,
@@ -79,5 +80,30 @@ func TestErrorsAs(t *testing.T) {
 	}
 	if apiErr.StatusCode != 401 {
 		t.Errorf("expected status code 401, got %d", apiErr.StatusCode)
+	}
+}
+
+func TestSentinelForStatusCode(t *testing.T) {
+	tests := []struct {
+		statusCode int
+		want       error
+	}{
+		{400, ErrBadRequest},
+		{401, ErrUnauthorized},
+		{403, ErrForbidden},
+		{404, ErrNotFound},
+		{409, ErrConflict},
+		{429, ErrRateLimited},
+		{500, ErrServerError},
+		{502, ErrBadGateway},
+		{418, nil},
+		{503, nil},
+	}
+
+	for _, tt := range tests {
+		got := sentinelForStatusCode(tt.statusCode)
+		if got != tt.want {
+			t.Errorf("sentinelForStatusCode(%d) = %v, want %v", tt.statusCode, got, tt.want)
+		}
 	}
 }
