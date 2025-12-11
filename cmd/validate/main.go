@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -9,6 +10,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/resnickio/unifi-go-sdk/pkg/unifi"
 )
@@ -56,7 +58,10 @@ func main() {
 func validateHosts(client *unifi.SiteManagerClient) ValidationResult {
 	result := ValidationResult{Endpoint: "/v1/hosts", Status: "ok"}
 
-	req, err := newAPIRequest(client, "/v1/hosts?pageSize=1")
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+
+	req, err := newAPIRequest(ctx, client, "/v1/hosts?pageSize=1")
 	if err != nil {
 		result.Status = fmt.Sprintf("error: %v", err)
 		return result
@@ -100,7 +105,15 @@ func validateHosts(client *unifi.SiteManagerClient) ValidationResult {
 func validateSites(client *unifi.SiteManagerClient) ValidationResult {
 	result := ValidationResult{Endpoint: "/v1/sites", Status: "ok"}
 
-	req, _ := newAPIRequest(client, "/v1/sites?pageSize=1")
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+
+	req, err := newAPIRequest(ctx, client, "/v1/sites?pageSize=1")
+	if err != nil {
+		result.Status = fmt.Sprintf("error: %v", err)
+		return result
+	}
+
 	resp, err := client.HTTPClient.Do(req)
 	if err != nil {
 		result.Status = fmt.Sprintf("error: %v", err)
@@ -139,7 +152,15 @@ func validateSites(client *unifi.SiteManagerClient) ValidationResult {
 func validateDevices(client *unifi.SiteManagerClient) ValidationResult {
 	result := ValidationResult{Endpoint: "/v1/devices", Status: "ok"}
 
-	req, _ := newAPIRequest(client, "/v1/devices?pageSize=1")
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+
+	req, err := newAPIRequest(ctx, client, "/v1/devices?pageSize=1")
+	if err != nil {
+		result.Status = fmt.Sprintf("error: %v", err)
+		return result
+	}
+
 	resp, err := client.HTTPClient.Do(req)
 	if err != nil {
 		result.Status = fmt.Sprintf("error: %v", err)
@@ -186,8 +207,10 @@ func validateDevices(client *unifi.SiteManagerClient) ValidationResult {
 	return result
 }
 
-func newAPIRequest(client *unifi.SiteManagerClient, path string) (*http.Request, error) {
-	req, err := http.NewRequest("GET", client.BaseURL+path, nil)
+const requestTimeout = 30 * time.Second
+
+func newAPIRequest(ctx context.Context, client *unifi.SiteManagerClient, path string) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", client.BaseURL+path, nil)
 	if err != nil {
 		return nil, err
 	}
