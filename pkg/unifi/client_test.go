@@ -647,6 +647,8 @@ func TestParseRetryAfterHeader(t *testing.T) {
 		{"0", 0},
 		{"", 0},
 		{"invalid", 0},
+		{"1.5", 1500 * time.Millisecond},
+		{"0.5", 500 * time.Millisecond},
 	}
 
 	for _, tt := range tests {
@@ -656,6 +658,50 @@ func TestParseRetryAfterHeader(t *testing.T) {
 				t.Errorf("parseRetryAfterHeader(%q) = %v, want %v", tt.header, got, tt.expected)
 			}
 		})
+	}
+}
+
+func TestParseRetryAfterHeaderHTTPDate(t *testing.T) {
+	future := time.Now().Add(10 * time.Second).UTC().Format(http.TimeFormat)
+	got := parseRetryAfterHeader(future)
+	if got < 9*time.Second || got > 11*time.Second {
+		t.Errorf("parseRetryAfterHeader(%q) = %v, want ~10s", future, got)
+	}
+
+	past := time.Now().Add(-10 * time.Second).UTC().Format(http.TimeFormat)
+	got = parseRetryAfterHeader(past)
+	if got != 0 {
+		t.Errorf("parseRetryAfterHeader(%q) = %v, want 0 for past date", past, got)
+	}
+}
+
+func TestApplyBackoffWithJitter(t *testing.T) {
+	for range 100 {
+		wait := applyBackoffWithJitter(0, 0)
+		if wait < 1*time.Second || wait > 1500*time.Millisecond {
+			t.Errorf("attempt 0: wait %v not in expected range [1s, 1.5s]", wait)
+		}
+	}
+
+	for range 100 {
+		wait := applyBackoffWithJitter(0, 2)
+		if wait < 4*time.Second || wait > 6*time.Second {
+			t.Errorf("attempt 2: wait %v not in expected range [4s, 6s]", wait)
+		}
+	}
+
+	for range 100 {
+		wait := applyBackoffWithJitter(10*time.Second, 0)
+		if wait != 10*time.Second {
+			t.Errorf("server wait 10s: want exactly 10s, got %v", wait)
+		}
+	}
+
+	for range 100 {
+		wait := applyBackoffWithJitter(0, 10)
+		if wait > 30*time.Second {
+			t.Errorf("attempt 10: wait %v should be capped at 30s", wait)
+		}
 	}
 }
 

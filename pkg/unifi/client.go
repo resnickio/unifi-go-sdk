@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -38,6 +39,8 @@ const (
 	defaultRetryWait    = 5 * time.Second
 	defaultTimeout      = 30 * time.Second
 	maxErrorBodySize    = 64 * 1024
+	baseBackoff         = 1 * time.Second
+	maxBackoff          = 30 * time.Second
 )
 
 var retryAfterRegex = regexp.MustCompile(`retry after ([\d.]+)s`)
@@ -67,6 +70,7 @@ func (c *SiteManagerClient) do(ctx context.Context, method, path string, result 
 			if wait == 0 {
 				wait = parseRetryAfterBody(apiErr.Message)
 			}
+			wait = applyBackoffWithJitter(wait, attempt)
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -80,6 +84,22 @@ func (c *SiteManagerClient) do(ctx context.Context, method, path string, result 
 	}
 
 	return lastErr
+}
+
+func applyBackoffWithJitter(serverWait time.Duration, attempt int) time.Duration {
+	if serverWait > 0 {
+		return serverWait
+	}
+	backoff := baseBackoff << attempt
+	if backoff > maxBackoff {
+		backoff = maxBackoff
+	}
+	jitter := time.Duration(rand.Int64N(int64(backoff / 2)))
+	total := backoff + jitter
+	if total > maxBackoff {
+		total = maxBackoff
+	}
+	return total
 }
 
 func (c *SiteManagerClient) doOnce(ctx context.Context, method, path string, result interface{}) error {
@@ -147,6 +167,16 @@ func parseRetryAfterHeader(header string) time.Duration {
 	}
 	if secs, err := strconv.Atoi(header); err == nil {
 		return time.Duration(secs) * time.Second
+	}
+	if secs, err := strconv.ParseFloat(header, 64); err == nil {
+		return time.Duration(secs * float64(time.Second))
+	}
+	if t, err := http.ParseTime(header); err == nil {
+		d := time.Until(t)
+		if d > 0 {
+			return d
+		}
+		return 0
 	}
 	return 0
 }
