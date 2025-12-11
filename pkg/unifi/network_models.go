@@ -148,8 +148,8 @@ type WLANConf struct {
 	MinrateNgDataRateKbps    *int     `json:"minrate_ng_data_rate_kbps,omitempty"`
 	MinrateNaEnabled         *bool    `json:"minrate_na_enabled,omitempty"`
 	MinrateNaDataRateKbps    *int     `json:"minrate_na_data_rate_kbps,omitempty"`
-	NoIPv6Ndp                *bool    `json:"no2ghz_oui,omitempty"`
-	No2GhzOui                *bool    `json:"no_ipv6_ndp,omitempty"`
+	No2GhzOui                *bool    `json:"no2ghz_oui,omitempty"`
+	NoIPv6Ndp                *bool    `json:"no_ipv6_ndp,omitempty"`
 	OptimizeIotWifiConn      *bool    `json:"optimize_iot_wifi_connectivity,omitempty"`
 	Pmf                      string   `json:"pmf_mode,omitempty"`
 	BcastEnhanceEnabled      *bool    `json:"bcastenhance_enabled,omitempty"`
