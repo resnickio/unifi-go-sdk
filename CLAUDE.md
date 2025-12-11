@@ -25,9 +25,9 @@ Two distinct APIs:
    - Currently read-only, write endpoints coming later
 
 2. **Network API** (future)
-   - Base: `https://<controller>/proxy/network/api/`
-   - Auth: Cookie-based session from `/api/auth/login`
-   - OpenAPI spec exists on controller
+   - Base: `https://<controller>/proxy/network/integration/v1/`
+   - Auth: API key via `X-API-KEY` header (created per-controller in Settings → Integrations)
+   - OpenAPI spec available at `https://<controller>/proxy/network/api-docs/integration.json`
    - This is what existing Terraform providers use for firewall rules, networks, etc.
 
 ## Build & Test
