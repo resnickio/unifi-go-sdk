@@ -882,3 +882,808 @@ func TestNetworkClientConflictError(t *testing.T) {
 		t.Errorf("expected ErrConflict, got %v", err)
 	}
 }
+
+func TestNetworkClientPortConfs(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/portconf":
+			if r.Method == "GET" {
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":     "port1",
+							"name":    "All",
+							"forward": "all",
+						},
+						{
+							"_id":     "port2",
+							"name":    "VLAN 100",
+							"forward": "native",
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			} else if r.Method == "POST" {
+				var portconf PortConf
+				if err := json.NewDecoder(r.Body).Decode(&portconf); err != nil {
+					t.Errorf("failed to decode request body: %v", err)
+				}
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":     "newport",
+							"name":    portconf.Name,
+							"forward": portconf.Forward,
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			}
+		case "/proxy/network/api/s/default/rest/portconf/port1":
+			switch r.Method {
+			case "GET":
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":     "port1",
+							"name":    "All",
+							"forward": "all",
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			case "PUT":
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":     "port1",
+							"name":    "Updated",
+							"forward": "native",
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			case "DELETE":
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []any{},
+				}
+				json.NewEncoder(w).Encode(response)
+			}
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewNetworkClient(NetworkClientConfig{
+		BaseURL:  server.URL,
+		Username: "admin",
+		Password: "password",
+	})
+	if err != nil {
+		t.Fatalf("NewNetworkClient() error = %v", err)
+	}
+
+	if err := client.Login(context.Background()); err != nil {
+		t.Fatalf("Login() error = %v", err)
+	}
+
+	t.Run("List", func(t *testing.T) {
+		portconfs, err := client.ListPortConfs(context.Background())
+		if err != nil {
+			t.Fatalf("ListPortConfs() error = %v", err)
+		}
+		if len(portconfs) != 2 {
+			t.Errorf("expected 2 port profiles, got %d", len(portconfs))
+		}
+		if portconfs[0].Forward != "all" {
+			t.Errorf("expected forward 'all', got '%s'", portconfs[0].Forward)
+		}
+	})
+
+	t.Run("Get", func(t *testing.T) {
+		portconf, err := client.GetPortConf(context.Background(), "port1")
+		if err != nil {
+			t.Fatalf("GetPortConf() error = %v", err)
+		}
+		if portconf.ID != "port1" {
+			t.Errorf("expected ID 'port1', got '%s'", portconf.ID)
+		}
+	})
+
+	t.Run("Create", func(t *testing.T) {
+		portconf := &PortConf{
+			Name:    "New Profile",
+			Forward: "native",
+		}
+		created, err := client.CreatePortConf(context.Background(), portconf)
+		if err != nil {
+			t.Fatalf("CreatePortConf() error = %v", err)
+		}
+		if created.ID != "newport" {
+			t.Errorf("expected ID 'newport', got '%s'", created.ID)
+		}
+	})
+
+	t.Run("Update", func(t *testing.T) {
+		portconf := &PortConf{
+			Name:    "Updated",
+			Forward: "native",
+		}
+		updated, err := client.UpdatePortConf(context.Background(), "port1", portconf)
+		if err != nil {
+			t.Fatalf("UpdatePortConf() error = %v", err)
+		}
+		if updated.Name != "Updated" {
+			t.Errorf("expected name 'Updated', got '%s'", updated.Name)
+		}
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		if err := client.DeletePortConf(context.Background(), "port1"); err != nil {
+			t.Fatalf("DeletePortConf() error = %v", err)
+		}
+	})
+}
+
+func TestNetworkClientRoutes(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/routing":
+			if r.Method == "GET" {
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":                    "route1",
+							"name":                   "To VPN",
+							"enabled":                true,
+							"static-route_network":   "10.0.0.0/24",
+							"static-route_nexthop":   "192.168.1.254",
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			} else if r.Method == "POST" {
+				var route Routing
+				if err := json.NewDecoder(r.Body).Decode(&route); err != nil {
+					t.Errorf("failed to decode request body: %v", err)
+				}
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":  "newroute",
+							"name": route.Name,
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			}
+		case "/proxy/network/api/s/default/rest/routing/route1":
+			switch r.Method {
+			case "GET":
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":  "route1",
+							"name": "To VPN",
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			case "PUT":
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":  "route1",
+							"name": "Updated Route",
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			case "DELETE":
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []any{},
+				}
+				json.NewEncoder(w).Encode(response)
+			}
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewNetworkClient(NetworkClientConfig{
+		BaseURL:  server.URL,
+		Username: "admin",
+		Password: "password",
+	})
+	if err != nil {
+		t.Fatalf("NewNetworkClient() error = %v", err)
+	}
+
+	if err := client.Login(context.Background()); err != nil {
+		t.Fatalf("Login() error = %v", err)
+	}
+
+	t.Run("List", func(t *testing.T) {
+		routes, err := client.ListRoutes(context.Background())
+		if err != nil {
+			t.Fatalf("ListRoutes() error = %v", err)
+		}
+		if len(routes) != 1 {
+			t.Errorf("expected 1 route, got %d", len(routes))
+		}
+		if routes[0].StaticRouteNetwork != "10.0.0.0/24" {
+			t.Errorf("expected network '10.0.0.0/24', got '%s'", routes[0].StaticRouteNetwork)
+		}
+	})
+
+	t.Run("Get", func(t *testing.T) {
+		route, err := client.GetRoute(context.Background(), "route1")
+		if err != nil {
+			t.Fatalf("GetRoute() error = %v", err)
+		}
+		if route.ID != "route1" {
+			t.Errorf("expected ID 'route1', got '%s'", route.ID)
+		}
+	})
+
+	t.Run("Create", func(t *testing.T) {
+		enabled := true
+		route := &Routing{
+			Name:               "New Route",
+			Enabled:            &enabled,
+			StaticRouteNetwork: "10.1.0.0/24",
+			StaticRouteNexthop: "192.168.1.1",
+		}
+		created, err := client.CreateRoute(context.Background(), route)
+		if err != nil {
+			t.Fatalf("CreateRoute() error = %v", err)
+		}
+		if created.ID != "newroute" {
+			t.Errorf("expected ID 'newroute', got '%s'", created.ID)
+		}
+	})
+
+	t.Run("Update", func(t *testing.T) {
+		route := &Routing{
+			Name: "Updated Route",
+		}
+		updated, err := client.UpdateRoute(context.Background(), "route1", route)
+		if err != nil {
+			t.Fatalf("UpdateRoute() error = %v", err)
+		}
+		if updated.Name != "Updated Route" {
+			t.Errorf("expected name 'Updated Route', got '%s'", updated.Name)
+		}
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		if err := client.DeleteRoute(context.Background(), "route1"); err != nil {
+			t.Fatalf("DeleteRoute() error = %v", err)
+		}
+	})
+}
+
+func TestNetworkClientUserGroups(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/usergroup":
+			if r.Method == "GET" {
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":               "group1",
+							"name":              "Default",
+							"qos_rate_max_down": -1,
+							"qos_rate_max_up":   -1,
+						},
+						{
+							"_id":               "group2",
+							"name":              "Limited",
+							"qos_rate_max_down": 10000,
+							"qos_rate_max_up":   5000,
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			} else if r.Method == "POST" {
+				var group UserGroup
+				if err := json.NewDecoder(r.Body).Decode(&group); err != nil {
+					t.Errorf("failed to decode request body: %v", err)
+				}
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":  "newgroup",
+							"name": group.Name,
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			}
+		case "/proxy/network/api/s/default/rest/usergroup/group1":
+			switch r.Method {
+			case "GET":
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":  "group1",
+							"name": "Default",
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			case "PUT":
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":  "group1",
+							"name": "Updated Group",
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			case "DELETE":
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []any{},
+				}
+				json.NewEncoder(w).Encode(response)
+			}
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewNetworkClient(NetworkClientConfig{
+		BaseURL:  server.URL,
+		Username: "admin",
+		Password: "password",
+	})
+	if err != nil {
+		t.Fatalf("NewNetworkClient() error = %v", err)
+	}
+
+	if err := client.Login(context.Background()); err != nil {
+		t.Fatalf("Login() error = %v", err)
+	}
+
+	t.Run("List", func(t *testing.T) {
+		groups, err := client.ListUserGroups(context.Background())
+		if err != nil {
+			t.Fatalf("ListUserGroups() error = %v", err)
+		}
+		if len(groups) != 2 {
+			t.Errorf("expected 2 user groups, got %d", len(groups))
+		}
+		if groups[1].Name != "Limited" {
+			t.Errorf("expected name 'Limited', got '%s'", groups[1].Name)
+		}
+	})
+
+	t.Run("Get", func(t *testing.T) {
+		group, err := client.GetUserGroup(context.Background(), "group1")
+		if err != nil {
+			t.Fatalf("GetUserGroup() error = %v", err)
+		}
+		if group.ID != "group1" {
+			t.Errorf("expected ID 'group1', got '%s'", group.ID)
+		}
+	})
+
+	t.Run("Create", func(t *testing.T) {
+		down := 50000
+		up := 25000
+		group := &UserGroup{
+			Name:           "New Group",
+			QosRateMaxDown: &down,
+			QosRateMaxUp:   &up,
+		}
+		created, err := client.CreateUserGroup(context.Background(), group)
+		if err != nil {
+			t.Fatalf("CreateUserGroup() error = %v", err)
+		}
+		if created.ID != "newgroup" {
+			t.Errorf("expected ID 'newgroup', got '%s'", created.ID)
+		}
+	})
+
+	t.Run("Update", func(t *testing.T) {
+		group := &UserGroup{
+			Name: "Updated Group",
+		}
+		updated, err := client.UpdateUserGroup(context.Background(), "group1", group)
+		if err != nil {
+			t.Fatalf("UpdateUserGroup() error = %v", err)
+		}
+		if updated.Name != "Updated Group" {
+			t.Errorf("expected name 'Updated Group', got '%s'", updated.Name)
+		}
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		if err := client.DeleteUserGroup(context.Background(), "group1"); err != nil {
+			t.Fatalf("DeleteUserGroup() error = %v", err)
+		}
+	})
+}
+
+func TestNetworkClientRADIUSProfiles(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/radiusprofile":
+			if r.Method == "GET" {
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":  "radius1",
+							"name": "Corporate RADIUS",
+							"auth_servers": []map[string]any{
+								{
+									"ip":       "192.168.1.10",
+									"port":     1812,
+									"x_secret": "secret",
+								},
+							},
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			} else if r.Method == "POST" {
+				var profile RADIUSProfile
+				if err := json.NewDecoder(r.Body).Decode(&profile); err != nil {
+					t.Errorf("failed to decode request body: %v", err)
+				}
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":  "newradius",
+							"name": profile.Name,
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			}
+		case "/proxy/network/api/s/default/rest/radiusprofile/radius1":
+			switch r.Method {
+			case "GET":
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":  "radius1",
+							"name": "Corporate RADIUS",
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			case "PUT":
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":  "radius1",
+							"name": "Updated RADIUS",
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			case "DELETE":
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []any{},
+				}
+				json.NewEncoder(w).Encode(response)
+			}
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewNetworkClient(NetworkClientConfig{
+		BaseURL:  server.URL,
+		Username: "admin",
+		Password: "password",
+	})
+	if err != nil {
+		t.Fatalf("NewNetworkClient() error = %v", err)
+	}
+
+	if err := client.Login(context.Background()); err != nil {
+		t.Fatalf("Login() error = %v", err)
+	}
+
+	t.Run("List", func(t *testing.T) {
+		profiles, err := client.ListRADIUSProfiles(context.Background())
+		if err != nil {
+			t.Fatalf("ListRADIUSProfiles() error = %v", err)
+		}
+		if len(profiles) != 1 {
+			t.Errorf("expected 1 RADIUS profile, got %d", len(profiles))
+		}
+		if profiles[0].Name != "Corporate RADIUS" {
+			t.Errorf("expected name 'Corporate RADIUS', got '%s'", profiles[0].Name)
+		}
+		if len(profiles[0].AuthServers) != 1 {
+			t.Errorf("expected 1 auth server, got %d", len(profiles[0].AuthServers))
+		}
+	})
+
+	t.Run("Get", func(t *testing.T) {
+		profile, err := client.GetRADIUSProfile(context.Background(), "radius1")
+		if err != nil {
+			t.Fatalf("GetRADIUSProfile() error = %v", err)
+		}
+		if profile.ID != "radius1" {
+			t.Errorf("expected ID 'radius1', got '%s'", profile.ID)
+		}
+	})
+
+	t.Run("Create", func(t *testing.T) {
+		port := 1812
+		profile := &RADIUSProfile{
+			Name: "New RADIUS",
+			AuthServers: []RADIUSServer{
+				{
+					IP:      "10.0.0.1",
+					Port:    &port,
+					XSecret: "newsecret",
+				},
+			},
+		}
+		created, err := client.CreateRADIUSProfile(context.Background(), profile)
+		if err != nil {
+			t.Fatalf("CreateRADIUSProfile() error = %v", err)
+		}
+		if created.ID != "newradius" {
+			t.Errorf("expected ID 'newradius', got '%s'", created.ID)
+		}
+	})
+
+	t.Run("Update", func(t *testing.T) {
+		profile := &RADIUSProfile{
+			Name: "Updated RADIUS",
+		}
+		updated, err := client.UpdateRADIUSProfile(context.Background(), "radius1", profile)
+		if err != nil {
+			t.Fatalf("UpdateRADIUSProfile() error = %v", err)
+		}
+		if updated.Name != "Updated RADIUS" {
+			t.Errorf("expected name 'Updated RADIUS', got '%s'", updated.Name)
+		}
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		if err := client.DeleteRADIUSProfile(context.Background(), "radius1"); err != nil {
+			t.Fatalf("DeleteRADIUSProfile() error = %v", err)
+		}
+	})
+}
+
+func TestNetworkClientDynamicDNS(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/dynamicdns":
+			if r.Method == "GET" {
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":       "ddns1",
+							"service":   "dyndns",
+							"host_name": "myhost.dyndns.org",
+							"login":     "user@example.com",
+							"interface": "wan",
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			} else if r.Method == "POST" {
+				var config DynamicDNS
+				if err := json.NewDecoder(r.Body).Decode(&config); err != nil {
+					t.Errorf("failed to decode request body: %v", err)
+				}
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":       "newddns",
+							"service":   config.Service,
+							"host_name": config.HostName,
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			}
+		case "/proxy/network/api/s/default/rest/dynamicdns/ddns1":
+			switch r.Method {
+			case "GET":
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":       "ddns1",
+							"service":   "dyndns",
+							"host_name": "myhost.dyndns.org",
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			case "PUT":
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":       "ddns1",
+							"service":   "dyndns",
+							"host_name": "updated.dyndns.org",
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			case "DELETE":
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []any{},
+				}
+				json.NewEncoder(w).Encode(response)
+			}
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewNetworkClient(NetworkClientConfig{
+		BaseURL:  server.URL,
+		Username: "admin",
+		Password: "password",
+	})
+	if err != nil {
+		t.Fatalf("NewNetworkClient() error = %v", err)
+	}
+
+	if err := client.Login(context.Background()); err != nil {
+		t.Fatalf("Login() error = %v", err)
+	}
+
+	t.Run("List", func(t *testing.T) {
+		configs, err := client.ListDynamicDNS(context.Background())
+		if err != nil {
+			t.Fatalf("ListDynamicDNS() error = %v", err)
+		}
+		if len(configs) != 1 {
+			t.Errorf("expected 1 DDNS config, got %d", len(configs))
+		}
+		if configs[0].Service != "dyndns" {
+			t.Errorf("expected service 'dyndns', got '%s'", configs[0].Service)
+		}
+		if configs[0].HostName != "myhost.dyndns.org" {
+			t.Errorf("expected hostname 'myhost.dyndns.org', got '%s'", configs[0].HostName)
+		}
+	})
+
+	t.Run("Get", func(t *testing.T) {
+		config, err := client.GetDynamicDNS(context.Background(), "ddns1")
+		if err != nil {
+			t.Fatalf("GetDynamicDNS() error = %v", err)
+		}
+		if config.ID != "ddns1" {
+			t.Errorf("expected ID 'ddns1', got '%s'", config.ID)
+		}
+	})
+
+	t.Run("Create", func(t *testing.T) {
+		config := &DynamicDNS{
+			Service:   "noip",
+			HostName:  "newhost.noip.com",
+			Login:     "user",
+			XPassword: "pass",
+			Interface: "wan",
+		}
+		created, err := client.CreateDynamicDNS(context.Background(), config)
+		if err != nil {
+			t.Fatalf("CreateDynamicDNS() error = %v", err)
+		}
+		if created.ID != "newddns" {
+			t.Errorf("expected ID 'newddns', got '%s'", created.ID)
+		}
+	})
+
+	t.Run("Update", func(t *testing.T) {
+		config := &DynamicDNS{
+			HostName: "updated.dyndns.org",
+		}
+		updated, err := client.UpdateDynamicDNS(context.Background(), "ddns1", config)
+		if err != nil {
+			t.Fatalf("UpdateDynamicDNS() error = %v", err)
+		}
+		if updated.HostName != "updated.dyndns.org" {
+			t.Errorf("expected hostname 'updated.dyndns.org', got '%s'", updated.HostName)
+		}
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		if err := client.DeleteDynamicDNS(context.Background(), "ddns1"); err != nil {
+			t.Fatalf("DeleteDynamicDNS() error = %v", err)
+		}
+	})
+}
+
+func TestNetworkClientGetNotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		default:
+			response := map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []any{},
+			}
+			json.NewEncoder(w).Encode(response)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewNetworkClient(NetworkClientConfig{
+		BaseURL:  server.URL,
+		Username: "admin",
+		Password: "password",
+	})
+	if err != nil {
+		t.Fatalf("NewNetworkClient() error = %v", err)
+	}
+
+	if err := client.Login(context.Background()); err != nil {
+		t.Fatalf("Login() error = %v", err)
+	}
+
+	tests := []struct {
+		name string
+		fn   func() error
+	}{
+		{"GetPortConf", func() error { _, err := client.GetPortConf(context.Background(), "notfound"); return err }},
+		{"GetRoute", func() error { _, err := client.GetRoute(context.Background(), "notfound"); return err }},
+		{"GetUserGroup", func() error { _, err := client.GetUserGroup(context.Background(), "notfound"); return err }},
+		{"GetRADIUSProfile", func() error { _, err := client.GetRADIUSProfile(context.Background(), "notfound"); return err }},
+		{"GetDynamicDNS", func() error { _, err := client.GetDynamicDNS(context.Background(), "notfound"); return err }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.fn()
+			if !errors.Is(err, ErrNotFound) {
+				t.Errorf("expected ErrNotFound, got %v", err)
+			}
+		})
+	}
+}
