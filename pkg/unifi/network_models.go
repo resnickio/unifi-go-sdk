@@ -2,6 +2,14 @@ package unifi
 
 // Network represents a UniFi network/VLAN configuration.
 // This corresponds to the networkconf REST endpoint.
+//
+// Field value reference:
+//   - Purpose: "corporate", "guest", "wan", "vlan-only", "vpn-client", "remote-user-vpn"
+//   - NetworkGroup: "LAN", "WAN", "WAN2"
+//   - WANType: "dhcp", "static", "pppoe", "disabled"
+//   - WANTypeV6: "disabled", "dhcpv6", "static", "autoconf"
+//   - SettingPreference: "auto", "manual"
+//   - GatewayType: "default", "switch"
 type Network struct {
 	ID                          string  `json:"_id,omitempty"`
 	SiteID                      string  `json:"site_id,omitempty"`
@@ -61,6 +69,21 @@ type Network struct {
 }
 
 // FirewallRule represents a UniFi firewall rule.
+//
+// Field value reference:
+//   - Action: "accept", "drop", "reject"
+//   - Ruleset: "WAN_IN", "WAN_OUT", "WAN_LOCAL", "LAN_IN", "LAN_OUT", "LAN_LOCAL",
+//     "GUEST_IN", "GUEST_OUT", "GUEST_LOCAL", "WANv6_IN", "WANv6_OUT", "WANv6_LOCAL",
+//     "LANv6_IN", "LANv6_OUT", "LANv6_LOCAL", "GUESTv6_IN", "GUESTv6_OUT", "GUESTv6_LOCAL"
+//   - Protocol: "all", "tcp", "udp", "tcp_udp", "icmp", "ah", "ax.25", "dccp", "ddp",
+//     "egp", "eigrp", "encap", "esp", "etherip", "fc", "ggp", "gre", "hip", "hmp",
+//     "icmpv6", "idpr-cmtp", "idrp", "igmp", "igp", "ip", "ipcomp", "ipencap", "ipip",
+//     "ipv6", "ipv6-frag", "ipv6-icmp", "ipv6-nonxt", "ipv6-opts", "ipv6-route",
+//     "isis", "iso-tp4", "l2tp", "manet", "mobility-header", "mpls-in-ip", "ospf",
+//     "pim", "pup", "rdp", "rohc", "rspf", "rsvp", "sctp", "shim6", "skip", "st",
+//     "udplite", "vmtp", "vrrp", "wesp", "xns-idp", "xtp"
+//   - IPSec: "match-ipsec", "match-none", ""
+//   - SrcNetworkConfType/DstNetworkConfType: "ADDRv4", "NETv4"
 type FirewallRule struct {
 	ID                  string   `json:"_id,omitempty"`
 	SiteID              string   `json:"site_id,omitempty"`
@@ -94,6 +117,9 @@ type FirewallRule struct {
 }
 
 // FirewallGroup represents a UniFi firewall group (IP group, port group, or IPv6 group).
+//
+// Field value reference:
+//   - GroupType: "address-group", "port-group", "ipv6-address-group"
 type FirewallGroup struct {
 	ID          string   `json:"_id,omitempty"`
 	SiteID      string   `json:"site_id,omitempty"`
@@ -103,6 +129,10 @@ type FirewallGroup struct {
 }
 
 // PortForward represents a UniFi port forwarding rule.
+//
+// Field value reference:
+//   - Proto: "tcp", "udp", "tcp_udp"
+//   - PfwdInterface: "wan", "wan2", "both"
 type PortForward struct {
 	ID                 string `json:"_id,omitempty"`
 	SiteID             string `json:"site_id,omitempty"`
@@ -119,6 +149,15 @@ type PortForward struct {
 }
 
 // WLANConf represents a UniFi wireless network (SSID) configuration.
+//
+// Field value reference:
+//   - Security: "open", "wep", "wpapsk", "wpaeap"
+//   - WPAMode: "wpa1", "wpa2", "wpa3"
+//   - WPAEnc: "ccmp", "gcmp", "auto"
+//   - WLANBand: "2g", "5g", "both"
+//   - MacFilterPolicy: "allow", "deny"
+//   - Pmf (PMF mode): "disabled", "optional", "required"
+//   - DtimMode: "default", "custom"
 type WLANConf struct {
 	ID                       string   `json:"_id,omitempty"`
 	SiteID                   string   `json:"site_id,omitempty"`
@@ -166,6 +205,12 @@ type WLANConf struct {
 }
 
 // PortConf represents a UniFi switch port profile.
+//
+// Field value reference:
+//   - Forward: "all", "native", "customize", "disabled"
+//   - Dot1xCtrl: "force_authorized", "force_unauthorized", "auto", "mac_based", "multi_host"
+//   - OpMode: "switch", "mirror", "aggregate"
+//   - PoeMode: "auto", "pasv24", "passthrough", "off"
 type PortConf struct {
 	ID                    string   `json:"_id,omitempty"`
 	SiteID                string   `json:"site_id,omitempty"`
@@ -198,6 +243,11 @@ type PortConf struct {
 }
 
 // Routing represents a UniFi static route.
+//
+// Field value reference:
+//   - Type: "static-route", "interface-route"
+//   - StaticRouteType: "nexthop-route", "interface-route", "blackhole"
+//   - GatewayType: "default", "switch"
 type Routing struct {
 	ID                 string `json:"_id,omitempty"`
 	SiteID             string `json:"site_id,omitempty"`
@@ -223,6 +273,9 @@ type UserGroup struct {
 }
 
 // RADIUSProfile represents a UniFi RADIUS profile.
+//
+// Field value reference:
+//   - VlanWlanMode: "disabled", "optional", "required"
 type RADIUSProfile struct {
 	ID                  string `json:"_id,omitempty"`
 	SiteID              string `json:"site_id,omitempty"`
@@ -245,6 +298,11 @@ type RADIUSServer struct {
 }
 
 // DynamicDNS represents a UniFi dynamic DNS configuration.
+//
+// Field value reference:
+//   - Service: "afraid", "changeip", "cloudflare", "dnspark", "dslreports", "dyndns",
+//     "easydns", "namecheap", "noip", "sitelutions", "zoneedit", "custom"
+//   - Interface: "wan", "wan2"
 type DynamicDNS struct {
 	ID        string `json:"_id,omitempty"`
 	SiteID    string `json:"site_id,omitempty"`
