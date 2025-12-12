@@ -15,7 +15,12 @@ func main() {
 		log.Fatal("UNIFI_API_KEY is required")
 	}
 
-	client := unifi.NewSiteManagerClient(apiKey)
+	client, err := unifi.NewSiteManagerClient(unifi.SiteManagerClientConfig{
+		APIKey: apiKey,
+	})
+	if err != nil {
+		log.Fatalf("Error creating client: %v", err)
+	}
 
 	hosts, err := client.ListAllHosts(context.Background())
 	if err != nil {

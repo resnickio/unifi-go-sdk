@@ -31,11 +31,22 @@ var _ SiteManager = (*SiteManagerClient)(nil)
 // SiteManagerClient is a client for the UniFi Site Manager API.
 // It handles authentication, pagination, and rate limit retry with exponential backoff.
 type SiteManagerClient struct {
-	BaseURL    string
-	APIKey     string
-	HTTPClient *http.Client
-	MaxRetries int
-	Logger     Logger
+	BaseURL      string
+	APIKey       string
+	HTTPClient   *http.Client
+	Logger       Logger
+	maxRetries   int
+	maxRetryWait time.Duration
+}
+
+// SiteManagerClientConfig contains configuration options for creating a SiteManagerClient.
+type SiteManagerClientConfig struct {
+	APIKey       string
+	BaseURL      string
+	Timeout      time.Duration
+	MaxRetries   int
+	MaxRetryWait time.Duration
+	Logger       Logger
 }
 
 const (
@@ -43,6 +54,7 @@ const (
 	defaultRetries      = 3
 	defaultRetryWait    = 5 * time.Second
 	defaultTimeout      = 30 * time.Second
+	defaultMaxRetryWait = 60 * time.Second
 	maxErrorBodySize    = 64 * 1024
 	baseBackoff         = 1 * time.Second
 	maxBackoff          = 30 * time.Second
@@ -50,19 +62,45 @@ const (
 
 var retryAfterRegex = regexp.MustCompile(`retry after ([\d.]+)s`)
 
-// NewSiteManagerClient creates a new Site Manager API client with the given API key.
-func NewSiteManagerClient(apiKey string) *SiteManagerClient {
-	return &SiteManagerClient{
-		BaseURL:    defaultBaseURL,
-		APIKey:     apiKey,
-		HTTPClient: &http.Client{Timeout: defaultTimeout},
-		MaxRetries: defaultRetries,
+// NewSiteManagerClient creates a new Site Manager API client with the given configuration.
+func NewSiteManagerClient(cfg SiteManagerClientConfig) (*SiteManagerClient, error) {
+	if cfg.APIKey == "" {
+		return nil, fmt.Errorf("APIKey is required")
 	}
+
+	baseURL := cfg.BaseURL
+	if baseURL == "" {
+		baseURL = defaultBaseURL
+	}
+
+	timeout := cfg.Timeout
+	if timeout == 0 {
+		timeout = defaultTimeout
+	}
+
+	maxRetries := cfg.MaxRetries
+	if maxRetries == 0 {
+		maxRetries = defaultRetries
+	}
+
+	maxRetryWait := cfg.MaxRetryWait
+	if maxRetryWait == 0 {
+		maxRetryWait = defaultMaxRetryWait
+	}
+
+	return &SiteManagerClient{
+		BaseURL:      baseURL,
+		APIKey:       cfg.APIKey,
+		HTTPClient:   &http.Client{Timeout: timeout},
+		Logger:       cfg.Logger,
+		maxRetries:   maxRetries,
+		maxRetryWait: maxRetryWait,
+	}, nil
 }
 
 func (c *SiteManagerClient) do(ctx context.Context, method, path string, result interface{}) error {
 	var lastErr error
-	maxAttempts := c.MaxRetries + 1
+	maxAttempts := c.maxRetries + 1
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		err := c.doOnce(ctx, method, path, result)
@@ -70,42 +108,78 @@ func (c *SiteManagerClient) do(ctx context.Context, method, path string, result 
 			return nil
 		}
 
+		if attempt >= maxAttempts-1 {
+			return err
+		}
+
+		if !isRetryable(err) {
+			return err
+		}
+
+		wait := time.Duration(0)
 		var apiErr *APIError
-		if errors.As(err, &apiErr) && apiErr.StatusCode == 429 && attempt < maxAttempts-1 {
-			wait := parseRetryAfterHeader(apiErr.RetryAfterHeader)
+		if errors.As(err, &apiErr) && apiErr.StatusCode == 429 {
+			wait = parseRetryAfterHeader(apiErr.RetryAfterHeader)
 			if wait == 0 {
 				wait = parseRetryAfterBody(apiErr.Message)
 			}
-			wait = applyBackoffWithJitter(wait, attempt)
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(wait):
-				lastErr = err
-				continue
-			}
 		}
+		wait = applyBackoffWithJitter(wait, attempt, c.maxRetryWait)
 
-		return err
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(wait):
+			lastErr = err
+			continue
+		}
 	}
 
 	return lastErr
 }
 
-func applyBackoffWithJitter(serverWait time.Duration, attempt int) time.Duration {
+func isRetryable(err error) bool {
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		switch apiErr.StatusCode {
+		case 429, 502, 503, 504:
+			return true
+		}
+		return false
+	}
+	return isNetworkError(err)
+}
+
+func isNetworkError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var netErr interface{ Temporary() bool }
+	if errors.As(err, &netErr) {
+		return netErr.Temporary()
+	}
+	return false
+}
+
+func applyBackoffWithJitter(serverWait time.Duration, attempt int, maxWait time.Duration) time.Duration {
+	var wait time.Duration
 	if serverWait > 0 {
-		return serverWait
+		wait = serverWait
+	} else {
+		backoff := baseBackoff << attempt
+		if backoff > maxBackoff {
+			backoff = maxBackoff
+		}
+		jitter := time.Duration(rand.Int64N(int64(backoff / 2)))
+		wait = backoff + jitter
 	}
-	backoff := baseBackoff << attempt
-	if backoff > maxBackoff {
-		backoff = maxBackoff
+	if wait > maxWait {
+		wait = maxWait
 	}
-	jitter := time.Duration(rand.Int64N(int64(backoff / 2)))
-	total := backoff + jitter
-	if total > maxBackoff {
-		total = maxBackoff
-	}
-	return total
+	return wait
 }
 
 func (c *SiteManagerClient) doOnce(ctx context.Context, method, path string, result interface{}) error {

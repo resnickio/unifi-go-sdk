@@ -11,8 +11,29 @@ import (
 	"time"
 )
 
+func newTestSiteManagerClient(t *testing.T, apiKey string) *SiteManagerClient {
+	t.Helper()
+	client, err := NewSiteManagerClient(SiteManagerClientConfig{APIKey: apiKey})
+	if err != nil {
+		t.Fatalf("NewSiteManagerClient() error = %v", err)
+	}
+	return client
+}
+
+func newTestSiteManagerClientWithConfig(t *testing.T, cfg SiteManagerClientConfig) *SiteManagerClient {
+	t.Helper()
+	client, err := NewSiteManagerClient(cfg)
+	if err != nil {
+		t.Fatalf("NewSiteManagerClient() error = %v", err)
+	}
+	return client
+}
+
 func TestNewSiteManagerClient(t *testing.T) {
-	client := NewSiteManagerClient("test-api-key")
+	client, err := NewSiteManagerClient(SiteManagerClientConfig{APIKey: "test-api-key"})
+	if err != nil {
+		t.Fatalf("NewSiteManagerClient() error = %v", err)
+	}
 
 	if client.APIKey != "test-api-key" {
 		t.Errorf("expected APIKey to be 'test-api-key', got %q", client.APIKey)
@@ -22,6 +43,39 @@ func TestNewSiteManagerClient(t *testing.T) {
 	}
 	if client.HTTPClient == nil {
 		t.Error("expected HTTPClient to be non-nil")
+	}
+}
+
+func TestNewSiteManagerClientValidation(t *testing.T) {
+	_, err := NewSiteManagerClient(SiteManagerClientConfig{})
+	if err == nil {
+		t.Error("expected error for missing APIKey")
+	}
+}
+
+func TestNewSiteManagerClientCustomConfig(t *testing.T) {
+	client, err := NewSiteManagerClient(SiteManagerClientConfig{
+		APIKey:       "test-key",
+		BaseURL:      "https://custom.api.com",
+		Timeout:      60 * time.Second,
+		MaxRetries:   5,
+		MaxRetryWait: 120 * time.Second,
+	})
+	if err != nil {
+		t.Fatalf("NewSiteManagerClient() error = %v", err)
+	}
+
+	if client.BaseURL != "https://custom.api.com" {
+		t.Errorf("expected BaseURL 'https://custom.api.com', got %q", client.BaseURL)
+	}
+	if client.HTTPClient.Timeout != 60*time.Second {
+		t.Errorf("expected Timeout 60s, got %v", client.HTTPClient.Timeout)
+	}
+	if client.maxRetries != 5 {
+		t.Errorf("expected maxRetries 5, got %d", client.maxRetries)
+	}
+	if client.maxRetryWait != 120*time.Second {
+		t.Errorf("expected maxRetryWait 120s, got %v", client.maxRetryWait)
 	}
 }
 
@@ -50,7 +104,7 @@ func TestListHosts(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewSiteManagerClient("test-key")
+	client := newTestSiteManagerClient(t, "test-key")
 	client.BaseURL = server.URL
 
 	resp, err := client.ListHosts(context.Background(), nil)
@@ -91,7 +145,7 @@ func TestListHostsWithPagination(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewSiteManagerClient("test-key")
+	client := newTestSiteManagerClient(t, "test-key")
 	client.BaseURL = server.URL
 
 	_, err := client.ListHosts(context.Background(), &ListHostsOptions{
@@ -122,7 +176,7 @@ func TestGetHost(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewSiteManagerClient("test-key")
+	client := newTestSiteManagerClient(t, "test-key")
 	client.BaseURL = server.URL
 
 	resp, err := client.GetHost(context.Background(), "host-123")
@@ -157,7 +211,7 @@ func TestListSites(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewSiteManagerClient("test-key")
+	client := newTestSiteManagerClient(t, "test-key")
 	client.BaseURL = server.URL
 
 	resp, err := client.ListSites(context.Background(), nil)
@@ -205,7 +259,7 @@ func TestListDevices(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewSiteManagerClient("test-key")
+	client := newTestSiteManagerClient(t, "test-key")
 	client.BaseURL = server.URL
 
 	resp, err := client.ListDevices(context.Background(), nil)
@@ -247,7 +301,7 @@ func TestListDevicesWithHostFilter(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewSiteManagerClient("test-key")
+	client := newTestSiteManagerClient(t, "test-key")
 	client.BaseURL = server.URL
 
 	_, err := client.ListDevices(context.Background(), &ListDevicesOptions{
@@ -281,9 +335,11 @@ func TestErrorHandling(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := NewSiteManagerClient("test-key")
-			client.BaseURL = server.URL
-			client.MaxRetries = 0
+			client := newTestSiteManagerClientWithConfig(t, SiteManagerClientConfig{
+				APIKey:     "test-key",
+				BaseURL:    server.URL,
+				MaxRetries: 1,
+			})
 
 			_, err := client.ListHosts(context.Background(), nil)
 			if err == nil {
@@ -315,7 +371,7 @@ func TestUnknownErrorCode(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewSiteManagerClient("test-key")
+	client := newTestSiteManagerClient(t, "test-key")
 	client.BaseURL = server.URL
 
 	_, err := client.ListHosts(context.Background(), nil)
@@ -365,7 +421,7 @@ func TestListAllHostsPagination(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewSiteManagerClient("test-key")
+	client := newTestSiteManagerClient(t, "test-key")
 	client.BaseURL = server.URL
 
 	hosts, err := client.ListAllHosts(context.Background())
@@ -414,7 +470,7 @@ func TestListAllSitesPagination(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewSiteManagerClient("test-key")
+	client := newTestSiteManagerClient(t, "test-key")
 	client.BaseURL = server.URL
 
 	sites, err := client.ListAllSites(context.Background())
@@ -440,7 +496,7 @@ func TestContextCancellation(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewSiteManagerClient("test-key")
+	client := newTestSiteManagerClient(t, "test-key")
 	client.BaseURL = server.URL
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -462,7 +518,7 @@ func TestContextTimeout(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewSiteManagerClient("test-key")
+	client := newTestSiteManagerClient(t, "test-key")
 	client.BaseURL = server.URL
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
@@ -485,7 +541,7 @@ func TestMalformedJSONResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewSiteManagerClient("test-key")
+	client := newTestSiteManagerClient(t, "test-key")
 	client.BaseURL = server.URL
 
 	_, err := client.ListHosts(context.Background(), nil)
@@ -505,7 +561,7 @@ func TestEmptyResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewSiteManagerClient("test-key")
+	client := newTestSiteManagerClient(t, "test-key")
 	client.BaseURL = server.URL
 
 	resp, err := client.ListHosts(context.Background(), nil)
@@ -518,7 +574,7 @@ func TestEmptyResponse(t *testing.T) {
 }
 
 func TestNetworkError(t *testing.T) {
-	client := NewSiteManagerClient("test-key")
+	client := newTestSiteManagerClient(t, "test-key")
 	client.BaseURL = "http://localhost:99999"
 
 	_, err := client.ListHosts(context.Background(), nil)
@@ -549,7 +605,7 @@ func TestRateLimitRetry(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewSiteManagerClient("test-key")
+	client := newTestSiteManagerClient(t, "test-key")
 	client.BaseURL = server.URL
 
 	resp, err := client.ListHosts(context.Background(), nil)
@@ -574,9 +630,11 @@ func TestRateLimitExhausted(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewSiteManagerClient("test-key")
-	client.BaseURL = server.URL
-	client.MaxRetries = 2
+	client := newTestSiteManagerClientWithConfig(t, SiteManagerClientConfig{
+		APIKey:     "test-key",
+		BaseURL:    server.URL,
+		MaxRetries: 2,
+	})
 
 	_, err := client.ListHosts(context.Background(), nil)
 	if err == nil {
@@ -599,7 +657,7 @@ func TestRateLimitContextCancellation(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewSiteManagerClient("test-key")
+	client := newTestSiteManagerClient(t, "test-key")
 	client.BaseURL = server.URL
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
@@ -612,6 +670,110 @@ func TestRateLimitContextCancellation(t *testing.T) {
 
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("expected context.DeadlineExceeded, got %v", err)
+	}
+}
+
+func TestTransientErrorRetry(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+	}{
+		{"BadGateway", 502},
+		{"ServiceUnavailable", 503},
+		{"GatewayTimeout", 504},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			callCount := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				callCount++
+				if callCount < 2 {
+					w.WriteHeader(tt.statusCode)
+					w.Write([]byte("temporary error"))
+					return
+				}
+				resp := map[string]any{
+					"data":           []map[string]any{{"id": "host-1"}},
+					"httpStatusCode": 200,
+				}
+				json.NewEncoder(w).Encode(resp)
+			}))
+			defer server.Close()
+
+			client := newTestSiteManagerClientWithConfig(t, SiteManagerClientConfig{
+				APIKey:     "test-key",
+				BaseURL:    server.URL,
+				MaxRetries: 2,
+			})
+
+			resp, err := client.ListHosts(context.Background(), nil)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if callCount != 2 {
+				t.Errorf("expected 2 API calls (1 failure + 1 success), got %d", callCount)
+			}
+			if len(resp.Hosts) != 1 {
+				t.Errorf("expected 1 host, got %d", len(resp.Hosts))
+			}
+		})
+	}
+}
+
+func TestNonRetryableError(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		w.WriteHeader(400)
+		w.Write([]byte("bad request"))
+	}))
+	defer server.Close()
+
+	client := newTestSiteManagerClientWithConfig(t, SiteManagerClientConfig{
+		APIKey:     "test-key",
+		BaseURL:    server.URL,
+		MaxRetries: 3,
+	})
+
+	_, err := client.ListHosts(context.Background(), nil)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+
+	if callCount != 1 {
+		t.Errorf("expected 1 API call (no retries for 400), got %d", callCount)
+	}
+
+	if !errors.Is(err, ErrBadRequest) {
+		t.Errorf("expected ErrBadRequest, got %v", err)
+	}
+}
+
+func TestIsRetryable(t *testing.T) {
+	tests := []struct {
+		name      string
+		err       error
+		retryable bool
+	}{
+		{"429", &APIError{StatusCode: 429}, true},
+		{"502", &APIError{StatusCode: 502}, true},
+		{"503", &APIError{StatusCode: 503}, true},
+		{"504", &APIError{StatusCode: 504}, true},
+		{"400", &APIError{StatusCode: 400}, false},
+		{"401", &APIError{StatusCode: 401}, false},
+		{"404", &APIError{StatusCode: 404}, false},
+		{"500", &APIError{StatusCode: 500}, false},
+		{"DeadlineExceeded", context.DeadlineExceeded, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isRetryable(tt.err); got != tt.retryable {
+				t.Errorf("isRetryable() = %v, want %v", got, tt.retryable)
+			}
+		})
 	}
 }
 
@@ -676,32 +838,54 @@ func TestParseRetryAfterHeaderHTTPDate(t *testing.T) {
 }
 
 func TestApplyBackoffWithJitter(t *testing.T) {
+	maxWait := 60 * time.Second
+
 	for range 100 {
-		wait := applyBackoffWithJitter(0, 0)
+		wait := applyBackoffWithJitter(0, 0, maxWait)
 		if wait < 1*time.Second || wait > 1500*time.Millisecond {
 			t.Errorf("attempt 0: wait %v not in expected range [1s, 1.5s]", wait)
 		}
 	}
 
 	for range 100 {
-		wait := applyBackoffWithJitter(0, 2)
+		wait := applyBackoffWithJitter(0, 2, maxWait)
 		if wait < 4*time.Second || wait > 6*time.Second {
 			t.Errorf("attempt 2: wait %v not in expected range [4s, 6s]", wait)
 		}
 	}
 
 	for range 100 {
-		wait := applyBackoffWithJitter(10*time.Second, 0)
+		wait := applyBackoffWithJitter(10*time.Second, 0, maxWait)
 		if wait != 10*time.Second {
 			t.Errorf("server wait 10s: want exactly 10s, got %v", wait)
 		}
 	}
 
 	for range 100 {
-		wait := applyBackoffWithJitter(0, 10)
-		if wait > 30*time.Second {
-			t.Errorf("attempt 10: wait %v should be capped at 30s", wait)
+		wait := applyBackoffWithJitter(0, 10, maxWait)
+		if wait > maxWait {
+			t.Errorf("attempt 10: wait %v should be capped at %v", wait, maxWait)
 		}
+	}
+}
+
+func TestApplyBackoffWithJitterCapsServerWait(t *testing.T) {
+	maxWait := 60 * time.Second
+
+	wait := applyBackoffWithJitter(120*time.Second, 0, maxWait)
+	if wait != 60*time.Second {
+		t.Errorf("server wait 120s should be capped at 60s, got %v", wait)
+	}
+
+	wait = applyBackoffWithJitter(30*time.Second, 0, maxWait)
+	if wait != 30*time.Second {
+		t.Errorf("server wait 30s should not be capped, got %v", wait)
+	}
+
+	customMax := 10 * time.Second
+	wait = applyBackoffWithJitter(30*time.Second, 0, customMax)
+	if wait != 10*time.Second {
+		t.Errorf("server wait 30s should be capped at custom 10s, got %v", wait)
 	}
 }
 
@@ -725,7 +909,7 @@ func TestRateLimitRetryWithHeader(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewSiteManagerClient("test-key")
+	client := newTestSiteManagerClient(t, "test-key")
 	client.BaseURL = server.URL
 
 	start := time.Now()
@@ -748,9 +932,26 @@ func TestRateLimitRetryWithHeader(t *testing.T) {
 }
 
 func TestDefaultTimeout(t *testing.T) {
-	client := NewSiteManagerClient("test-key")
+	client := newTestSiteManagerClient(t, "test-key")
 	if client.HTTPClient.Timeout != 30*time.Second {
 		t.Errorf("expected default timeout of 30s, got %v", client.HTTPClient.Timeout)
+	}
+}
+
+func TestDefaultMaxRetryWait(t *testing.T) {
+	client := newTestSiteManagerClient(t, "test-key")
+	if client.maxRetryWait != 60*time.Second {
+		t.Errorf("expected default maxRetryWait of 60s, got %v", client.maxRetryWait)
+	}
+}
+
+func TestCustomMaxRetryWait(t *testing.T) {
+	client := newTestSiteManagerClientWithConfig(t, SiteManagerClientConfig{
+		APIKey:       "test-key",
+		MaxRetryWait: 5 * time.Second,
+	})
+	if client.maxRetryWait != 5*time.Second {
+		t.Errorf("expected custom maxRetryWait of 5s, got %v", client.maxRetryWait)
 	}
 }
 
@@ -762,9 +963,11 @@ func TestRetryAfterHeaderInAPIError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewSiteManagerClient("test-key")
-	client.BaseURL = server.URL
-	client.MaxRetries = 0
+	client := newTestSiteManagerClientWithConfig(t, SiteManagerClientConfig{
+		APIKey:     "test-key",
+		BaseURL:    server.URL,
+		MaxRetries: 1,
+	})
 
 	_, err := client.ListHosts(context.Background(), nil)
 	if err == nil {

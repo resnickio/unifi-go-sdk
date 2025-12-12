@@ -32,7 +32,12 @@ import (
 )
 
 func main() {
-    client := unifi.NewSiteManagerClient("your-api-key")
+    client, err := unifi.NewSiteManagerClient(unifi.SiteManagerClientConfig{
+        APIKey: "your-api-key",
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
 
     // List all hosts
     hosts, err := client.ListAllHosts(context.Background())
@@ -265,9 +270,17 @@ The retry delay is calculated as:
 4. Otherwise, apply exponential backoff (1s, 2s, 4s...) with up to 50% jitter, capped at 30s
 
 ```go
-client := unifi.NewSiteManagerClient("your-api-key")
-client.MaxRetries = 5 // increase retries
-client.MaxRetries = 0 // disable retries
+// Increase retries
+client, _ := unifi.NewSiteManagerClient(unifi.SiteManagerClientConfig{
+    APIKey:     "your-api-key",
+    MaxRetries: 5,
+})
+
+// Disable retries
+client, _ := unifi.NewSiteManagerClient(unifi.SiteManagerClientConfig{
+    APIKey:     "your-api-key",
+    MaxRetries: 1,
+})
 ```
 
 ## Timeouts
@@ -275,10 +288,10 @@ client.MaxRetries = 0 // disable retries
 The default HTTP client has a 30 second timeout. You can customize this:
 
 ```go
-client := unifi.NewSiteManagerClient("your-api-key")
-client.HTTPClient = &http.Client{
+client, _ := unifi.NewSiteManagerClient(unifi.SiteManagerClientConfig{
+    APIKey:  "your-api-key",
     Timeout: 60 * time.Second,
-}
+})
 ```
 
 ## Debug Logging
@@ -287,8 +300,10 @@ Both clients support optional debug logging. Set the `Logger` field to receive r
 
 ```go
 // Use the built-in stderr logger
-client := unifi.NewSiteManagerClient("your-api-key")
-client.Logger = unifi.NewStdLogger()
+client, _ := unifi.NewSiteManagerClient(unifi.SiteManagerClientConfig{
+    APIKey: "your-api-key",
+    Logger: unifi.NewStdLogger(),
+})
 
 // Or implement your own Logger interface
 type Logger interface {

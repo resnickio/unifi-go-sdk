@@ -60,9 +60,18 @@ func main() {
 }
 
 func validateSiteManagerAPI(apiKey string) Report {
-	client := unifi.NewSiteManagerClient(apiKey)
-
 	report := Report{API: "site-manager"}
+
+	client, err := unifi.NewSiteManagerClient(unifi.SiteManagerClientConfig{
+		APIKey: apiKey,
+	})
+	if err != nil {
+		report.Results = append(report.Results, ValidationResult{
+			Endpoint: "client",
+			Status:   fmt.Sprintf("client error: %v", err),
+		})
+		return report
+	}
 	report.Results = append(report.Results, validateHosts(client))
 	report.Results = append(report.Results, validateSites(client))
 	report.Results = append(report.Results, validateDevices(client))
