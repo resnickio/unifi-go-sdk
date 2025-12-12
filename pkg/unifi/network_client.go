@@ -299,19 +299,20 @@ func (c *NetworkClient) do(ctx context.Context, method, path string, body interf
 		return c.parseErrorResponse(resp.StatusCode, respBody)
 	}
 
+	var apiResp networkAPIResponse
+	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
+		return fmt.Errorf("decoding response: %w", err)
+	}
+
+	if apiResp.Meta.RC != "ok" {
+		return &APIError{
+			StatusCode: resp.StatusCode,
+			Message:    apiResp.Meta.Msg,
+			Err:        sentinelForAPIMessage(apiResp.Meta.Msg),
+		}
+	}
+
 	if result != nil {
-		var apiResp networkAPIResponse
-		if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
-			return fmt.Errorf("decoding response: %w", err)
-		}
-
-		if apiResp.Meta.RC != "ok" {
-			return &APIError{
-				StatusCode: resp.StatusCode,
-				Message:    apiResp.Meta.Msg,
-			}
-		}
-
 		if err := json.Unmarshal(apiResp.Data, result); err != nil {
 			return fmt.Errorf("unmarshaling response data: %w", err)
 		}

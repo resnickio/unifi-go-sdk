@@ -391,6 +391,56 @@ func TestNetworkClientDeleteNetwork(t *testing.T) {
 	}
 }
 
+func TestNetworkClientDeleteAPIError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/networkconf/abc123":
+			response := map[string]any{
+				"meta": map[string]string{
+					"rc":  "error",
+					"msg": "api.err.ObjectInUse",
+				},
+				"data": []any{},
+			}
+			json.NewEncoder(w).Encode(response)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewNetworkClient(NetworkClientConfig{
+		BaseURL:  server.URL,
+		Username: "admin",
+		Password: "password",
+	})
+	if err != nil {
+		t.Fatalf("NewNetworkClient() error = %v", err)
+	}
+
+	if err := client.Login(context.Background()); err != nil {
+		t.Fatalf("Login() error = %v", err)
+	}
+
+	err = client.DeleteNetwork(context.Background(), "abc123")
+	if err == nil {
+		t.Fatal("DeleteNetwork() should have failed with API error")
+	}
+
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		t.Errorf("error should be APIError, got %T", err)
+	}
+	if apiErr.Message != "api.err.ObjectInUse" {
+		t.Errorf("expected message 'api.err.ObjectInUse', got '%s'", apiErr.Message)
+	}
+	if !errors.Is(err, ErrConflict) {
+		t.Errorf("expected errors.Is(err, ErrConflict) to be true")
+	}
+}
+
 func TestNetworkClientAPIError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
