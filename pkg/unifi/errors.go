@@ -8,14 +8,16 @@ import (
 // Sentinel errors for common HTTP status codes.
 // Use errors.Is() to check for these errors.
 var (
-	ErrBadRequest   = errors.New("bad request")   // 400
-	ErrUnauthorized = errors.New("unauthorized")  // 401
-	ErrForbidden    = errors.New("forbidden")     // 403
-	ErrNotFound     = errors.New("not found")     // 404
-	ErrConflict     = errors.New("conflict")      // 409
-	ErrRateLimited  = errors.New("rate limited")  // 429
-	ErrServerError  = errors.New("server error")  // 500
-	ErrBadGateway   = errors.New("bad gateway")   // 502
+	ErrBadRequest       = errors.New("bad request")       // 400
+	ErrUnauthorized     = errors.New("unauthorized")      // 401
+	ErrForbidden        = errors.New("forbidden")         // 403
+	ErrNotFound         = errors.New("not found")         // 404
+	ErrConflict         = errors.New("conflict")          // 409
+	ErrRateLimited      = errors.New("rate limited")      // 429
+	ErrServerError      = errors.New("server error")      // 500
+	ErrBadGateway       = errors.New("bad gateway")       // 502
+	ErrServiceUnavail   = errors.New("service unavailable") // 503
+	ErrGatewayTimeout   = errors.New("gateway timeout")   // 504
 )
 
 func sentinelForStatusCode(statusCode int) error {
@@ -36,6 +38,27 @@ func sentinelForStatusCode(statusCode int) error {
 		return ErrServerError
 	case 502:
 		return ErrBadGateway
+	case 503:
+		return ErrServiceUnavail
+	case 504:
+		return ErrGatewayTimeout
+	default:
+		return nil
+	}
+}
+
+func sentinelForAPIMessage(msg string) error {
+	switch msg {
+	case "api.err.Invalid", "api.err.InvalidObject", "api.err.InvalidValue":
+		return ErrBadRequest
+	case "api.err.LoginRequired", "api.err.Unauthorized":
+		return ErrUnauthorized
+	case "api.err.NoPermission", "api.err.Forbidden":
+		return ErrForbidden
+	case "api.err.ObjectNotFound", "api.err.NotFound":
+		return ErrNotFound
+	case "api.err.ObjectInUse", "api.err.Conflict":
+		return ErrConflict
 	default:
 		return nil
 	}

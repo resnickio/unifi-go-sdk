@@ -55,6 +55,8 @@ func TestSentinelErrors(t *testing.T) {
 		ErrRateLimited,
 		ErrServerError,
 		ErrBadGateway,
+		ErrServiceUnavail,
+		ErrGatewayTimeout,
 	}
 
 	for _, sentinel := range sentinels {
@@ -96,14 +98,44 @@ func TestSentinelForStatusCode(t *testing.T) {
 		{429, ErrRateLimited},
 		{500, ErrServerError},
 		{502, ErrBadGateway},
+		{503, ErrServiceUnavail},
+		{504, ErrGatewayTimeout},
 		{418, nil},
-		{503, nil},
 	}
 
 	for _, tt := range tests {
 		got := sentinelForStatusCode(tt.statusCode)
 		if got != tt.want {
 			t.Errorf("sentinelForStatusCode(%d) = %v, want %v", tt.statusCode, got, tt.want)
+		}
+	}
+}
+
+func TestSentinelForAPIMessage(t *testing.T) {
+	tests := []struct {
+		msg  string
+		want error
+	}{
+		{"api.err.Invalid", ErrBadRequest},
+		{"api.err.InvalidObject", ErrBadRequest},
+		{"api.err.InvalidValue", ErrBadRequest},
+		{"api.err.LoginRequired", ErrUnauthorized},
+		{"api.err.Unauthorized", ErrUnauthorized},
+		{"api.err.NoPermission", ErrForbidden},
+		{"api.err.Forbidden", ErrForbidden},
+		{"api.err.ObjectNotFound", ErrNotFound},
+		{"api.err.NotFound", ErrNotFound},
+		{"api.err.ObjectInUse", ErrConflict},
+		{"api.err.Conflict", ErrConflict},
+		{"api.err.Unknown", nil},
+		{"some other error", nil},
+		{"", nil},
+	}
+
+	for _, tt := range tests {
+		got := sentinelForAPIMessage(tt.msg)
+		if got != tt.want {
+			t.Errorf("sentinelForAPIMessage(%q) = %v, want %v", tt.msg, got, tt.want)
 		}
 	}
 }
