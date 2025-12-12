@@ -141,6 +141,77 @@ func main() {
 | RADIUS Profiles | `ListRADIUSProfiles`, `GetRADIUSProfile`, `CreateRADIUSProfile`, `UpdateRADIUSProfile`, `DeleteRADIUSProfile` |
 | Dynamic DNS | `ListDynamicDNS`, `GetDynamicDNS`, `CreateDynamicDNS`, `UpdateDynamicDNS`, `DeleteDynamicDNS` |
 
+### Network API Examples
+
+#### Create a VLAN Network
+
+```go
+enabled := true
+vlan := 100
+dhcpEnabled := true
+network, err := client.CreateNetwork(ctx, &unifi.Network{
+    Name:         "IoT Network",
+    Purpose:      "corporate",
+    Enabled:      &enabled,
+    VLAN:         &vlan,
+    VLANEnabled:  &enabled,
+    IPSubnet:     "10.0.100.1/24",
+    DHCPDEnabled: &dhcpEnabled,
+    DHCPDStart:   "10.0.100.100",
+    DHCPDStop:    "10.0.100.254",
+})
+```
+
+#### Create a Wireless Network (SSID)
+
+```go
+enabled := true
+wlan, err := client.CreateWLAN(ctx, &unifi.WLANConf{
+    Name:        "Guest WiFi",
+    Enabled:     &enabled,
+    Security:    "wpapsk",
+    WPAMode:     "wpa2",
+    XPassphrase: "guest-password-here",
+    IsGuest:     &enabled,
+})
+```
+
+#### Create a Port Forward
+
+```go
+enabled := true
+forward, err := client.CreatePortForward(ctx, &unifi.PortForward{
+    Name:    "Web Server",
+    Enabled: &enabled,
+    Proto:   "tcp",
+    DstPort: "443",
+    Fwd:     "192.168.1.100",
+    FwdPort: "443",
+})
+```
+
+#### Create a Static Route
+
+```go
+enabled := true
+route, err := client.CreateRoute(ctx, &unifi.Routing{
+    Name:               "VPN Route",
+    Enabled:            &enabled,
+    StaticRouteNetwork: "10.10.0.0/16",
+    StaticRouteNexthop: "192.168.1.254",
+})
+```
+
+#### Create a Firewall Group
+
+```go
+group, err := client.CreateFirewallGroup(ctx, &unifi.FirewallGroup{
+    Name:         "Blocked IPs",
+    GroupType:    "address-group",
+    GroupMembers: []string{"1.2.3.4", "5.6.7.8"},
+})
+```
+
 ### Interfaces for Mocking
 
 Both clients implement interfaces for easy mocking in tests:
@@ -208,6 +279,27 @@ client := unifi.NewSiteManagerClient("your-api-key")
 client.HTTPClient = &http.Client{
     Timeout: 60 * time.Second,
 }
+```
+
+## Debug Logging
+
+Both clients support optional debug logging. Set the `Logger` field to receive request/response logs:
+
+```go
+// Use the built-in stderr logger
+client := unifi.NewSiteManagerClient("your-api-key")
+client.Logger = unifi.NewStdLogger()
+
+// Or implement your own Logger interface
+type Logger interface {
+    Printf(format string, v ...any)
+}
+```
+
+Log output format:
+```
+[unifi] 2024/01/15 10:30:00 -> GET https://api.ui.com/v1/hosts
+[unifi] 2024/01/15 10:30:01 <- 200 OK
 ```
 
 ## Status
