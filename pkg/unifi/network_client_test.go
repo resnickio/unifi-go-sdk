@@ -1721,6 +1721,11 @@ func TestNetworkClientGetNotFound(t *testing.T) {
 		name string
 		fn   func() error
 	}{
+		{"GetNetwork", func() error { _, err := client.GetNetwork(context.Background(), "notfound"); return err }},
+		{"GetFirewallRule", func() error { _, err := client.GetFirewallRule(context.Background(), "notfound"); return err }},
+		{"GetFirewallGroup", func() error { _, err := client.GetFirewallGroup(context.Background(), "notfound"); return err }},
+		{"GetPortForward", func() error { _, err := client.GetPortForward(context.Background(), "notfound"); return err }},
+		{"GetWLAN", func() error { _, err := client.GetWLAN(context.Background(), "notfound"); return err }},
 		{"GetPortConf", func() error { _, err := client.GetPortConf(context.Background(), "notfound"); return err }},
 		{"GetRoute", func() error { _, err := client.GetRoute(context.Background(), "notfound"); return err }},
 		{"GetUserGroup", func() error { _, err := client.GetUserGroup(context.Background(), "notfound"); return err }},
@@ -1735,5 +1740,593 @@ func TestNetworkClientGetNotFound(t *testing.T) {
 				t.Errorf("expected ErrNotFound, got %v", err)
 			}
 		})
+	}
+}
+
+func TestNetworkClientGetFirewallRule(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/firewallrule/rule123":
+			if r.Method != "GET" {
+				t.Errorf("expected GET, got %s", r.Method)
+			}
+			response := map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []map[string]any{
+					{"_id": "rule123", "name": "Allow SSH", "action": "accept"},
+				},
+			}
+			json.NewEncoder(w).Encode(response)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL, Username: "admin", Password: "password",
+	})
+	client.Login(context.Background())
+
+	rule, err := client.GetFirewallRule(context.Background(), "rule123")
+	if err != nil {
+		t.Fatalf("GetFirewallRule() error = %v", err)
+	}
+	if rule.ID != "rule123" {
+		t.Errorf("expected ID rule123, got %s", rule.ID)
+	}
+}
+
+func TestNetworkClientCreateFirewallRule(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/firewallrule":
+			if r.Method != "POST" {
+				t.Errorf("expected POST, got %s", r.Method)
+			}
+			response := map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []map[string]any{
+					{"_id": "newrule", "name": "Block All", "action": "drop"},
+				},
+			}
+			json.NewEncoder(w).Encode(response)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL, Username: "admin", Password: "password",
+	})
+	client.Login(context.Background())
+
+	rule := &FirewallRule{Name: "Block All", Action: "drop"}
+	created, err := client.CreateFirewallRule(context.Background(), rule)
+	if err != nil {
+		t.Fatalf("CreateFirewallRule() error = %v", err)
+	}
+	if created.ID != "newrule" {
+		t.Errorf("expected ID newrule, got %s", created.ID)
+	}
+}
+
+func TestNetworkClientDeleteFirewallRule(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/firewallrule/rule123":
+			if r.Method != "DELETE" {
+				t.Errorf("expected DELETE, got %s", r.Method)
+			}
+			response := map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []any{},
+			}
+			json.NewEncoder(w).Encode(response)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL, Username: "admin", Password: "password",
+	})
+	client.Login(context.Background())
+
+	if err := client.DeleteFirewallRule(context.Background(), "rule123"); err != nil {
+		t.Fatalf("DeleteFirewallRule() error = %v", err)
+	}
+}
+
+func TestNetworkClientGetFirewallGroup(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/firewallgroup/group123":
+			if r.Method != "GET" {
+				t.Errorf("expected GET, got %s", r.Method)
+			}
+			response := map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []map[string]any{
+					{"_id": "group123", "name": "Blocked IPs", "group_type": "address-group"},
+				},
+			}
+			json.NewEncoder(w).Encode(response)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL, Username: "admin", Password: "password",
+	})
+	client.Login(context.Background())
+
+	group, err := client.GetFirewallGroup(context.Background(), "group123")
+	if err != nil {
+		t.Fatalf("GetFirewallGroup() error = %v", err)
+	}
+	if group.ID != "group123" {
+		t.Errorf("expected ID group123, got %s", group.ID)
+	}
+}
+
+func TestNetworkClientCreateFirewallGroup(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/firewallgroup":
+			if r.Method != "POST" {
+				t.Errorf("expected POST, got %s", r.Method)
+			}
+			response := map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []map[string]any{
+					{"_id": "newgroup", "name": "New Group", "group_type": "address-group"},
+				},
+			}
+			json.NewEncoder(w).Encode(response)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL, Username: "admin", Password: "password",
+	})
+	client.Login(context.Background())
+
+	group := &FirewallGroup{Name: "New Group", GroupType: "address-group"}
+	created, err := client.CreateFirewallGroup(context.Background(), group)
+	if err != nil {
+		t.Fatalf("CreateFirewallGroup() error = %v", err)
+	}
+	if created.ID != "newgroup" {
+		t.Errorf("expected ID newgroup, got %s", created.ID)
+	}
+}
+
+func TestNetworkClientUpdateFirewallGroup(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/firewallgroup/group123":
+			if r.Method != "PUT" {
+				t.Errorf("expected PUT, got %s", r.Method)
+			}
+			response := map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []map[string]any{
+					{"_id": "group123", "name": "Updated Group"},
+				},
+			}
+			json.NewEncoder(w).Encode(response)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL, Username: "admin", Password: "password",
+	})
+	client.Login(context.Background())
+
+	group := &FirewallGroup{Name: "Updated Group"}
+	updated, err := client.UpdateFirewallGroup(context.Background(), "group123", group)
+	if err != nil {
+		t.Fatalf("UpdateFirewallGroup() error = %v", err)
+	}
+	if updated.Name != "Updated Group" {
+		t.Errorf("expected name Updated Group, got %s", updated.Name)
+	}
+}
+
+func TestNetworkClientDeleteFirewallGroup(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/firewallgroup/group123":
+			if r.Method != "DELETE" {
+				t.Errorf("expected DELETE, got %s", r.Method)
+			}
+			response := map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []any{},
+			}
+			json.NewEncoder(w).Encode(response)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL, Username: "admin", Password: "password",
+	})
+	client.Login(context.Background())
+
+	if err := client.DeleteFirewallGroup(context.Background(), "group123"); err != nil {
+		t.Fatalf("DeleteFirewallGroup() error = %v", err)
+	}
+}
+
+func TestNetworkClientGetPortForward(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/portforward/pf123":
+			if r.Method != "GET" {
+				t.Errorf("expected GET, got %s", r.Method)
+			}
+			response := map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []map[string]any{
+					{"_id": "pf123", "name": "SSH Forward", "dst_port": "22"},
+				},
+			}
+			json.NewEncoder(w).Encode(response)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL, Username: "admin", Password: "password",
+	})
+	client.Login(context.Background())
+
+	pf, err := client.GetPortForward(context.Background(), "pf123")
+	if err != nil {
+		t.Fatalf("GetPortForward() error = %v", err)
+	}
+	if pf.ID != "pf123" {
+		t.Errorf("expected ID pf123, got %s", pf.ID)
+	}
+}
+
+func TestNetworkClientCreatePortForward(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/portforward":
+			if r.Method != "POST" {
+				t.Errorf("expected POST, got %s", r.Method)
+			}
+			response := map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []map[string]any{
+					{"_id": "newpf", "name": "New Forward"},
+				},
+			}
+			json.NewEncoder(w).Encode(response)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL, Username: "admin", Password: "password",
+	})
+	client.Login(context.Background())
+
+	pf := &PortForward{Name: "New Forward", DstPort: "8080"}
+	created, err := client.CreatePortForward(context.Background(), pf)
+	if err != nil {
+		t.Fatalf("CreatePortForward() error = %v", err)
+	}
+	if created.ID != "newpf" {
+		t.Errorf("expected ID newpf, got %s", created.ID)
+	}
+}
+
+func TestNetworkClientUpdatePortForward(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/portforward/pf123":
+			if r.Method != "PUT" {
+				t.Errorf("expected PUT, got %s", r.Method)
+			}
+			response := map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []map[string]any{
+					{"_id": "pf123", "name": "Updated Forward"},
+				},
+			}
+			json.NewEncoder(w).Encode(response)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL, Username: "admin", Password: "password",
+	})
+	client.Login(context.Background())
+
+	pf := &PortForward{Name: "Updated Forward"}
+	updated, err := client.UpdatePortForward(context.Background(), "pf123", pf)
+	if err != nil {
+		t.Fatalf("UpdatePortForward() error = %v", err)
+	}
+	if updated.Name != "Updated Forward" {
+		t.Errorf("expected name Updated Forward, got %s", updated.Name)
+	}
+}
+
+func TestNetworkClientDeletePortForward(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/portforward/pf123":
+			if r.Method != "DELETE" {
+				t.Errorf("expected DELETE, got %s", r.Method)
+			}
+			response := map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []any{},
+			}
+			json.NewEncoder(w).Encode(response)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL, Username: "admin", Password: "password",
+	})
+	client.Login(context.Background())
+
+	if err := client.DeletePortForward(context.Background(), "pf123"); err != nil {
+		t.Fatalf("DeletePortForward() error = %v", err)
+	}
+}
+
+func TestNetworkClientGetWLAN(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/wlanconf/wlan123":
+			if r.Method != "GET" {
+				t.Errorf("expected GET, got %s", r.Method)
+			}
+			response := map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []map[string]any{
+					{"_id": "wlan123", "name": "MyWiFi", "security": "wpapsk"},
+				},
+			}
+			json.NewEncoder(w).Encode(response)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL, Username: "admin", Password: "password",
+	})
+	client.Login(context.Background())
+
+	wlan, err := client.GetWLAN(context.Background(), "wlan123")
+	if err != nil {
+		t.Fatalf("GetWLAN() error = %v", err)
+	}
+	if wlan.ID != "wlan123" {
+		t.Errorf("expected ID wlan123, got %s", wlan.ID)
+	}
+}
+
+func TestNetworkClientCreateWLAN(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/wlanconf":
+			if r.Method != "POST" {
+				t.Errorf("expected POST, got %s", r.Method)
+			}
+			response := map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []map[string]any{
+					{"_id": "newwlan", "name": "GuestWiFi"},
+				},
+			}
+			json.NewEncoder(w).Encode(response)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL, Username: "admin", Password: "password",
+	})
+	client.Login(context.Background())
+
+	wlan := &WLANConf{Name: "GuestWiFi", Security: "wpapsk"}
+	created, err := client.CreateWLAN(context.Background(), wlan)
+	if err != nil {
+		t.Fatalf("CreateWLAN() error = %v", err)
+	}
+	if created.ID != "newwlan" {
+		t.Errorf("expected ID newwlan, got %s", created.ID)
+	}
+}
+
+func TestNetworkClientUpdateWLAN(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/wlanconf/wlan123":
+			if r.Method != "PUT" {
+				t.Errorf("expected PUT, got %s", r.Method)
+			}
+			response := map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []map[string]any{
+					{"_id": "wlan123", "name": "UpdatedWiFi"},
+				},
+			}
+			json.NewEncoder(w).Encode(response)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL, Username: "admin", Password: "password",
+	})
+	client.Login(context.Background())
+
+	wlan := &WLANConf{Name: "UpdatedWiFi"}
+	updated, err := client.UpdateWLAN(context.Background(), "wlan123", wlan)
+	if err != nil {
+		t.Fatalf("UpdateWLAN() error = %v", err)
+	}
+	if updated.Name != "UpdatedWiFi" {
+		t.Errorf("expected name UpdatedWiFi, got %s", updated.Name)
+	}
+}
+
+func TestNetworkClientDeleteWLAN(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/wlanconf/wlan123":
+			if r.Method != "DELETE" {
+				t.Errorf("expected DELETE, got %s", r.Method)
+			}
+			response := map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []any{},
+			}
+			json.NewEncoder(w).Encode(response)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL, Username: "admin", Password: "password",
+	})
+	client.Login(context.Background())
+
+	if err := client.DeleteWLAN(context.Background(), "wlan123"); err != nil {
+		t.Fatalf("DeleteWLAN() error = %v", err)
+	}
+}
+
+func TestNetworkClientAPIErrorResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		default:
+			response := map[string]any{
+				"meta": map[string]string{"rc": "error", "msg": "api.err.InvalidObject"},
+				"data": []any{},
+			}
+			json.NewEncoder(w).Encode(response)
+		}
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL, Username: "admin", Password: "password",
+	})
+	client.Login(context.Background())
+
+	_, err := client.ListNetworks(context.Background())
+	if err == nil {
+		t.Fatal("expected error for rc=error response")
+	}
+
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected APIError, got %T", err)
+	}
+	if apiErr.Message != "api.err.InvalidObject" {
+		t.Errorf("expected message 'api.err.InvalidObject', got %q", apiErr.Message)
+	}
+}
+
+func TestNetworkClientLogoutIdempotent(t *testing.T) {
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: "https://192.168.1.1", Username: "admin", Password: "password",
+	})
+
+	err := client.Logout(context.Background())
+	if err != nil {
+		t.Errorf("Logout when not logged in should succeed (idempotent), got %v", err)
+	}
+}
+
+func TestNetworkClientLogoutNetworkError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL, Username: "admin", Password: "password",
+	})
+	client.Login(context.Background())
+	server.Close()
+
+	err := client.Logout(context.Background())
+	if err == nil {
+		t.Fatal("expected error for network failure during logout")
 	}
 }
