@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -28,6 +29,8 @@ type Report struct {
 }
 
 func main() {
+	loadEnv(".env")
+
 	apiKey := os.Getenv("UNIFI_API_KEY")
 	networkURL := os.Getenv("UNIFI_NETWORK_URL")
 	networkUser := os.Getenv("UNIFI_NETWORK_USER")
@@ -693,4 +696,30 @@ func fetchNetworkRaw(client *unifi.NetworkClient, endpoint string) (map[string]i
 	}
 
 	return raw.Data[0], nil
+}
+
+func loadEnv(filename string) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, value, found := strings.Cut(line, "=")
+		if !found {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		value = strings.Trim(value, `"'`)
+		if os.Getenv(key) == "" {
+			os.Setenv(key, value)
+		}
+	}
 }
