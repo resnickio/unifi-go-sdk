@@ -249,6 +249,9 @@ Available errors:
 - `ErrRateLimited` (429)
 - `ErrServerError` (500)
 - `ErrBadGateway` (502)
+- `ErrServiceUnavail` (503)
+- `ErrGatewayTimeout` (504)
+- `ErrEmptyResponse` (API returned success with empty data)
 
 For detailed error information, use `errors.As`:
 
@@ -263,28 +266,19 @@ if errors.As(err, &apiErr) {
 
 Both clients automatically retry transient errors (502, 503, 504) and rate limit responses (429). By default, they retry up to 3 times with exponential backoff and jitter to prevent thundering herd issues.
 
-**Site Manager Client** parses `Retry-After` headers from 429 responses:
+Both clients parse `Retry-After` headers from 429 responses:
 1. Parse `Retry-After` header (supports integer seconds, fractional seconds, and HTTP-date format)
 2. Fall back to parsing delay from response body
 3. If server specifies a delay, use it exactly
 4. Otherwise, apply exponential backoff (1s, 2s, 4s...) with up to 50% jitter, capped at 30s
 
-**Network Client** uses exponential backoff with jitter for all retryable errors.
+`MaxRetries` is `*int` — omit for default (3), or use the `IntPtr` helper to override (including `0` for no retries).
 
 ```go
-// Site Manager: customize retries
+// Customize retries
 client, _ := unifi.NewSiteManagerClient(unifi.SiteManagerClientConfig{
     APIKey:       "your-api-key",
-    MaxRetries:   5,                    // default: 3
-    MaxRetryWait: 120 * time.Second,    // default: 60s
-})
-
-// Network: customize retries
-client, _ := unifi.NewNetworkClient(unifi.NetworkClientConfig{
-    BaseURL:      "https://192.168.1.1",
-    Username:     "admin",
-    Password:     "password",
-    MaxRetries:   5,                    // default: 3
+    MaxRetries:   unifi.IntPtr(5),      // default: 3 (nil), use 0 for no retries
     MaxRetryWait: 120 * time.Second,    // default: 60s
 })
 ```

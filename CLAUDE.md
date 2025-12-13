@@ -77,7 +77,7 @@ This SDK is intended to support a Terraform provider. Prioritize type safety wit
 - **Testing**: Use `httptest` for mocking. Export struct fields to allow test configuration
 - **CI**: Keep simple - build and test only. Avoid paid services (Codecov, etc.) unless explicitly requested
 - **Over-engineering**: Avoid. Don't add abstractions, helpers, or features beyond what's requested
-- **Error handling**: Limit error body reads to prevent memory exhaustion (64KB max)
+- **Error handling**: Limit response body reads to prevent memory exhaustion (64KB for errors, 10MB for success responses)
 - **File naming**: Use `{api}_client.go`, `{api}_models.go` pattern (e.g., `sitemanager_client.go`, `network_client.go`)
 
 ## Status
