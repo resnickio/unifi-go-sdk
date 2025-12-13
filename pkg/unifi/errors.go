@@ -8,16 +8,17 @@ import (
 // Sentinel errors for common HTTP status codes.
 // Use errors.Is() to check for these errors.
 var (
-	ErrBadRequest       = errors.New("bad request")       // 400
-	ErrUnauthorized     = errors.New("unauthorized")      // 401
-	ErrForbidden        = errors.New("forbidden")         // 403
-	ErrNotFound         = errors.New("not found")         // 404
-	ErrConflict         = errors.New("conflict")          // 409
-	ErrRateLimited      = errors.New("rate limited")      // 429
-	ErrServerError      = errors.New("server error")      // 500
-	ErrBadGateway       = errors.New("bad gateway")       // 502
+	ErrBadRequest       = errors.New("bad request")        // 400
+	ErrUnauthorized     = errors.New("unauthorized")       // 401
+	ErrForbidden        = errors.New("forbidden")          // 403
+	ErrNotFound         = errors.New("not found")          // 404
+	ErrConflict         = errors.New("conflict")           // 409
+	ErrRateLimited      = errors.New("rate limited")       // 429
+	ErrServerError      = errors.New("server error")       // 500
+	ErrBadGateway       = errors.New("bad gateway")        // 502
 	ErrServiceUnavail   = errors.New("service unavailable") // 503
-	ErrGatewayTimeout   = errors.New("gateway timeout")   // 504
+	ErrGatewayTimeout   = errors.New("gateway timeout")    // 504
+	ErrEmptyResponse    = errors.New("empty response")     // API returned empty data array
 )
 
 func sentinelForStatusCode(statusCode int) error {
@@ -79,4 +80,21 @@ func (e *APIError) Error() string {
 
 func (e *APIError) Unwrap() error {
 	return e.Err
+}
+
+// EmptyResponseError is returned when an API operation succeeds but returns
+// no data. This typically indicates an unexpected API behavior change.
+type EmptyResponseError struct {
+	Operation string // e.g., "create", "update"
+	Resource  string // e.g., "network", "firewall rule"
+	Endpoint  string // e.g., "/proxy/network/api/s/default/rest/networkconf"
+}
+
+func (e *EmptyResponseError) Error() string {
+	return fmt.Sprintf("no %s returned from %s (endpoint: %s): API returned success with empty data array",
+		e.Resource, e.Operation, e.Endpoint)
+}
+
+func (e *EmptyResponseError) Unwrap() error {
+	return ErrEmptyResponse
 }

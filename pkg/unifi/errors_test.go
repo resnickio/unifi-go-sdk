@@ -111,6 +111,23 @@ func TestSentinelForStatusCode(t *testing.T) {
 	}
 }
 
+func TestEmptyResponseError(t *testing.T) {
+	err := &EmptyResponseError{
+		Operation: "create",
+		Resource:  "network",
+		Endpoint:  "/proxy/network/api/s/default/rest/networkconf",
+	}
+
+	expectedMsg := "no network returned from create (endpoint: /proxy/network/api/s/default/rest/networkconf): API returned success with empty data array"
+	if err.Error() != expectedMsg {
+		t.Errorf("expected %q, got %q", expectedMsg, err.Error())
+	}
+
+	if !errors.Is(err, ErrEmptyResponse) {
+		t.Error("expected errors.Is(err, ErrEmptyResponse) to be true")
+	}
+}
+
 func TestSentinelForAPIMessage(t *testing.T) {
 	tests := []struct {
 		msg  string
