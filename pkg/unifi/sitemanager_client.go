@@ -45,7 +45,7 @@ type SiteManagerClientConfig struct {
 	APIKey       string
 	BaseURL      string
 	Timeout      time.Duration
-	MaxRetries   int
+	MaxRetries   *int          // nil = default (3), 0 = no retries
 	MaxRetryWait time.Duration
 	Logger       Logger
 }
@@ -53,7 +53,6 @@ type SiteManagerClientConfig struct {
 const (
 	defaultBaseURL      = "https://api.ui.com"
 	defaultRetries      = 3
-	defaultRetryWait    = 5 * time.Second
 	defaultTimeout      = 30 * time.Second
 	defaultMaxRetryWait = 60 * time.Second
 	maxErrorBodySize    = 64 * 1024
@@ -80,9 +79,9 @@ func NewSiteManagerClient(cfg SiteManagerClientConfig) (*SiteManagerClient, erro
 		timeout = defaultTimeout
 	}
 
-	maxRetries := cfg.MaxRetries
-	if maxRetries == 0 {
-		maxRetries = defaultRetries
+	maxRetries := defaultRetries
+	if cfg.MaxRetries != nil {
+		maxRetries = *cfg.MaxRetries
 	}
 
 	maxRetryWait := cfg.MaxRetryWait
@@ -101,31 +100,36 @@ func NewSiteManagerClient(cfg SiteManagerClientConfig) (*SiteManagerClient, erro
 }
 
 func (c *SiteManagerClient) do(ctx context.Context, method, path string, result interface{}) error {
+	var lastErr error
 	maxAttempts := c.maxRetries + 1
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
-		err := c.doOnce(ctx, method, path, result)
-		if err == nil {
+		lastErr = c.doOnce(ctx, method, path, result)
+		if lastErr == nil {
 			return nil
 		}
 
-		if attempt >= maxAttempts-1 {
-			return err
+		if !isRetryable(lastErr) {
+			return lastErr
 		}
 
-		if !isRetryable(err) {
-			return err
+		if attempt >= maxAttempts-1 {
+			break
 		}
 
 		wait := time.Duration(0)
 		var apiErr *APIError
-		if errors.As(err, &apiErr) && apiErr.StatusCode == 429 {
+		if errors.As(lastErr, &apiErr) && apiErr.StatusCode == 429 {
 			wait = parseRetryAfterHeader(apiErr.RetryAfterHeader)
 			if wait == 0 {
 				wait = parseRetryAfterBody(apiErr.Message)
 			}
 		}
 		wait = applyBackoffWithJitter(wait, attempt, c.maxRetryWait)
+
+		if c.Logger != nil {
+			c.Logger.Printf("retrying in %v (attempt %d/%d)", wait, attempt+1, c.maxRetries)
+		}
 
 		select {
 		case <-ctx.Done():
@@ -134,7 +138,7 @@ func (c *SiteManagerClient) do(ctx context.Context, method, path string, result 
 		}
 	}
 
-	return nil
+	return lastErr
 }
 
 func isRetryable(err error) bool {

@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -92,6 +93,19 @@ var _ NetworkManager = (*NetworkClient)(nil)
 // NetworkClient is a client for the UniFi Network API.
 // It uses session-based authentication (username/password) and provides
 // full CRUD operations for network configuration.
+//
+// # Session Management
+//
+// NetworkClient tracks login state locally via the IsLoggedIn method. However,
+// server-side sessions can expire independently due to:
+//   - Session timeout on the controller
+//   - Controller restart
+//   - Network interruption
+//   - Manual session invalidation
+//
+// When a session expires server-side, API calls will return ErrUnauthorized.
+// Callers should handle this by calling Login again to re-establish the session.
+// The SDK does not automatically re-authenticate to avoid masking auth issues.
 type NetworkClient struct {
 	BaseURL    string
 	Site       string
@@ -115,7 +129,7 @@ type NetworkClientConfig struct {
 	InsecureSkipVerify bool
 	Timeout            time.Duration
 	Logger             Logger
-	MaxRetries         int
+	MaxRetries         *int // nil = default (3), 0 = no retries
 	MaxRetryWait       time.Duration
 }
 
@@ -138,9 +152,9 @@ func NewNetworkClient(cfg NetworkClientConfig) (*NetworkClient, error) {
 		timeout = defaultTimeout
 	}
 
-	maxRetries := cfg.MaxRetries
-	if maxRetries == 0 {
-		maxRetries = defaultNetworkMaxRetries
+	maxRetries := defaultNetworkMaxRetries
+	if cfg.MaxRetries != nil {
+		maxRetries = *cfg.MaxRetries
 	}
 
 	maxRetryWait := cfg.MaxRetryWait
@@ -256,6 +270,9 @@ func (c *NetworkClient) Logout(ctx context.Context) error {
 	return nil
 }
 
+// IsLoggedIn returns whether Login has been called successfully.
+// Note: This only reflects local state. The server-side session may have
+// expired independently. See NetworkClient documentation for details.
 func (c *NetworkClient) IsLoggedIn() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -288,23 +305,32 @@ func (c *NetworkClient) do(ctx context.Context, method, path string, body interf
 		}
 	}
 
+	var lastErr error
 	maxAttempts := c.maxRetries + 1
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
-		err := c.doOnce(ctx, method, path, bodyBytes, result)
-		if err == nil {
+		lastErr = c.doOnce(ctx, method, path, bodyBytes, result)
+		if lastErr == nil {
 			return nil
 		}
 
+		if !isRetryable(lastErr) {
+			return lastErr
+		}
+
 		if attempt >= maxAttempts-1 {
-			return err
+			break
 		}
 
-		if !isRetryable(err) {
-			return err
+		wait := time.Duration(0)
+		var apiErr *APIError
+		if errors.As(lastErr, &apiErr) && apiErr.StatusCode == 429 {
+			wait = parseRetryAfterHeader(apiErr.RetryAfterHeader)
+			if wait == 0 {
+				wait = parseRetryAfterBody(apiErr.Message)
+			}
 		}
-
-		wait := applyBackoffWithJitter(0, attempt, c.maxRetryWait)
+		wait = applyBackoffWithJitter(wait, attempt, c.maxRetryWait)
 
 		if c.Logger != nil {
 			c.Logger.Printf("retrying in %v (attempt %d/%d)", wait, attempt+1, c.maxRetries)
@@ -317,7 +343,7 @@ func (c *NetworkClient) do(ctx context.Context, method, path string, body interf
 		}
 	}
 
-	return nil
+	return lastErr
 }
 
 func (c *NetworkClient) doOnce(ctx context.Context, method, path string, bodyBytes []byte, result interface{}) error {
