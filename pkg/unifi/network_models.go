@@ -389,3 +389,395 @@ type DynamicDNS struct {
 	Interface string `json:"interface,omitempty"`
 	Options   string `json:"options,omitempty"`
 }
+
+// FirewallPolicy represents a zone-based firewall policy (v2 API).
+//
+// Field value reference:
+//   - Action: "ALLOW", "BLOCK", "REJECT"
+//   - Protocol: "all", "tcp_udp", "tcp", "udp", "icmp", "icmpv6"
+//   - IPVersion: "BOTH", "IPV4", "IPV6"
+//   - ConnectionStateType: "ALL", "RESPOND_ONLY", "CUSTOM"
+//   - OriginType: "custom_firewall_rule", "port_forward"
+type FirewallPolicy struct {
+	ID                    string          `json:"_id,omitempty"`
+	Name                  string          `json:"name"`
+	Enabled               *bool           `json:"enabled,omitempty"`
+	Action                string          `json:"action,omitempty"`
+	Protocol              string          `json:"protocol,omitempty"`
+	IPVersion             string          `json:"ip_version,omitempty"`
+	Index                 *int            `json:"index,omitempty"`
+	Logging               *bool           `json:"logging,omitempty"`
+	Predefined            *bool           `json:"predefined,omitempty"`
+	ConnectionStateType   string          `json:"connection_state_type,omitempty"`
+	ConnectionStates      []string        `json:"connection_states,omitempty"`
+	CreateAllowRespond    *bool           `json:"create_allow_respond,omitempty"`
+	MatchIPSec            *bool           `json:"match_ip_sec,omitempty"`
+	MatchOppositeProtocol *bool           `json:"match_opposite_protocol,omitempty"`
+	ICMPTypename          string          `json:"icmp_typename,omitempty"`
+	ICMPV6Typename        string          `json:"icmp_v6_typename,omitempty"`
+	Schedule              *PolicySchedule `json:"schedule,omitempty"`
+	Source                *PolicyEndpoint `json:"source,omitempty"`
+	Destination           *PolicyEndpoint `json:"destination,omitempty"`
+	OriginID              string          `json:"origin_id,omitempty"`
+	OriginType            string          `json:"origin_type,omitempty"`
+}
+
+// PolicyEndpoint defines source or destination matching criteria for a firewall policy.
+//
+// Field value reference:
+//   - MatchingTarget: "ANY", "IP", "NETWORK", "DOMAIN", "REGION", "PORT_GROUP", "ADDRESS_GROUP"
+//   - MatchingTargetType: "SPECIFIC", "OBJECT"
+//   - PortMatchingType: "ANY", "SPECIFIC"
+type PolicyEndpoint struct {
+	ZoneID             string   `json:"zone_id,omitempty"`
+	MatchingTarget     string   `json:"matching_target,omitempty"`
+	MatchingTargetType string   `json:"matching_target_type,omitempty"`
+	IPs                []string `json:"ips,omitempty"`
+	MAC                string   `json:"mac,omitempty"`
+	MatchMAC           *bool    `json:"match_mac,omitempty"`
+	MatchOppositeIPs   *bool    `json:"match_opposite_ips,omitempty"`
+	Port               string   `json:"port,omitempty"`
+	PortMatchingType   string   `json:"port_matching_type,omitempty"`
+	MatchOppositePorts *bool    `json:"match_opposite_ports,omitempty"`
+	NetworkID          string   `json:"network_id,omitempty"`
+	ClientMACs         []string `json:"client_macs,omitempty"`
+}
+
+// PolicySchedule defines when a firewall policy is active.
+//
+// Field value reference:
+//   - Mode: "ALWAYS", "CUSTOM"
+//   - DaysOfWeek: "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"
+type PolicySchedule struct {
+	Mode           string   `json:"mode,omitempty"`
+	TimeRangeStart string   `json:"time_range_start,omitempty"`
+	TimeRangeEnd   string   `json:"time_range_end,omitempty"`
+	DaysOfWeek     []string `json:"days_of_week,omitempty"`
+}
+
+// FirewallZone represents a firewall zone (v2 API).
+//
+// Field value reference:
+//   - ZoneKey: "internal", "external", "gateway", "vpn", "hotspot", "dmz" (nil for custom zones)
+type FirewallZone struct {
+	ID          string   `json:"_id,omitempty"`
+	Name        string   `json:"name"`
+	ZoneKey     *string  `json:"zone_key,omitempty"`
+	DefaultZone *bool    `json:"default_zone,omitempty"`
+	AttrNoEdit  *bool    `json:"attr_no_edit,omitempty"`
+	NetworkIDs  []string `json:"network_ids,omitempty"`
+}
+
+// StaticDNS represents a static DNS record (v2 API).
+//
+// Field value reference:
+//   - RecordType: "A", "AAAA", "CNAME", "MX", "NS", "TXT", "SRV"
+type StaticDNS struct {
+	ID         string `json:"_id,omitempty"`
+	Key        string `json:"key,omitempty"`
+	Value      string `json:"value,omitempty"`
+	RecordType string `json:"record_type,omitempty"`
+	Enabled    *bool  `json:"enabled,omitempty"`
+	TTL        *int   `json:"ttl,omitempty"`
+	Port       *int   `json:"port,omitempty"`
+	Priority   *int   `json:"priority,omitempty"`
+	Weight     *int   `json:"weight,omitempty"`
+}
+
+// Client represents an active network client (v2 API, read-only).
+type Client struct {
+	ID                     string             `json:"id,omitempty"`
+	MAC                    string             `json:"mac,omitempty"`
+	DisplayName            string             `json:"display_name,omitempty"`
+	Status                 string             `json:"status,omitempty"`
+	Type                   string             `json:"type,omitempty"`
+	IsWired                *bool              `json:"is_wired,omitempty"`
+	IsGuest                *bool              `json:"is_guest,omitempty"`
+	Blocked                *bool              `json:"blocked,omitempty"`
+	NetworkID              string             `json:"network_id,omitempty"`
+	NetworkName            string             `json:"network_name,omitempty"`
+	LastIP                 string             `json:"last_ip,omitempty"`
+	VLAN                   *int               `json:"vlan,omitempty"`
+	OUI                    string             `json:"oui,omitempty"`
+	Uptime                 *int64             `json:"uptime,omitempty"`
+	FirstSeen              *int64             `json:"first_seen,omitempty"`
+	LastSeen               *int64             `json:"last_seen,omitempty"`
+	RxBytes                *int64             `json:"rx_bytes,omitempty"`
+	TxBytes                *int64             `json:"tx_bytes,omitempty"`
+	RxPackets              *int64             `json:"rx_packets,omitempty"`
+	TxPackets              *int64             `json:"tx_packets,omitempty"`
+	WiredRateMbps          *int               `json:"wired_rate_mbps,omitempty"`
+	WifiExperienceScore    *float64           `json:"wifi_experience_score,omitempty"`
+	Satisfaction           *float64           `json:"satisfaction,omitempty"`
+	UserID                 string             `json:"user_id,omitempty"`
+	UsergroupID            string             `json:"usergroup_id,omitempty"`
+	UseFixedIP             *bool              `json:"use_fixedip,omitempty"`
+	FixedIP                string             `json:"fixed_ip,omitempty"`
+	LocalDnsRecord         string             `json:"local_dns_record,omitempty"`
+	LocalDnsRecordEnabled  *bool              `json:"local_dns_record_enabled,omitempty"`
+	Noted                  *bool              `json:"noted,omitempty"`
+	Note                   string             `json:"note,omitempty"`
+	Fingerprint            *ClientFingerprint `json:"fingerprint,omitempty"`
+	LastUplinkMAC          string             `json:"last_uplink_mac,omitempty"`
+	LastUplinkName         string             `json:"last_uplink_name,omitempty"`
+	LastUplinkRemotePort   *int               `json:"last_uplink_remote_port,omitempty"`
+	SwPort                 *int               `json:"sw_port,omitempty"`
+	SiteID                 string             `json:"site_id,omitempty"`
+}
+
+// ClientFingerprint contains device identification data.
+type ClientFingerprint struct {
+	HasOverride     *bool `json:"has_override,omitempty"`
+	ComputedDevID   *int  `json:"computed_dev_id,omitempty"`
+	ComputedEngine  *int  `json:"computed_engine,omitempty"`
+}
+
+// DeviceList contains network devices organized by type (v2 API, read-only).
+type DeviceList struct {
+	NetworkDevices []NetworkDevice   `json:"network_devices,omitempty"`
+	AccessDevices  []json.RawMessage `json:"access_devices,omitempty"`
+	ProtectDevices []json.RawMessage `json:"protect_devices,omitempty"`
+}
+
+// NetworkDevice represents a UniFi network device (v2 API, read-only).
+//
+// Field value reference:
+//   - Type: "uap", "usw", "ugw", "uxg", "udm"
+//   - State: 0=offline, 1=connected, 2=pending
+type NetworkDevice struct {
+	ID                    string             `json:"_id,omitempty"`
+	MAC                   string             `json:"mac,omitempty"`
+	IP                    string             `json:"ip,omitempty"`
+	Name                  string             `json:"name,omitempty"`
+	Model                 string             `json:"model,omitempty"`
+	Type                  string             `json:"type,omitempty"`
+	Adopted               *bool              `json:"adopted,omitempty"`
+	State                 *int               `json:"state,omitempty"`
+	Version               string             `json:"version,omitempty"`
+	DisplayableVersion    string             `json:"displayable_version,omitempty"`
+	Upgradable            *bool              `json:"upgradable,omitempty"`
+	Uptime                *int64             `json:"uptime,omitempty"`
+	LastSeen              *int64             `json:"last_seen,omitempty"`
+	IsAccessPoint         *bool              `json:"is_access_point,omitempty"`
+	ProductLine           string             `json:"product_line,omitempty"`
+	NumSta                *int               `json:"num_sta,omitempty"`
+	Satisfaction          *float64           `json:"satisfaction,omitempty"`
+	ConnectionNetworkID   string             `json:"connection_network_id,omitempty"`
+	ConnectionNetworkName string             `json:"connection_network_name,omitempty"`
+	SystemStats           *DeviceSystemStats `json:"system-stats,omitempty"`
+	PortTable             []PortTableEntry   `json:"port_table,omitempty"`
+	RadioTable            []RadioTableEntry  `json:"radio_table,omitempty"`
+	VapTable              []VapTableEntry    `json:"vap_table,omitempty"`
+	Uplink                *DeviceUplink      `json:"uplink,omitempty"`
+}
+
+// DeviceSystemStats contains CPU and memory statistics for a device.
+type DeviceSystemStats struct {
+	CPU    *float64 `json:"cpu,omitempty"`
+	Mem    *float64 `json:"mem,omitempty"`
+	Uptime *int64   `json:"uptime,omitempty"`
+}
+
+// DeviceUplink contains information about a device's uplink connection.
+type DeviceUplink struct {
+	Type             string `json:"type,omitempty"`
+	Speed            *int   `json:"speed,omitempty"`
+	UplinkMAC        string `json:"uplink_mac,omitempty"`
+	UplinkDeviceName string `json:"uplink_device_name,omitempty"`
+	UplinkRemotePort *int   `json:"uplink_remote_port,omitempty"`
+}
+
+// PortTableEntry represents a switch port on a network device.
+//
+// Field value reference:
+//   - OpMode: "switch", "mirror", "aggregate"
+type PortTableEntry struct {
+	PortIdx      *int    `json:"port_idx,omitempty"`
+	Name         string  `json:"name,omitempty"`
+	Media        string  `json:"media,omitempty"`
+	Speed        *int    `json:"speed,omitempty"`
+	FullDuplex   *bool   `json:"full_duplex,omitempty"`
+	Up           *bool   `json:"up,omitempty"`
+	Enable       *bool   `json:"enable,omitempty"`
+	PoeEnable    *bool   `json:"poe_enable,omitempty"`
+	PoeCaps      *int    `json:"poe_caps,omitempty"`
+	RxBytes      *int64  `json:"rx_bytes,omitempty"`
+	TxBytes      *int64  `json:"tx_bytes,omitempty"`
+	Satisfaction *int    `json:"satisfaction,omitempty"`
+	IsUplink     *bool   `json:"is_uplink,omitempty"`
+	PortconfID   string  `json:"portconf_id,omitempty"`
+	OpMode       string  `json:"op_mode,omitempty"`
+}
+
+// RadioTableEntry represents a wireless radio on an access point.
+//
+// Field value reference:
+//   - Radio: "ng" (2.4GHz), "na" (5GHz), "6e" (6GHz)
+type RadioTableEntry struct {
+	Name        string `json:"name,omitempty"`
+	Radio       string `json:"radio,omitempty"`
+	Channel     *int   `json:"channel,omitempty"`
+	HT          *int   `json:"ht,omitempty"`
+	TxPowerMode string `json:"tx_power_mode,omitempty"`
+	MaxTxpower  *int   `json:"max_txpower,omitempty"`
+	MinTxpower  *int   `json:"min_txpower,omitempty"`
+	Is11ac      *bool  `json:"is_11ac,omitempty"`
+	Is11ax      *bool  `json:"is_11ax,omitempty"`
+	Is11be      *bool  `json:"is_11be,omitempty"`
+	HasDFS      *bool  `json:"has_dfs,omitempty"`
+	HasHT160    *bool  `json:"has_ht160,omitempty"`
+}
+
+// VapTableEntry represents a virtual access point (SSID) on a radio.
+type VapTableEntry struct {
+	Essid        string `json:"essid,omitempty"`
+	Bssid        string `json:"bssid,omitempty"`
+	Radio        string `json:"radio,omitempty"`
+	RadioName    string `json:"radio_name,omitempty"`
+	Channel      *int   `json:"channel,omitempty"`
+	BW           *int   `json:"bw,omitempty"`
+	IsGuest      *bool  `json:"is_guest,omitempty"`
+	NumSta       *int   `json:"num_sta,omitempty"`
+	RxBytes      *int64 `json:"rx_bytes,omitempty"`
+	TxBytes      *int64 `json:"tx_bytes,omitempty"`
+	Satisfaction *int   `json:"satisfaction,omitempty"`
+}
+
+// TrafficRule represents a traffic management rule (v2 API).
+//
+// Field value reference:
+//   - Action: "BLOCK", "ALLOW"
+//   - MatchingTarget: "INTERNET", "IP", "DOMAIN", "REGION", "APP"
+type TrafficRule struct {
+	ID               string              `json:"_id,omitempty"`
+	Name             string              `json:"name"`
+	Enabled          *bool               `json:"enabled,omitempty"`
+	Action           string              `json:"action,omitempty"`
+	MatchingTarget   string              `json:"matching_target,omitempty"`
+	TargetDevices    []TrafficRuleTarget `json:"target_devices,omitempty"`
+	Schedule         *PolicySchedule     `json:"schedule,omitempty"`
+	Description      string              `json:"description,omitempty"`
+	AppCategoryIDs   []string            `json:"app_category_ids,omitempty"`
+	AppIDs           []int               `json:"app_ids,omitempty"`
+	Domains          []string            `json:"domains,omitempty"`
+	IPAddresses      []string            `json:"ip_addresses,omitempty"`
+	IPRanges         []string            `json:"ip_ranges,omitempty"`
+	Regions          []string            `json:"regions,omitempty"`
+	NetworkID        string              `json:"network_id,omitempty"`
+	BandwidthLimit   *TrafficBandwidth   `json:"bandwidth_limit,omitempty"`
+}
+
+// TrafficRuleTarget specifies a device target for a traffic rule.
+type TrafficRuleTarget struct {
+	ClientMAC string `json:"client_mac,omitempty"`
+	Type      string `json:"type,omitempty"`
+	NetworkID string `json:"network_id,omitempty"`
+}
+
+// TrafficBandwidth specifies bandwidth limits for a traffic rule.
+type TrafficBandwidth struct {
+	DownloadLimitKbps *int  `json:"download_limit_kbps,omitempty"`
+	UploadLimitKbps   *int  `json:"upload_limit_kbps,omitempty"`
+	Enabled           *bool `json:"enabled,omitempty"`
+}
+
+// TrafficRoute represents a policy-based routing rule (v2 API).
+//
+// Field value reference:
+//   - MatchingTarget: "INTERNET", "IP", "DOMAIN", "REGION", "APP"
+//   - TargetDevice: "ALL_CLIENTS", "SPECIFIC_CLIENTS"
+type TrafficRoute struct {
+	ID             string              `json:"_id,omitempty"`
+	Name           string              `json:"name"`
+	Enabled        *bool               `json:"enabled,omitempty"`
+	Description    string              `json:"description,omitempty"`
+	MatchingTarget string              `json:"matching_target,omitempty"`
+	TargetDevices  []TrafficRuleTarget `json:"target_devices,omitempty"`
+	NetworkID      string              `json:"network_id,omitempty"`
+	Domains        []string            `json:"domains,omitempty"`
+	IPAddresses    []string            `json:"ip_addresses,omitempty"`
+	IPRanges       []string            `json:"ip_ranges,omitempty"`
+	Regions        []string            `json:"regions,omitempty"`
+	Fallback       *bool               `json:"fallback,omitempty"`
+	KillSwitch     *bool               `json:"kill_switch,omitempty"`
+}
+
+// NatRule represents a NAT rule (v2 API).
+//
+// Field value reference:
+//   - Type: "SOURCE", "DESTINATION", "MASQUERADE"
+//   - Protocol: "all", "tcp", "udp", "tcp_udp"
+type NatRule struct {
+	ID               string            `json:"_id,omitempty"`
+	Name             string            `json:"name"`
+	Enabled          *bool             `json:"enabled,omitempty"`
+	Type             string            `json:"type,omitempty"`
+	Description      string            `json:"description,omitempty"`
+	Protocol         string            `json:"protocol,omitempty"`
+	WanInterface     string            `json:"wan_interface,omitempty"`
+	SourceAddress    string            `json:"source_address,omitempty"`
+	SourcePort       string            `json:"source_port,omitempty"`
+	DestAddress      string            `json:"dest_address,omitempty"`
+	DestPort         string            `json:"dest_port,omitempty"`
+	TranslatedIP     string            `json:"translated_ip,omitempty"`
+	TranslatedPort   string            `json:"translated_port,omitempty"`
+	Logging          *bool             `json:"logging,omitempty"`
+}
+
+// AclRule represents an access control list rule (v2 API, read-only).
+type AclRule struct {
+	ID          string `json:"_id,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Enabled     *bool  `json:"enabled,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+// QosRule represents a quality of service rule (v2 API, read-only).
+type QosRule struct {
+	ID          string `json:"_id,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Enabled     *bool  `json:"enabled,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+// ContentFiltering represents content filtering configuration (v2 API, read-only).
+type ContentFiltering struct {
+	Enabled           *bool    `json:"enabled,omitempty"`
+	BlockedCategories []string `json:"blocked_categories,omitempty"`
+	AllowedDomains    []string `json:"allowed_domains,omitempty"`
+	BlockedDomains    []string `json:"blocked_domains,omitempty"`
+}
+
+// VpnConnection represents a VPN tunnel connection status (v2 API, read-only).
+//
+// Field value reference:
+//   - Type: "site-to-site", "remote-user"
+//   - Status: "connected", "disconnected"
+type VpnConnection struct {
+	ID              string `json:"_id,omitempty"`
+	Name            string `json:"name,omitempty"`
+	Type            string `json:"type,omitempty"`
+	Status          string `json:"status,omitempty"`
+	LocalIP         string `json:"local_ip,omitempty"`
+	RemoteIP        string `json:"remote_ip,omitempty"`
+	RemoteNetwork   string `json:"remote_network,omitempty"`
+	BytesIn         *int64 `json:"bytes_in,omitempty"`
+	BytesOut        *int64 `json:"bytes_out,omitempty"`
+	ConnectedSince  *int64 `json:"connected_since,omitempty"`
+}
+
+// VpnConnectionList wraps the VPN connections response.
+type VpnConnectionList struct {
+	Connections []VpnConnection `json:"connections,omitempty"`
+}
+
+// WanSla represents a WAN SLA monitoring configuration (v2 API, read-only).
+type WanSla struct {
+	ID                  string   `json:"_id,omitempty"`
+	Name                string   `json:"name,omitempty"`
+	Enabled             *bool    `json:"enabled,omitempty"`
+	Interface           string   `json:"interface,omitempty"`
+	Target              string   `json:"target,omitempty"`
+	ThresholdLatency    *int     `json:"threshold_latency,omitempty"`
+	ThresholdPacketLoss *float64 `json:"threshold_packet_loss,omitempty"`
+}

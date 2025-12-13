@@ -27,65 +27,132 @@ type NetworkManager interface {
 	Logout(ctx context.Context) error
 	IsLoggedIn() bool
 
+	// Legacy REST API - Networks
 	ListNetworks(ctx context.Context) ([]Network, error)
 	GetNetwork(ctx context.Context, id string) (*Network, error)
 	CreateNetwork(ctx context.Context, network *Network) (*Network, error)
 	UpdateNetwork(ctx context.Context, id string, network *Network) (*Network, error)
 	DeleteNetwork(ctx context.Context, id string) error
 
+	// Legacy REST API - Firewall Rules
 	ListFirewallRules(ctx context.Context) ([]FirewallRule, error)
 	GetFirewallRule(ctx context.Context, id string) (*FirewallRule, error)
 	CreateFirewallRule(ctx context.Context, rule *FirewallRule) (*FirewallRule, error)
 	UpdateFirewallRule(ctx context.Context, id string, rule *FirewallRule) (*FirewallRule, error)
 	DeleteFirewallRule(ctx context.Context, id string) error
 
+	// Legacy REST API - Firewall Groups
 	ListFirewallGroups(ctx context.Context) ([]FirewallGroup, error)
 	GetFirewallGroup(ctx context.Context, id string) (*FirewallGroup, error)
 	CreateFirewallGroup(ctx context.Context, group *FirewallGroup) (*FirewallGroup, error)
 	UpdateFirewallGroup(ctx context.Context, id string, group *FirewallGroup) (*FirewallGroup, error)
 	DeleteFirewallGroup(ctx context.Context, id string) error
 
+	// Legacy REST API - Port Forwards
 	ListPortForwards(ctx context.Context) ([]PortForward, error)
 	GetPortForward(ctx context.Context, id string) (*PortForward, error)
 	CreatePortForward(ctx context.Context, forward *PortForward) (*PortForward, error)
 	UpdatePortForward(ctx context.Context, id string, forward *PortForward) (*PortForward, error)
 	DeletePortForward(ctx context.Context, id string) error
 
+	// Legacy REST API - WLANs
 	ListWLANs(ctx context.Context) ([]WLANConf, error)
 	GetWLAN(ctx context.Context, id string) (*WLANConf, error)
 	CreateWLAN(ctx context.Context, wlan *WLANConf) (*WLANConf, error)
 	UpdateWLAN(ctx context.Context, id string, wlan *WLANConf) (*WLANConf, error)
 	DeleteWLAN(ctx context.Context, id string) error
 
+	// Legacy REST API - Port Profiles
 	ListPortConfs(ctx context.Context) ([]PortConf, error)
 	GetPortConf(ctx context.Context, id string) (*PortConf, error)
 	CreatePortConf(ctx context.Context, portconf *PortConf) (*PortConf, error)
 	UpdatePortConf(ctx context.Context, id string, portconf *PortConf) (*PortConf, error)
 	DeletePortConf(ctx context.Context, id string) error
 
+	// Legacy REST API - Static Routes
 	ListRoutes(ctx context.Context) ([]Routing, error)
 	GetRoute(ctx context.Context, id string) (*Routing, error)
 	CreateRoute(ctx context.Context, route *Routing) (*Routing, error)
 	UpdateRoute(ctx context.Context, id string, route *Routing) (*Routing, error)
 	DeleteRoute(ctx context.Context, id string) error
 
+	// Legacy REST API - User Groups
 	ListUserGroups(ctx context.Context) ([]UserGroup, error)
 	GetUserGroup(ctx context.Context, id string) (*UserGroup, error)
 	CreateUserGroup(ctx context.Context, group *UserGroup) (*UserGroup, error)
 	UpdateUserGroup(ctx context.Context, id string, group *UserGroup) (*UserGroup, error)
 	DeleteUserGroup(ctx context.Context, id string) error
 
+	// Legacy REST API - RADIUS Profiles
 	ListRADIUSProfiles(ctx context.Context) ([]RADIUSProfile, error)
 	GetRADIUSProfile(ctx context.Context, id string) (*RADIUSProfile, error)
 	CreateRADIUSProfile(ctx context.Context, profile *RADIUSProfile) (*RADIUSProfile, error)
 	UpdateRADIUSProfile(ctx context.Context, id string, profile *RADIUSProfile) (*RADIUSProfile, error)
 	DeleteRADIUSProfile(ctx context.Context, id string) error
 
+	// Legacy REST API - Dynamic DNS
 	ListDynamicDNS(ctx context.Context) ([]DynamicDNS, error)
 	GetDynamicDNS(ctx context.Context, id string) (*DynamicDNS, error)
 	CreateDynamicDNS(ctx context.Context, config *DynamicDNS) (*DynamicDNS, error)
 	UpdateDynamicDNS(ctx context.Context, id string, config *DynamicDNS) (*DynamicDNS, error)
 	DeleteDynamicDNS(ctx context.Context, id string) error
+
+	// v2 API - Firewall Policies (zone-based firewall)
+	ListFirewallPolicies(ctx context.Context) ([]FirewallPolicy, error)
+	GetFirewallPolicy(ctx context.Context, id string) (*FirewallPolicy, error)
+	CreateFirewallPolicy(ctx context.Context, policy *FirewallPolicy) (*FirewallPolicy, error)
+	UpdateFirewallPolicy(ctx context.Context, id string, policy *FirewallPolicy) (*FirewallPolicy, error)
+	DeleteFirewallPolicy(ctx context.Context, id string) error
+
+	// v2 API - Firewall Zones
+	ListFirewallZones(ctx context.Context) ([]FirewallZone, error)
+	GetFirewallZone(ctx context.Context, id string) (*FirewallZone, error)
+	CreateFirewallZone(ctx context.Context, zone *FirewallZone) (*FirewallZone, error)
+	UpdateFirewallZone(ctx context.Context, id string, zone *FirewallZone) (*FirewallZone, error)
+	DeleteFirewallZone(ctx context.Context, id string) error
+
+	// v2 API - Static DNS
+	ListStaticDNS(ctx context.Context) ([]StaticDNS, error)
+	GetStaticDNS(ctx context.Context, id string) (*StaticDNS, error)
+	CreateStaticDNS(ctx context.Context, record *StaticDNS) (*StaticDNS, error)
+	UpdateStaticDNS(ctx context.Context, id string, record *StaticDNS) (*StaticDNS, error)
+	DeleteStaticDNS(ctx context.Context, id string) error
+
+	// v2 API - Clients (read-only)
+	ListActiveClients(ctx context.Context) ([]Client, error)
+
+	// v2 API - Devices (read-only)
+	ListNetworkDevices(ctx context.Context) (*DeviceList, error)
+
+	// v2 API - Traffic Rules
+	ListTrafficRules(ctx context.Context) ([]TrafficRule, error)
+	GetTrafficRule(ctx context.Context, id string) (*TrafficRule, error)
+	CreateTrafficRule(ctx context.Context, rule *TrafficRule) (*TrafficRule, error)
+	UpdateTrafficRule(ctx context.Context, id string, rule *TrafficRule) (*TrafficRule, error)
+	DeleteTrafficRule(ctx context.Context, id string) error
+
+	// v2 API - Traffic Routes (policy-based routing)
+	ListTrafficRoutes(ctx context.Context) ([]TrafficRoute, error)
+	GetTrafficRoute(ctx context.Context, id string) (*TrafficRoute, error)
+	CreateTrafficRoute(ctx context.Context, route *TrafficRoute) (*TrafficRoute, error)
+	UpdateTrafficRoute(ctx context.Context, id string, route *TrafficRoute) (*TrafficRoute, error)
+	DeleteTrafficRoute(ctx context.Context, id string) error
+
+	// v2 API - NAT Rules
+	ListNatRules(ctx context.Context) ([]NatRule, error)
+	GetNatRule(ctx context.Context, id string) (*NatRule, error)
+	CreateNatRule(ctx context.Context, rule *NatRule) (*NatRule, error)
+	UpdateNatRule(ctx context.Context, id string, rule *NatRule) (*NatRule, error)
+	DeleteNatRule(ctx context.Context, id string) error
+
+	// v2 API - ACL/QoS/Content Filtering (read-only)
+	ListAclRules(ctx context.Context) ([]AclRule, error)
+	ListQosRules(ctx context.Context) ([]QosRule, error)
+	GetContentFiltering(ctx context.Context) (*ContentFiltering, error)
+
+	// v2 API - VPN/WAN (read-only)
+	ListVpnConnections(ctx context.Context) ([]VpnConnection, error)
+	ListWanSlas(ctx context.Context) ([]WanSla, error)
 }
 
 var _ NetworkManager = (*NetworkClient)(nil)
@@ -106,6 +173,13 @@ var _ NetworkManager = (*NetworkClient)(nil)
 // When a session expires server-side, API calls will return ErrUnauthorized.
 // Callers should handle this by calling Login again to re-establish the session.
 // The SDK does not automatically re-authenticate to avoid masking auth issues.
+//
+// # Credential Storage
+//
+// Credentials are stored in memory for the client's lifetime to enable
+// re-authentication when sessions expire. This is standard practice for
+// session-based SDKs and is appropriate for typical usage patterns like
+// Terraform providers where the process is short-lived.
 type NetworkClient struct {
 	BaseURL    string
 	Site       string
@@ -189,6 +263,11 @@ func NewNetworkClient(cfg NetworkClientConfig) (*NetworkClient, error) {
 	}, nil
 }
 
+// Login authenticates with the UniFi controller using the configured credentials.
+// On success, a session cookie is stored in the HTTP client's cookie jar.
+//
+// Login can be called multiple times safely to re-establish an expired session.
+// If API calls return ErrUnauthorized, call Login again to refresh the session.
 func (c *NetworkClient) Login(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -235,6 +314,8 @@ func (c *NetworkClient) Login(ctx context.Context) error {
 	return nil
 }
 
+// Logout ends the current session with the UniFi controller.
+// It is safe to call even if not currently logged in (no-op in that case).
 func (c *NetworkClient) Logout(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -288,28 +369,51 @@ type networkAPIResponse struct {
 }
 
 func (c *NetworkClient) do(ctx context.Context, method, path string, body interface{}, result interface{}) error {
+	bodyBytes, err := c.prepareRequest(body)
+	if err != nil {
+		return err
+	}
+	return c.executeWithRetry(ctx, func() error {
+		return c.doOnce(ctx, method, path, bodyBytes, result)
+	})
+}
+
+func (c *NetworkClient) doV2(ctx context.Context, method, path string, body interface{}, result interface{}) error {
+	bodyBytes, err := c.prepareRequest(body)
+	if err != nil {
+		return err
+	}
+	return c.executeWithRetry(ctx, func() error {
+		return c.doV2Once(ctx, method, path, bodyBytes, result)
+	})
+}
+
+func (c *NetworkClient) prepareRequest(body interface{}) ([]byte, error) {
 	c.mu.RLock()
 	loggedIn := c.loggedIn
 	c.mu.RUnlock()
 
 	if !loggedIn {
-		return fmt.Errorf("not logged in: call Login() first")
+		return nil, fmt.Errorf("not logged in: call Login() first")
 	}
 
-	var bodyBytes []byte
-	if body != nil {
-		var err error
-		bodyBytes, err = json.Marshal(body)
-		if err != nil {
-			return fmt.Errorf("marshaling request body: %w", err)
-		}
+	if body == nil {
+		return nil, nil
 	}
 
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling request body: %w", err)
+	}
+	return bodyBytes, nil
+}
+
+func (c *NetworkClient) executeWithRetry(ctx context.Context, fn func() error) error {
 	var lastErr error
 	maxAttempts := c.maxRetries + 1
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
-		lastErr = c.doOnce(ctx, method, path, bodyBytes, result)
+		lastErr = fn()
 		if lastErr == nil {
 			return nil
 		}
@@ -344,6 +448,56 @@ func (c *NetworkClient) do(ctx context.Context, method, path string, body interf
 	}
 
 	return lastErr
+}
+
+func (c *NetworkClient) doV2Once(ctx context.Context, method, path string, bodyBytes []byte, result interface{}) error {
+	reqURL := c.BaseURL + path
+
+	var bodyReader io.Reader
+	if bodyBytes != nil {
+		bodyReader = bytes.NewReader(bodyBytes)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, reqURL, bodyReader)
+	if err != nil {
+		return fmt.Errorf("creating request: %w", err)
+	}
+
+	req.Header.Set("Accept", "application/json")
+	if bodyBytes != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	if c.Logger != nil {
+		c.Logger.Printf("-> %s %s", method, reqURL)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		if c.Logger != nil {
+			c.Logger.Printf("<- error: %v", err)
+		}
+		return fmt.Errorf("executing request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if c.Logger != nil {
+		c.Logger.Printf("<- %d %s", resp.StatusCode, resp.Status)
+	}
+
+	if resp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodySize))
+		return c.parseErrorResponse(resp.StatusCode, respBody)
+	}
+
+	if result != nil {
+		limitedBody := io.LimitReader(resp.Body, maxResponseBodySize)
+		if err := json.NewDecoder(limitedBody).Decode(result); err != nil {
+			return fmt.Errorf("decoding response: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (c *NetworkClient) doOnce(ctx context.Context, method, path string, bodyBytes []byte, result interface{}) error {
@@ -423,6 +577,14 @@ func (c *NetworkClient) restPath(endpoint string) string {
 
 func (c *NetworkClient) restPathWithID(endpoint, id string) string {
 	return c.restPath(endpoint) + "/" + url.PathEscape(id)
+}
+
+func (c *NetworkClient) v2Path(endpoint string) string {
+	return "/proxy/network/v2/api/site/" + url.PathEscape(c.Site) + "/" + endpoint
+}
+
+func (c *NetworkClient) v2PathWithID(endpoint, id string) string {
+	return c.v2Path(endpoint) + "/" + url.PathEscape(id)
 }
 
 // Network CRUD operations
@@ -953,4 +1115,351 @@ func (c *NetworkClient) UpdateDynamicDNS(ctx context.Context, id string, config 
 
 func (c *NetworkClient) DeleteDynamicDNS(ctx context.Context, id string) error {
 	return c.do(ctx, "DELETE", c.restPathWithID("dynamicdns", id), nil, nil)
+}
+
+// FirewallPolicy CRUD operations (v2 API)
+
+func (c *NetworkClient) ListFirewallPolicies(ctx context.Context) ([]FirewallPolicy, error) {
+	var policies []FirewallPolicy
+	err := c.doV2(ctx, "GET", c.v2Path("firewall-policies"), nil, &policies)
+	if err != nil {
+		return nil, err
+	}
+	return policies, nil
+}
+
+func (c *NetworkClient) GetFirewallPolicy(ctx context.Context, id string) (*FirewallPolicy, error) {
+	var policy FirewallPolicy
+	err := c.doV2(ctx, "GET", c.v2PathWithID("firewall-policies", id), nil, &policy)
+	if err != nil {
+		return nil, err
+	}
+	if policy.ID == "" {
+		return nil, ErrNotFound
+	}
+	return &policy, nil
+}
+
+func (c *NetworkClient) CreateFirewallPolicy(ctx context.Context, policy *FirewallPolicy) (*FirewallPolicy, error) {
+	var result FirewallPolicy
+	err := c.doV2(ctx, "POST", c.v2Path("firewall-policies"), policy, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *NetworkClient) UpdateFirewallPolicy(ctx context.Context, id string, policy *FirewallPolicy) (*FirewallPolicy, error) {
+	var result FirewallPolicy
+	err := c.doV2(ctx, "PUT", c.v2PathWithID("firewall-policies", id), policy, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *NetworkClient) DeleteFirewallPolicy(ctx context.Context, id string) error {
+	return c.doV2(ctx, "DELETE", c.v2PathWithID("firewall-policies", id), nil, nil)
+}
+
+// FirewallZone CRUD operations (v2 API)
+
+func (c *NetworkClient) ListFirewallZones(ctx context.Context) ([]FirewallZone, error) {
+	var zones []FirewallZone
+	err := c.doV2(ctx, "GET", c.v2Path("firewall/zone"), nil, &zones)
+	if err != nil {
+		return nil, err
+	}
+	return zones, nil
+}
+
+func (c *NetworkClient) GetFirewallZone(ctx context.Context, id string) (*FirewallZone, error) {
+	var zone FirewallZone
+	err := c.doV2(ctx, "GET", c.v2PathWithID("firewall/zone", id), nil, &zone)
+	if err != nil {
+		return nil, err
+	}
+	if zone.ID == "" {
+		return nil, ErrNotFound
+	}
+	return &zone, nil
+}
+
+func (c *NetworkClient) CreateFirewallZone(ctx context.Context, zone *FirewallZone) (*FirewallZone, error) {
+	var result FirewallZone
+	err := c.doV2(ctx, "POST", c.v2Path("firewall/zone"), zone, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *NetworkClient) UpdateFirewallZone(ctx context.Context, id string, zone *FirewallZone) (*FirewallZone, error) {
+	var result FirewallZone
+	err := c.doV2(ctx, "PUT", c.v2PathWithID("firewall/zone", id), zone, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *NetworkClient) DeleteFirewallZone(ctx context.Context, id string) error {
+	return c.doV2(ctx, "DELETE", c.v2PathWithID("firewall/zone", id), nil, nil)
+}
+
+// StaticDNS CRUD operations (v2 API)
+
+func (c *NetworkClient) ListStaticDNS(ctx context.Context) ([]StaticDNS, error) {
+	var records []StaticDNS
+	err := c.doV2(ctx, "GET", c.v2Path("static-dns"), nil, &records)
+	if err != nil {
+		return nil, err
+	}
+	return records, nil
+}
+
+func (c *NetworkClient) GetStaticDNS(ctx context.Context, id string) (*StaticDNS, error) {
+	var record StaticDNS
+	err := c.doV2(ctx, "GET", c.v2PathWithID("static-dns", id), nil, &record)
+	if err != nil {
+		return nil, err
+	}
+	if record.ID == "" {
+		return nil, ErrNotFound
+	}
+	return &record, nil
+}
+
+func (c *NetworkClient) CreateStaticDNS(ctx context.Context, record *StaticDNS) (*StaticDNS, error) {
+	var result StaticDNS
+	err := c.doV2(ctx, "POST", c.v2Path("static-dns"), record, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *NetworkClient) UpdateStaticDNS(ctx context.Context, id string, record *StaticDNS) (*StaticDNS, error) {
+	var result StaticDNS
+	err := c.doV2(ctx, "PUT", c.v2PathWithID("static-dns", id), record, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *NetworkClient) DeleteStaticDNS(ctx context.Context, id string) error {
+	return c.doV2(ctx, "DELETE", c.v2PathWithID("static-dns", id), nil, nil)
+}
+
+// Client operations (v2 API, read-only)
+
+func (c *NetworkClient) ListActiveClients(ctx context.Context) ([]Client, error) {
+	var clients []Client
+	err := c.doV2(ctx, "GET", c.v2Path("clients/active"), nil, &clients)
+	if err != nil {
+		return nil, err
+	}
+	return clients, nil
+}
+
+// Device operations (v2 API, read-only)
+
+func (c *NetworkClient) ListNetworkDevices(ctx context.Context) (*DeviceList, error) {
+	var devices DeviceList
+	err := c.doV2(ctx, "GET", c.v2Path("device"), nil, &devices)
+	if err != nil {
+		return nil, err
+	}
+	return &devices, nil
+}
+
+// TrafficRule CRUD operations (v2 API)
+
+func (c *NetworkClient) ListTrafficRules(ctx context.Context) ([]TrafficRule, error) {
+	var rules []TrafficRule
+	err := c.doV2(ctx, "GET", c.v2Path("trafficrules"), nil, &rules)
+	if err != nil {
+		return nil, err
+	}
+	return rules, nil
+}
+
+func (c *NetworkClient) GetTrafficRule(ctx context.Context, id string) (*TrafficRule, error) {
+	var rule TrafficRule
+	err := c.doV2(ctx, "GET", c.v2PathWithID("trafficrules", id), nil, &rule)
+	if err != nil {
+		return nil, err
+	}
+	if rule.ID == "" {
+		return nil, ErrNotFound
+	}
+	return &rule, nil
+}
+
+func (c *NetworkClient) CreateTrafficRule(ctx context.Context, rule *TrafficRule) (*TrafficRule, error) {
+	var result TrafficRule
+	err := c.doV2(ctx, "POST", c.v2Path("trafficrules"), rule, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *NetworkClient) UpdateTrafficRule(ctx context.Context, id string, rule *TrafficRule) (*TrafficRule, error) {
+	var result TrafficRule
+	err := c.doV2(ctx, "PUT", c.v2PathWithID("trafficrules", id), rule, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *NetworkClient) DeleteTrafficRule(ctx context.Context, id string) error {
+	return c.doV2(ctx, "DELETE", c.v2PathWithID("trafficrules", id), nil, nil)
+}
+
+// TrafficRoute CRUD operations (v2 API)
+
+func (c *NetworkClient) ListTrafficRoutes(ctx context.Context) ([]TrafficRoute, error) {
+	var routes []TrafficRoute
+	err := c.doV2(ctx, "GET", c.v2Path("trafficroutes"), nil, &routes)
+	if err != nil {
+		return nil, err
+	}
+	return routes, nil
+}
+
+func (c *NetworkClient) GetTrafficRoute(ctx context.Context, id string) (*TrafficRoute, error) {
+	var route TrafficRoute
+	err := c.doV2(ctx, "GET", c.v2PathWithID("trafficroutes", id), nil, &route)
+	if err != nil {
+		return nil, err
+	}
+	if route.ID == "" {
+		return nil, ErrNotFound
+	}
+	return &route, nil
+}
+
+func (c *NetworkClient) CreateTrafficRoute(ctx context.Context, route *TrafficRoute) (*TrafficRoute, error) {
+	var result TrafficRoute
+	err := c.doV2(ctx, "POST", c.v2Path("trafficroutes"), route, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *NetworkClient) UpdateTrafficRoute(ctx context.Context, id string, route *TrafficRoute) (*TrafficRoute, error) {
+	var result TrafficRoute
+	err := c.doV2(ctx, "PUT", c.v2PathWithID("trafficroutes", id), route, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *NetworkClient) DeleteTrafficRoute(ctx context.Context, id string) error {
+	return c.doV2(ctx, "DELETE", c.v2PathWithID("trafficroutes", id), nil, nil)
+}
+
+// NatRule CRUD operations (v2 API)
+
+func (c *NetworkClient) ListNatRules(ctx context.Context) ([]NatRule, error) {
+	var rules []NatRule
+	err := c.doV2(ctx, "GET", c.v2Path("nat"), nil, &rules)
+	if err != nil {
+		return nil, err
+	}
+	return rules, nil
+}
+
+func (c *NetworkClient) GetNatRule(ctx context.Context, id string) (*NatRule, error) {
+	var rule NatRule
+	err := c.doV2(ctx, "GET", c.v2PathWithID("nat", id), nil, &rule)
+	if err != nil {
+		return nil, err
+	}
+	if rule.ID == "" {
+		return nil, ErrNotFound
+	}
+	return &rule, nil
+}
+
+func (c *NetworkClient) CreateNatRule(ctx context.Context, rule *NatRule) (*NatRule, error) {
+	var result NatRule
+	err := c.doV2(ctx, "POST", c.v2Path("nat"), rule, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *NetworkClient) UpdateNatRule(ctx context.Context, id string, rule *NatRule) (*NatRule, error) {
+	var result NatRule
+	err := c.doV2(ctx, "PUT", c.v2PathWithID("nat", id), rule, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *NetworkClient) DeleteNatRule(ctx context.Context, id string) error {
+	return c.doV2(ctx, "DELETE", c.v2PathWithID("nat", id), nil, nil)
+}
+
+// AclRule operations (v2 API, read-only)
+
+func (c *NetworkClient) ListAclRules(ctx context.Context) ([]AclRule, error) {
+	var rules []AclRule
+	err := c.doV2(ctx, "GET", c.v2Path("acl-rules"), nil, &rules)
+	if err != nil {
+		return nil, err
+	}
+	return rules, nil
+}
+
+// QosRule operations (v2 API, read-only)
+
+func (c *NetworkClient) ListQosRules(ctx context.Context) ([]QosRule, error) {
+	var rules []QosRule
+	err := c.doV2(ctx, "GET", c.v2Path("qos-rules"), nil, &rules)
+	if err != nil {
+		return nil, err
+	}
+	return rules, nil
+}
+
+// ContentFiltering operations (v2 API, read-only)
+
+func (c *NetworkClient) GetContentFiltering(ctx context.Context) (*ContentFiltering, error) {
+	var config ContentFiltering
+	err := c.doV2(ctx, "GET", c.v2Path("content-filtering"), nil, &config)
+	if err != nil {
+		return nil, err
+	}
+	return &config, nil
+}
+
+// VPN operations (v2 API, read-only)
+
+func (c *NetworkClient) ListVpnConnections(ctx context.Context) ([]VpnConnection, error) {
+	var result VpnConnectionList
+	err := c.doV2(ctx, "GET", c.v2Path("vpn/connections"), nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	return result.Connections, nil
+}
+
+// WAN SLA operations (v2 API, read-only)
+
+func (c *NetworkClient) ListWanSlas(ctx context.Context) ([]WanSla, error) {
+	var slas []WanSla
+	err := c.doV2(ctx, "GET", c.v2Path("wan-slas"), nil, &slas)
+	if err != nil {
+		return nil, err
+	}
+	return slas, nil
 }
