@@ -368,7 +368,7 @@ type networkAPIResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
-func (c *NetworkClient) do(ctx context.Context, method, path string, body interface{}, result interface{}) error {
+func (c *NetworkClient) do(ctx context.Context, method, path string, body any, result any) error {
 	bodyBytes, err := c.prepareRequest(body)
 	if err != nil {
 		return err
@@ -378,7 +378,7 @@ func (c *NetworkClient) do(ctx context.Context, method, path string, body interf
 	})
 }
 
-func (c *NetworkClient) doV2(ctx context.Context, method, path string, body interface{}, result interface{}) error {
+func (c *NetworkClient) doV2(ctx context.Context, method, path string, body any, result any) error {
 	bodyBytes, err := c.prepareRequest(body)
 	if err != nil {
 		return err
@@ -388,7 +388,7 @@ func (c *NetworkClient) doV2(ctx context.Context, method, path string, body inte
 	})
 }
 
-func (c *NetworkClient) prepareRequest(body interface{}) ([]byte, error) {
+func (c *NetworkClient) prepareRequest(body any) ([]byte, error) {
 	c.mu.RLock()
 	loggedIn := c.loggedIn
 	c.mu.RUnlock()
@@ -412,7 +412,7 @@ func (c *NetworkClient) executeWithRetry(ctx context.Context, fn func() error) e
 	var lastErr error
 	maxAttempts := c.maxRetries + 1
 
-	for attempt := 0; attempt < maxAttempts; attempt++ {
+	for attempt := range maxAttempts {
 		lastErr = fn()
 		if lastErr == nil {
 			return nil
@@ -450,7 +450,7 @@ func (c *NetworkClient) executeWithRetry(ctx context.Context, fn func() error) e
 	return lastErr
 }
 
-func (c *NetworkClient) doV2Once(ctx context.Context, method, path string, bodyBytes []byte, result interface{}) error {
+func (c *NetworkClient) doV2Once(ctx context.Context, method, path string, bodyBytes []byte, result any) error {
 	reqURL := c.BaseURL + path
 
 	var bodyReader io.Reader
@@ -500,7 +500,7 @@ func (c *NetworkClient) doV2Once(ctx context.Context, method, path string, bodyB
 	return nil
 }
 
-func (c *NetworkClient) doOnce(ctx context.Context, method, path string, bodyBytes []byte, result interface{}) error {
+func (c *NetworkClient) doOnce(ctx context.Context, method, path string, bodyBytes []byte, result any) error {
 	reqURL := c.BaseURL + path
 
 	var bodyReader io.Reader

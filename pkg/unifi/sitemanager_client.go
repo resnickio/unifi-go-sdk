@@ -100,11 +100,11 @@ func NewSiteManagerClient(cfg SiteManagerClientConfig) (*SiteManagerClient, erro
 	}, nil
 }
 
-func (c *SiteManagerClient) do(ctx context.Context, method, path string, result interface{}) error {
+func (c *SiteManagerClient) do(ctx context.Context, method, path string, result any) error {
 	var lastErr error
 	maxAttempts := c.maxRetries + 1
 
-	for attempt := 0; attempt < maxAttempts; attempt++ {
+	for attempt := range maxAttempts {
 		lastErr = c.doOnce(ctx, method, path, result)
 		if lastErr == nil {
 			return nil
@@ -186,7 +186,7 @@ func applyBackoffWithJitter(serverWait time.Duration, attempt int, maxWait time.
 	return wait
 }
 
-func (c *SiteManagerClient) doOnce(ctx context.Context, method, path string, result interface{}) error {
+func (c *SiteManagerClient) doOnce(ctx context.Context, method, path string, result any) error {
 	reqURL := c.BaseURL + path
 
 	req, err := http.NewRequestWithContext(ctx, method, reqURL, nil)
