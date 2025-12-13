@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand/v2"
+	"net"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -58,6 +59,7 @@ const (
 	maxErrorBodySize    = 64 * 1024
 	baseBackoff         = 1 * time.Second
 	maxBackoff          = 30 * time.Second
+	jitterFraction      = 0.5
 )
 
 var retryAfterRegex = regexp.MustCompile(`retry after ([\d.]+)s`)
@@ -99,7 +101,6 @@ func NewSiteManagerClient(cfg SiteManagerClientConfig) (*SiteManagerClient, erro
 }
 
 func (c *SiteManagerClient) do(ctx context.Context, method, path string, result interface{}) error {
-	var lastErr error
 	maxAttempts := c.maxRetries + 1
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
@@ -130,12 +131,10 @@ func (c *SiteManagerClient) do(ctx context.Context, method, path string, result 
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-time.After(wait):
-			lastErr = err
-			continue
 		}
 	}
 
-	return lastErr
+	return nil
 }
 
 func isRetryable(err error) bool {
@@ -157,9 +156,9 @@ func isNetworkError(err error) bool {
 	if errors.Is(err, context.DeadlineExceeded) {
 		return true
 	}
-	var netErr interface{ Temporary() bool }
+	var netErr net.Error
 	if errors.As(err, &netErr) {
-		return netErr.Temporary()
+		return netErr.Timeout()
 	}
 	return false
 }
@@ -173,7 +172,7 @@ func applyBackoffWithJitter(serverWait time.Duration, attempt int, maxWait time.
 		if backoff > maxBackoff {
 			backoff = maxBackoff
 		}
-		jitter := time.Duration(rand.Int64N(int64(backoff / 2)))
+		jitter := time.Duration(float64(backoff) * jitterFraction * rand.Float64())
 		wait = backoff + jitter
 	}
 	if wait > maxWait {
@@ -256,7 +255,7 @@ func parseRetryAfterBody(msg string) time.Duration {
 			return time.Duration(secs * float64(time.Second))
 		}
 	}
-	return defaultRetryWait
+	return 0
 }
 
 func (c *SiteManagerClient) ListHosts(ctx context.Context, opts *ListHostsOptions) (*ListHostsResponse, error) {

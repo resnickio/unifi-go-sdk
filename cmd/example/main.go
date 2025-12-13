@@ -37,6 +37,10 @@ func main() {
 		if err != nil {
 			log.Fatalf("Error getting host: %v", err)
 		}
-		fmt.Printf("Got host: %s (%s)\n", host.Host.ReportedState.Name, host.Host.ID)
+		name := host.Host.ID
+		if host.Host.ReportedState != nil {
+			name = host.Host.ReportedState.Name
+		}
+		fmt.Printf("Got host: %s (%s)\n", name, host.Host.ID)
 	}
 }

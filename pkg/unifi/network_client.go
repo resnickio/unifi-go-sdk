@@ -14,6 +14,11 @@ import (
 	"time"
 )
 
+const (
+	defaultNetworkMaxRetries   = 3
+	defaultNetworkMaxRetryWait = 60 * time.Second
+)
+
 // NetworkManager defines the interface for the UniFi Network API.
 // This local controller API provides full CRUD operations on network configuration.
 type NetworkManager interface {
@@ -93,10 +98,12 @@ type NetworkClient struct {
 	HTTPClient *http.Client
 	Logger     Logger
 
-	username string
-	password string
-	mu       sync.RWMutex
-	loggedIn bool
+	username     string
+	password     string
+	maxRetries   int
+	maxRetryWait time.Duration
+	mu           sync.RWMutex
+	loggedIn     bool
 }
 
 // NetworkClientConfig contains configuration options for creating a NetworkClient.
@@ -107,6 +114,9 @@ type NetworkClientConfig struct {
 	Password           string
 	InsecureSkipVerify bool
 	Timeout            time.Duration
+	Logger             Logger
+	MaxRetries         int
+	MaxRetryWait       time.Duration
 }
 
 // NewNetworkClient creates a new Network API client with the given configuration.
@@ -128,6 +138,16 @@ func NewNetworkClient(cfg NetworkClientConfig) (*NetworkClient, error) {
 		timeout = defaultTimeout
 	}
 
+	maxRetries := cfg.MaxRetries
+	if maxRetries == 0 {
+		maxRetries = defaultNetworkMaxRetries
+	}
+
+	maxRetryWait := cfg.MaxRetryWait
+	if maxRetryWait == 0 {
+		maxRetryWait = defaultNetworkMaxRetryWait
+	}
+
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating cookie jar: %w", err)
@@ -140,10 +160,13 @@ func NewNetworkClient(cfg NetworkClientConfig) (*NetworkClient, error) {
 	}
 
 	return &NetworkClient{
-		BaseURL:  cfg.BaseURL,
-		Site:     site,
-		username: cfg.Username,
-		password: cfg.Password,
+		BaseURL:      cfg.BaseURL,
+		Site:         site,
+		Logger:       cfg.Logger,
+		username:     cfg.Username,
+		password:     cfg.Password,
+		maxRetries:   maxRetries,
+		maxRetryWait: maxRetryWait,
 		HTTPClient: &http.Client{
 			Timeout:   timeout,
 			Jar:       jar,
@@ -256,14 +279,52 @@ func (c *NetworkClient) do(ctx context.Context, method, path string, body interf
 		return fmt.Errorf("not logged in: call Login() first")
 	}
 
-	reqURL := c.BaseURL + path
-
-	var bodyReader io.Reader
+	var bodyBytes []byte
 	if body != nil {
-		bodyBytes, err := json.Marshal(body)
+		var err error
+		bodyBytes, err = json.Marshal(body)
 		if err != nil {
 			return fmt.Errorf("marshaling request body: %w", err)
 		}
+	}
+
+	maxAttempts := c.maxRetries + 1
+
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		err := c.doOnce(ctx, method, path, bodyBytes, result)
+		if err == nil {
+			return nil
+		}
+
+		if attempt >= maxAttempts-1 {
+			return err
+		}
+
+		if !isRetryable(err) {
+			return err
+		}
+
+		wait := applyBackoffWithJitter(0, attempt, c.maxRetryWait)
+
+		if c.Logger != nil {
+			c.Logger.Printf("retrying in %v (attempt %d/%d)", wait, attempt+1, c.maxRetries)
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(wait):
+		}
+	}
+
+	return nil
+}
+
+func (c *NetworkClient) doOnce(ctx context.Context, method, path string, bodyBytes []byte, result interface{}) error {
+	reqURL := c.BaseURL + path
+
+	var bodyReader io.Reader
+	if bodyBytes != nil {
 		bodyReader = bytes.NewReader(bodyBytes)
 	}
 
@@ -273,7 +334,7 @@ func (c *NetworkClient) do(ctx context.Context, method, path string, body interf
 	}
 
 	req.Header.Set("Accept", "application/json")
-	if body != nil {
+	if bodyBytes != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
 

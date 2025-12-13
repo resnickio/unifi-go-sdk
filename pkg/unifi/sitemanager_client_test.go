@@ -785,8 +785,8 @@ func TestParseRetryAfterBody(t *testing.T) {
 		{`{"message":"rate limit exceeded, retry after 5.372786998s"}`, 5372786998 * time.Nanosecond},
 		{`{"message":"rate limit exceeded, retry after 1s"}`, 1 * time.Second},
 		{`{"message":"rate limit exceeded, retry after 0.5s"}`, 500 * time.Millisecond},
-		{`{"message":"some other error"}`, 5 * time.Second},
-		{`invalid`, 5 * time.Second},
+		{`{"message":"some other error"}`, 0},
+		{`invalid`, 0},
 	}
 
 	for _, tt := range tests {

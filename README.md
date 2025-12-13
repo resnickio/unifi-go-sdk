@@ -259,27 +259,33 @@ if errors.As(err, &apiErr) {
 }
 ```
 
-## Rate Limiting
+## Retry Logic
 
-The SDK automatically retries requests that receive a 429 (rate limited) response. By default, it will retry up to 3 times with exponential backoff and jitter to prevent thundering herd issues.
+Both clients automatically retry transient errors (502, 503, 504) and rate limit responses (429). By default, they retry up to 3 times with exponential backoff and jitter to prevent thundering herd issues.
 
-The retry delay is calculated as:
+**Site Manager Client** parses `Retry-After` headers from 429 responses:
 1. Parse `Retry-After` header (supports integer seconds, fractional seconds, and HTTP-date format)
 2. Fall back to parsing delay from response body
-3. If server specifies a delay, use it exactly (no modification)
+3. If server specifies a delay, use it exactly
 4. Otherwise, apply exponential backoff (1s, 2s, 4s...) with up to 50% jitter, capped at 30s
 
+**Network Client** uses exponential backoff with jitter for all retryable errors.
+
 ```go
-// Increase retries
+// Site Manager: customize retries
 client, _ := unifi.NewSiteManagerClient(unifi.SiteManagerClientConfig{
-    APIKey:     "your-api-key",
-    MaxRetries: 5,
+    APIKey:       "your-api-key",
+    MaxRetries:   5,                    // default: 3
+    MaxRetryWait: 120 * time.Second,    // default: 60s
 })
 
-// Disable retries
-client, _ := unifi.NewSiteManagerClient(unifi.SiteManagerClientConfig{
-    APIKey:     "your-api-key",
-    MaxRetries: 1,
+// Network: customize retries
+client, _ := unifi.NewNetworkClient(unifi.NetworkClientConfig{
+    BaseURL:      "https://192.168.1.1",
+    Username:     "admin",
+    Password:     "password",
+    MaxRetries:   5,                    // default: 3
+    MaxRetryWait: 120 * time.Second,    // default: 60s
 })
 ```
 
@@ -299,10 +305,18 @@ client, _ := unifi.NewSiteManagerClient(unifi.SiteManagerClientConfig{
 Both clients support optional debug logging. Set the `Logger` field to receive request/response logs:
 
 ```go
-// Use the built-in stderr logger
+// Site Manager with logging
 client, _ := unifi.NewSiteManagerClient(unifi.SiteManagerClientConfig{
     APIKey: "your-api-key",
     Logger: unifi.NewStdLogger(),
+})
+
+// Network Client with logging
+client, _ := unifi.NewNetworkClient(unifi.NetworkClientConfig{
+    BaseURL:  "https://192.168.1.1",
+    Username: "admin",
+    Password: "password",
+    Logger:   unifi.NewStdLogger(),
 })
 
 // Or implement your own Logger interface

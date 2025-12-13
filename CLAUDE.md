@@ -10,6 +10,7 @@ Go SDK for UniFi APIs (Site Manager and Network).
   - `network_client.go` - Controller API client
   - `network_models.go` - Controller API models
   - `errors.go` - Sentinel errors
+  - `logger.go` - Logger interface and StdLogger
 - `cmd/example/` - Test harness (requires `UNIFI_API_KEY` env var)
 - `cmd/validate/` - API drift detection tool (requires `UNIFI_API_KEY` env var)
 
@@ -53,8 +54,10 @@ This SDK is intended to support a Terraform provider. Prioritize type safety wit
 ## SDK Features
 
 - `SiteManagerClient` - Cloud API with automatic pagination, rate limit retry with exponential backoff + jitter
-- `NetworkClient` - Controller API with session-based auth, full CRUD operations
+- `NetworkClient` - Controller API with session-based auth, full CRUD operations, retry with exponential backoff + jitter
 - Sentinel errors for common HTTP status codes
+- Configurable retry logic (MaxRetries, MaxRetryWait) on both clients
+- Configurable debug logging via Logger interface
 - 30s default HTTP timeout
 
 ## Architecture Decisions

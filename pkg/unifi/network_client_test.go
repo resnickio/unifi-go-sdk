@@ -2330,3 +2330,122 @@ func TestNetworkClientLogoutNetworkError(t *testing.T) {
 		t.Fatal("expected error for network failure during logout")
 	}
 }
+
+func TestNetworkClientTransientErrorRetry(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/networkconf":
+			callCount++
+			if callCount < 2 {
+				w.WriteHeader(http.StatusBadGateway)
+				w.Write([]byte("temporary error"))
+				return
+			}
+			response := map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []map[string]any{{"_id": "net1", "name": "LAN"}},
+			}
+			json.NewEncoder(w).Encode(response)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL:    server.URL,
+		Username:   "admin",
+		Password:   "password",
+		MaxRetries: 2,
+	})
+	client.Login(context.Background())
+
+	networks, err := client.ListNetworks(context.Background())
+	if err != nil {
+		t.Fatalf("ListNetworks() error = %v", err)
+	}
+
+	if callCount != 2 {
+		t.Errorf("expected 2 API calls (1 failure + 1 success), got %d", callCount)
+	}
+	if len(networks) != 1 {
+		t.Errorf("expected 1 network, got %d", len(networks))
+	}
+}
+
+func TestNetworkClientNonRetryableError(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/networkconf":
+			callCount++
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("bad request"))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL:    server.URL,
+		Username:   "admin",
+		Password:   "password",
+		MaxRetries: 3,
+	})
+	client.Login(context.Background())
+
+	_, err := client.ListNetworks(context.Background())
+	if err == nil {
+		t.Fatal("expected error")
+	}
+
+	if callCount != 1 {
+		t.Errorf("expected 1 API call (no retries for 400), got %d", callCount)
+	}
+
+	if !errors.Is(err, ErrBadRequest) {
+		t.Errorf("expected ErrBadRequest, got %v", err)
+	}
+}
+
+func TestNetworkClientRetryExhausted(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		default:
+			callCount++
+			w.WriteHeader(http.StatusBadGateway)
+			w.Write([]byte("gateway error"))
+		}
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL:    server.URL,
+		Username:   "admin",
+		Password:   "password",
+		MaxRetries: 2,
+	})
+	client.Login(context.Background())
+
+	_, err := client.ListNetworks(context.Background())
+	if err == nil {
+		t.Fatal("expected error after exhausting retries")
+	}
+
+	if !errors.Is(err, ErrBadGateway) {
+		t.Errorf("expected ErrBadGateway, got %v", err)
+	}
+
+	if callCount != 3 {
+		t.Errorf("expected 3 API calls (1 + 2 retries), got %d", callCount)
+	}
+}
