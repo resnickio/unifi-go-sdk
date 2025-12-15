@@ -10,7 +10,11 @@ Go SDK for UniFi APIs (Site Manager and Network).
   - `network_client.go` - Controller API client
   - `network_models.go` - Controller API models
   - `errors.go` - Sentinel errors
+  - `retry.go` - Shared retry logic (backoff, jitter, Retry-After parsing)
+  - `helpers.go` - Pointer helper functions (IntPtr, BoolPtr, StringPtr)
   - `logger.go` - Logger interface and StdLogger
+  - `doc.go` - Package documentation for pkg.go.dev
+  - `example_test.go` - Runnable examples for pkg.go.dev
 - `openapi/` - OpenAPI specifications (source of truth for API contracts)
   - `unifi-sitemanager-api.yaml` - Site Manager cloud API spec
   - `unifi-network-api.yaml` - Network controller API spec (v2 + legacy REST)

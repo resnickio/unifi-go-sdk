@@ -1,0 +1,97 @@
+package unifi
+
+import (
+	"context"
+	"errors"
+	"math/rand/v2"
+	"net"
+	"net/http"
+	"regexp"
+	"strconv"
+	"time"
+)
+
+const (
+	maxErrorBodySize    = 64 * 1024        // 64KB for error responses
+	maxResponseBodySize = 10 * 1024 * 1024 // 10MB for success responses
+	defaultTimeout      = 30 * time.Second
+	baseBackoff         = 1 * time.Second
+	maxBackoff          = 30 * time.Second
+	jitterFraction      = 0.5
+)
+
+var retryAfterRegex = regexp.MustCompile(`retry after ([\d.]+)s`)
+
+func isRetryable(err error) bool {
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		switch apiErr.StatusCode {
+		case 429, 502, 503, 504:
+			return true
+		}
+		return false
+	}
+	return isNetworkError(err)
+}
+
+func isNetworkError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return netErr.Timeout()
+	}
+	return false
+}
+
+func applyBackoffWithJitter(serverWait time.Duration, attempt int, maxWait time.Duration) time.Duration {
+	var wait time.Duration
+	if serverWait > 0 {
+		wait = serverWait
+	} else {
+		backoff := baseBackoff << attempt
+		if backoff > maxBackoff {
+			backoff = maxBackoff
+		}
+		jitter := time.Duration(float64(backoff) * jitterFraction * rand.Float64())
+		wait = backoff + jitter
+	}
+	if wait > maxWait {
+		wait = maxWait
+	}
+	return wait
+}
+
+func parseRetryAfterHeader(header string) time.Duration {
+	if header == "" {
+		return 0
+	}
+	if secs, err := strconv.Atoi(header); err == nil {
+		return time.Duration(secs) * time.Second
+	}
+	if secs, err := strconv.ParseFloat(header, 64); err == nil {
+		return time.Duration(secs * float64(time.Second))
+	}
+	if t, err := http.ParseTime(header); err == nil {
+		d := time.Until(t)
+		if d > 0 {
+			return d
+		}
+		return 0
+	}
+	return 0
+}
+
+func parseRetryAfterBody(msg string) time.Duration {
+	matches := retryAfterRegex.FindStringSubmatch(msg)
+	if len(matches) == 2 {
+		if secs, err := strconv.ParseFloat(matches[1], 64); err == nil {
+			return time.Duration(secs * float64(time.Second))
+		}
+	}
+	return 0
+}

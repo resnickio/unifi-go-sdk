@@ -390,3 +390,7 @@ These specifications were derived from live API responses captured via Playwrigh
 ## License
 
 MIT
+
+## Development
+
+This SDK was developed with AI assistance. If you encounter bugs or have feature requests, please [open an issue](https://github.com/resnickio/unifi-go-sdk/issues).
