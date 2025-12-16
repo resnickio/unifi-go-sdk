@@ -30,6 +30,11 @@ Perform a comprehensive repository review examining:
 - Retry logic and resilience patterns
 - Consistency between similar components (SiteManagerClient vs NetworkClient)
 - Orphan types and unused code
+- **Formatting consistency** - Watch for inconsistent patterns that suggest AI "drift":
+  - Struct literals: same struct should use consistent multi-line vs single-line formatting
+  - Variable naming: consistent casing and naming conventions throughout
+  - Import grouping: standard library, external, internal should be consistently grouped
+  - Error handling patterns: consistent use of `if err != nil` placement and style
 
 ## Output Format
 
