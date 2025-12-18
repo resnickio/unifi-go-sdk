@@ -57,12 +57,18 @@ func loadEnvFile(filename string) {
 func getSharedClient() (*NetworkClient, error) {
 	sharedClientOnce.Do(func() {
 		url := os.Getenv("UNIFI_NETWORK_URL")
+		apiKey := os.Getenv("UNIFI_NETWORK_API_KEY")
 		user := os.Getenv("UNIFI_NETWORK_USER")
 		pass := os.Getenv("UNIFI_NETWORK_PASS")
 		site := os.Getenv("UNIFI_NETWORK_SITE")
 
-		if url == "" || user == "" || pass == "" {
-			sharedClientErr = fmt.Errorf("missing required env vars")
+		if url == "" {
+			sharedClientErr = fmt.Errorf("UNIFI_NETWORK_URL is required")
+			return
+		}
+
+		if apiKey == "" && (user == "" || pass == "") {
+			sharedClientErr = fmt.Errorf("either UNIFI_NETWORK_API_KEY or both UNIFI_NETWORK_USER and UNIFI_NETWORK_PASS are required")
 			return
 		}
 
@@ -70,14 +76,27 @@ func getSharedClient() (*NetworkClient, error) {
 			site = "default"
 		}
 
-		client, err := NewNetworkClient(NetworkClientConfig{
-			BaseURL:            url,
-			Site:               site,
-			Username:           user,
-			Password:           pass,
-			InsecureSkipVerify: true,
-			Timeout:            30 * time.Second,
-		})
+		var client *NetworkClient
+		var err error
+
+		if apiKey != "" {
+			client, err = NewNetworkClient(NetworkClientConfig{
+				BaseURL:            url,
+				Site:               site,
+				APIKey:             apiKey,
+				InsecureSkipVerify: true,
+				Timeout:            30 * time.Second,
+			})
+		} else {
+			client, err = NewNetworkClient(NetworkClientConfig{
+				BaseURL:            url,
+				Site:               site,
+				Username:           user,
+				Password:           pass,
+				InsecureSkipVerify: true,
+				Timeout:            30 * time.Second,
+			})
+		}
 		if err != nil {
 			sharedClientErr = err
 			return
@@ -100,11 +119,16 @@ func skipIfNoEnv(t *testing.T) *NetworkClient {
 	t.Helper()
 
 	url := os.Getenv("UNIFI_NETWORK_URL")
+	apiKey := os.Getenv("UNIFI_NETWORK_API_KEY")
 	user := os.Getenv("UNIFI_NETWORK_USER")
 	pass := os.Getenv("UNIFI_NETWORK_PASS")
 
-	if url == "" || user == "" || pass == "" {
-		t.Skip("Skipping integration test: UNIFI_NETWORK_URL, UNIFI_NETWORK_USER, UNIFI_NETWORK_PASS not set")
+	if url == "" {
+		t.Skip("Skipping integration test: UNIFI_NETWORK_URL not set")
+	}
+
+	if apiKey == "" && (user == "" || pass == "") {
+		t.Skip("Skipping integration test: either UNIFI_NETWORK_API_KEY or both UNIFI_NETWORK_USER and UNIFI_NETWORK_PASS must be set")
 	}
 
 	client, err := getSharedClient()

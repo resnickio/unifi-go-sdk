@@ -158,10 +158,17 @@ type NetworkManager interface {
 var _ NetworkManager = (*NetworkClient)(nil)
 
 // NetworkClient is a client for the UniFi Network API.
-// It uses session-based authentication (username/password) and provides
-// full CRUD operations for network configuration.
+// It supports two authentication modes:
+//   - API Key: Uses X-API-KEY header, no login required (preferred for automation)
+//   - Session: Uses username/password with cookies (legacy)
 //
-// # Session Management
+// # API Key Authentication
+//
+// When configured with an API key, the client is immediately ready to use.
+// Login() and Logout() become no-ops, and IsLoggedIn() always returns true.
+// This mode avoids login rate limits and is recommended for Terraform providers.
+//
+// # Session Management (Username/Password)
 //
 // NetworkClient tracks login state locally via the IsLoggedIn method. However,
 // server-side sessions can expire independently due to:
@@ -186,6 +193,7 @@ type NetworkClient struct {
 	HTTPClient *http.Client
 	Logger     Logger
 
+	apiKey       string
 	username     string
 	password     string
 	maxRetries   int
@@ -196,11 +204,18 @@ type NetworkClient struct {
 }
 
 // NetworkClientConfig contains configuration options for creating a NetworkClient.
+//
+// Authentication can be provided via either:
+//   - APIKey: Uses X-API-KEY header, no login required
+//   - Username/Password: Uses session-based authentication with cookies
+//
+// You must provide either APIKey OR both Username and Password, but not both.
 type NetworkClientConfig struct {
 	BaseURL            string
 	Site               string
 	Username           string
 	Password           string
+	APIKey             string
 	InsecureSkipVerify bool
 	Timeout            time.Duration
 	Logger             Logger
@@ -213,8 +228,15 @@ func NewNetworkClient(cfg NetworkClientConfig) (*NetworkClient, error) {
 	if cfg.BaseURL == "" {
 		return nil, fmt.Errorf("BaseURL is required")
 	}
-	if cfg.Username == "" || cfg.Password == "" {
-		return nil, fmt.Errorf("username and password are required")
+
+	hasAPIKey := cfg.APIKey != ""
+	hasCredentials := cfg.Username != "" || cfg.Password != ""
+
+	if hasAPIKey && hasCredentials {
+		return nil, fmt.Errorf("cannot use both APIKey and Username/Password; choose one authentication method")
+	}
+	if !hasAPIKey && (cfg.Username == "" || cfg.Password == "") {
+		return nil, fmt.Errorf("either APIKey or both Username and Password are required")
 	}
 
 	site := cfg.Site
@@ -252,6 +274,7 @@ func NewNetworkClient(cfg NetworkClientConfig) (*NetworkClient, error) {
 		BaseURL:      cfg.BaseURL,
 		Site:         site,
 		Logger:       cfg.Logger,
+		apiKey:       cfg.APIKey,
 		username:     cfg.Username,
 		password:     cfg.Password,
 		maxRetries:   maxRetries,
@@ -270,7 +293,13 @@ func NewNetworkClient(cfg NetworkClientConfig) (*NetworkClient, error) {
 //
 // Login can be called multiple times safely to re-establish an expired session.
 // If API calls return ErrUnauthorized, call Login again to refresh the session.
+//
+// When using API key authentication, this method is a no-op and returns nil.
 func (c *NetworkClient) Login(ctx context.Context) error {
+	if c.apiKey != "" {
+		return nil
+	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -349,7 +378,13 @@ func (c *NetworkClient) fetchCSRFToken(ctx context.Context) error {
 
 // Logout ends the current session with the UniFi controller.
 // It is safe to call even if not currently logged in (no-op in that case).
+//
+// When using API key authentication, this method is a no-op and returns nil.
 func (c *NetworkClient) Logout(ctx context.Context) error {
+	if c.apiKey != "" {
+		return nil
+	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -385,10 +420,17 @@ func (c *NetworkClient) Logout(ctx context.Context) error {
 	return nil
 }
 
-// IsLoggedIn returns whether Login has been called successfully.
-// Note: This only reflects local state. The server-side session may have
-// expired independently. See NetworkClient documentation for details.
+// IsLoggedIn returns whether the client is ready to make API requests.
+//
+// When using API key authentication, this always returns true.
+// When using session authentication, this returns true after a successful Login().
+//
+// Note: For session auth, this only reflects local state. The server-side session
+// may have expired independently. See NetworkClient documentation for details.
 func (c *NetworkClient) IsLoggedIn() bool {
+	if c.apiKey != "" {
+		return true
+	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.loggedIn
@@ -423,12 +465,14 @@ func (c *NetworkClient) doV2(ctx context.Context, method, path string, body any,
 }
 
 func (c *NetworkClient) prepareRequest(body any) ([]byte, error) {
-	c.mu.RLock()
-	loggedIn := c.loggedIn
-	c.mu.RUnlock()
+	if c.apiKey == "" {
+		c.mu.RLock()
+		loggedIn := c.loggedIn
+		c.mu.RUnlock()
 
-	if !loggedIn {
-		return nil, fmt.Errorf("not logged in: call Login() first")
+		if !loggedIn {
+			return nil, fmt.Errorf("not logged in: call Login() first")
+		}
 	}
 
 	if body == nil {
@@ -502,11 +546,15 @@ func (c *NetworkClient) doV2Once(ctx context.Context, method, path string, bodyB
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	c.mu.RLock()
-	csrfToken := c.csrfToken
-	c.mu.RUnlock()
-	if csrfToken != "" && (method == "POST" || method == "PUT" || method == "DELETE") {
-		req.Header.Set("X-Csrf-Token", csrfToken)
+	if c.apiKey != "" {
+		req.Header.Set("X-API-KEY", c.apiKey)
+	} else {
+		c.mu.RLock()
+		csrfToken := c.csrfToken
+		c.mu.RUnlock()
+		if csrfToken != "" && (method == "POST" || method == "PUT" || method == "DELETE") {
+			req.Header.Set("X-Csrf-Token", csrfToken)
+		}
 	}
 
 	if c.Logger != nil {
@@ -559,11 +607,15 @@ func (c *NetworkClient) doOnce(ctx context.Context, method, path string, bodyByt
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	c.mu.RLock()
-	csrfToken := c.csrfToken
-	c.mu.RUnlock()
-	if csrfToken != "" && (method == "POST" || method == "PUT" || method == "DELETE") {
-		req.Header.Set("X-Csrf-Token", csrfToken)
+	if c.apiKey != "" {
+		req.Header.Set("X-API-KEY", c.apiKey)
+	} else {
+		c.mu.RLock()
+		csrfToken := c.csrfToken
+		c.mu.RUnlock()
+		if csrfToken != "" && (method == "POST" || method == "PUT" || method == "DELETE") {
+			req.Header.Set("X-Csrf-Token", csrfToken)
+		}
 	}
 
 	if c.Logger != nil {

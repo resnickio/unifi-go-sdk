@@ -21,11 +21,19 @@ func TestNewNetworkClient(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "valid config",
+			name: "valid config with username/password",
 			config: NetworkClientConfig{
 				BaseURL:  "https://192.168.1.1",
 				Username: "admin",
 				Password: "password",
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid config with API key",
+			config: NetworkClientConfig{
+				BaseURL: "https://192.168.1.1",
+				APIKey:  "test-api-key",
 			},
 			wantErr: false,
 		},
@@ -53,6 +61,41 @@ func TestNewNetworkClient(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "both API key and username/password",
+			config: NetworkClientConfig{
+				BaseURL:  "https://192.168.1.1",
+				APIKey:   "test-api-key",
+				Username: "admin",
+				Password: "password",
+			},
+			wantErr: true,
+		},
+		{
+			name: "API key with username only",
+			config: NetworkClientConfig{
+				BaseURL:  "https://192.168.1.1",
+				APIKey:   "test-api-key",
+				Username: "admin",
+			},
+			wantErr: true,
+		},
+		{
+			name: "API key with password only",
+			config: NetworkClientConfig{
+				BaseURL:  "https://192.168.1.1",
+				APIKey:   "test-api-key",
+				Password: "password",
+			},
+			wantErr: true,
+		},
+		{
+			name: "no authentication",
+			config: NetworkClientConfig{
+				BaseURL: "https://192.168.1.1",
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -66,6 +109,138 @@ func TestNewNetworkClient(t *testing.T) {
 				t.Error("NewNetworkClient() returned nil client without error")
 			}
 		})
+	}
+}
+
+func TestNetworkClientAPIKeyAuth(t *testing.T) {
+	var receivedAPIKey string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedAPIKey = r.Header.Get("X-API-KEY")
+		response := map[string]any{
+			"meta": map[string]string{"rc": "ok"},
+			"data": []map[string]any{},
+		}
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	client, err := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL,
+		APIKey:  "test-api-key-12345",
+	})
+	if err != nil {
+		t.Fatalf("NewNetworkClient() error = %v", err)
+	}
+
+	_, err = client.ListNetworks(context.Background())
+	if err != nil {
+		t.Errorf("ListNetworks() error = %v", err)
+	}
+
+	if receivedAPIKey != "test-api-key-12345" {
+		t.Errorf("X-API-KEY header = %q, want %q", receivedAPIKey, "test-api-key-12345")
+	}
+}
+
+func TestNetworkClientAPIKeyIsLoggedIn(t *testing.T) {
+	client, err := NewNetworkClient(NetworkClientConfig{
+		BaseURL: "https://192.168.1.1",
+		APIKey:  "test-api-key",
+	})
+	if err != nil {
+		t.Fatalf("NewNetworkClient() error = %v", err)
+	}
+
+	if !client.IsLoggedIn() {
+		t.Error("IsLoggedIn() should return true with API key auth")
+	}
+}
+
+func TestNetworkClientAPIKeyLoginNoop(t *testing.T) {
+	loginCalled := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/auth/login" {
+			loginCalled = true
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client, err := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL,
+		APIKey:  "test-api-key",
+	})
+	if err != nil {
+		t.Fatalf("NewNetworkClient() error = %v", err)
+	}
+
+	err = client.Login(context.Background())
+	if err != nil {
+		t.Errorf("Login() error = %v", err)
+	}
+
+	if loginCalled {
+		t.Error("Login() should be a no-op with API key auth, but login endpoint was called")
+	}
+}
+
+func TestNetworkClientAPIKeyLogoutNoop(t *testing.T) {
+	logoutCalled := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/auth/logout" {
+			logoutCalled = true
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client, err := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL,
+		APIKey:  "test-api-key",
+	})
+	if err != nil {
+		t.Fatalf("NewNetworkClient() error = %v", err)
+	}
+
+	err = client.Logout(context.Background())
+	if err != nil {
+		t.Errorf("Logout() error = %v", err)
+	}
+
+	if logoutCalled {
+		t.Error("Logout() should be a no-op with API key auth, but logout endpoint was called")
+	}
+}
+
+func TestNetworkClientAPIKeyNoCSRFRequired(t *testing.T) {
+	var receivedCSRF string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedCSRF = r.Header.Get("X-Csrf-Token")
+		response := map[string]any{
+			"meta": map[string]string{"rc": "ok"},
+			"data": []map[string]any{
+				{"_id": "test123", "name": "Test Network"},
+			},
+		}
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	client, err := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL,
+		APIKey:  "test-api-key",
+	})
+	if err != nil {
+		t.Fatalf("NewNetworkClient() error = %v", err)
+	}
+
+	_, err = client.CreateNetwork(context.Background(), &Network{Name: "Test"})
+	if err != nil {
+		t.Errorf("CreateNetwork() error = %v", err)
+	}
+
+	if receivedCSRF != "" {
+		t.Errorf("X-Csrf-Token header should be empty with API key auth, got %q", receivedCSRF)
 	}
 }
 
