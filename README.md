@@ -265,6 +265,7 @@ Available errors:
 - `ErrUnauthorized` (401)
 - `ErrForbidden` (403)
 - `ErrNotFound` (404)
+- `ErrMethodNotAllowed` (405)
 - `ErrConflict` (409)
 - `ErrRateLimited` (429)
 - `ErrServerError` (500)

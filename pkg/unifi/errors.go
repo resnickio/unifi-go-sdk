@@ -8,17 +8,18 @@ import (
 // Sentinel errors for common HTTP status codes.
 // Use errors.Is() to check for these errors.
 var (
-	ErrBadRequest       = errors.New("bad request")        // 400
-	ErrUnauthorized     = errors.New("unauthorized")       // 401
-	ErrForbidden        = errors.New("forbidden")          // 403
-	ErrNotFound         = errors.New("not found")          // 404
-	ErrConflict         = errors.New("conflict")           // 409
-	ErrRateLimited      = errors.New("rate limited")       // 429
-	ErrServerError      = errors.New("server error")       // 500
-	ErrBadGateway       = errors.New("bad gateway")        // 502
-	ErrServiceUnavail   = errors.New("service unavailable") // 503
-	ErrGatewayTimeout   = errors.New("gateway timeout")    // 504
-	ErrEmptyResponse    = errors.New("empty response")     // API returned empty data array
+	ErrBadRequest        = errors.New("bad request")         // 400
+	ErrUnauthorized      = errors.New("unauthorized")        // 401
+	ErrForbidden         = errors.New("forbidden")           // 403
+	ErrNotFound          = errors.New("not found")           // 404
+	ErrMethodNotAllowed  = errors.New("method not allowed")  // 405
+	ErrConflict          = errors.New("conflict")            // 409
+	ErrRateLimited       = errors.New("rate limited")        // 429
+	ErrServerError       = errors.New("server error")        // 500
+	ErrBadGateway        = errors.New("bad gateway")         // 502
+	ErrServiceUnavail    = errors.New("service unavailable") // 503
+	ErrGatewayTimeout    = errors.New("gateway timeout")     // 504
+	ErrEmptyResponse     = errors.New("empty response")      // API returned empty data array
 )
 
 func sentinelForStatusCode(statusCode int) error {
@@ -31,6 +32,8 @@ func sentinelForStatusCode(statusCode int) error {
 		return ErrForbidden
 	case 404:
 		return ErrNotFound
+	case 405:
+		return ErrMethodNotAllowed
 	case 409:
 		return ErrConflict
 	case 429:
