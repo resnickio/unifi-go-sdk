@@ -1,6 +1,10 @@
 # UniFi Go SDK
 
 [![CI](https://github.com/resnickio/unifi-go-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/resnickio/unifi-go-sdk/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/resnickio/unifi-go-sdk.svg)](https://pkg.go.dev/github.com/resnickio/unifi-go-sdk)
+[![Go Report Card](https://goreportcard.com/badge/github.com/resnickio/unifi-go-sdk)](https://goreportcard.com/report/github.com/resnickio/unifi-go-sdk)
+[![Known Vulnerabilities](https://snyk.io/test/github/resnickio/unifi-go-sdk/badge.svg)](https://snyk.io/test/github/resnickio/unifi-go-sdk)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Go SDK for UniFi APIs:
 - **Site Manager API** - Cloud-based API for managing hosts, sites, and devices across your UniFi deployment
@@ -77,7 +81,7 @@ Get your API key from the [UniFi Site Manager](https://unifi.ui.com).
 
 ## Network API Usage
 
-The Network API connects directly to a UniFi controller for full CRUD operations on network configuration.
+The Network API connects directly to a UniFi controller for full CRUD operations on network configuration. It supports two authentication methods:
 
 ```go
 package main
@@ -91,19 +95,27 @@ import (
 )
 
 func main() {
+    // Option 1: API key authentication (preferred - avoids login rate limits)
     client, err := unifi.NewNetworkClient(unifi.NetworkClientConfig{
         BaseURL:            "https://192.168.1.1",
-        Username:           "admin",
-        Password:           "password",
+        APIKey:             "your-api-key",
         InsecureSkipVerify: true, // for self-signed certs
     })
+
+    // Option 2: Username/password authentication
+    // client, err := unifi.NewNetworkClient(unifi.NetworkClientConfig{
+    //     BaseURL:            "https://192.168.1.1",
+    //     Username:           "admin",
+    //     Password:           "password",
+    //     InsecureSkipVerify: true,
+    // })
     if err != nil {
         log.Fatal(err)
     }
 
     ctx := context.Background()
 
-    // Login to establish session
+    // Login is a no-op with API key auth, but safe to call either way
     if err := client.Login(ctx); err != nil {
         log.Fatal(err)
     }
@@ -328,10 +340,9 @@ client, _ := unifi.NewSiteManagerClient(unifi.SiteManagerClientConfig{
 
 // Network Client with logging
 client, _ := unifi.NewNetworkClient(unifi.NetworkClientConfig{
-    BaseURL:  "https://192.168.1.1",
-    Username: "admin",
-    Password: "password",
-    Logger:   unifi.NewStdLogger(),
+    BaseURL: "https://192.168.1.1",
+    APIKey:  "your-api-key",
+    Logger:  unifi.NewStdLogger(),
 })
 
 // Or implement your own Logger interface
@@ -351,7 +362,7 @@ Log output format:
 | API | Status | Description |
 |-----|--------|-------------|
 | Site Manager | Complete | All v1 read-only endpoints (hosts, sites, devices) |
-| Network | Complete | Session auth, networks, firewall rules/groups, port forwards, WLANs, port profiles, routes, user groups, RADIUS, DDNS |
+| Network | Complete | API key or session auth, networks, firewall rules/groups, port forwards, WLANs, port profiles, routes, user groups, RADIUS, DDNS |
 
 ## OpenAPI Specifications
 
