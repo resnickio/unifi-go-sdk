@@ -72,12 +72,14 @@ func ExampleNetworkClient_CreateNetwork() {
 	defer client.Logout(ctx)
 
 	network, err := client.CreateNetwork(ctx, &unifi.Network{
-		Name:        "IoT Network",
-		Purpose:     "corporate",
-		Enabled:     unifi.BoolPtr(true),
-		VLAN:        unifi.IntPtr(100),
-		VLANEnabled: unifi.BoolPtr(true),
-		IPSubnet:    "10.0.100.1/24",
+		Name:    "IoT Network",
+		Purpose: "corporate",
+		Enabled: unifi.BoolPtr(true),
+		NetworkVLAN: unifi.NetworkVLAN{
+			VLAN:        unifi.IntPtr(100),
+			VLANEnabled: unifi.BoolPtr(true),
+			IPSubnet:    "10.0.100.1/24",
+		},
 	})
 	if err != nil {
 		log.Fatal(err)

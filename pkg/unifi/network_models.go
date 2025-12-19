@@ -18,6 +18,146 @@ type QoSProfile struct {
 	QoSProfileMode string            `json:"qos_profile_mode,omitempty"`
 }
 
+// NetworkVLAN contains VLAN configuration for a network.
+type NetworkVLAN struct {
+	VLAN        *int   `json:"vlan,omitempty"`
+	VLANEnabled *bool  `json:"vlan_enabled,omitempty"`
+	IPSubnet    string `json:"ip_subnet,omitempty"`
+}
+
+// NetworkDHCPGateway contains DHCP gateway override settings.
+type NetworkDHCPGateway struct {
+	DHCPDGatewayEnabled *bool  `json:"dhcpd_gateway_enabled,omitempty"`
+	DHCPDGateway        string `json:"dhcpd_gateway,omitempty"`
+}
+
+// NetworkDHCPDNS contains DHCP DNS server settings.
+type NetworkDHCPDNS struct {
+	DHCPDDNSEnabled *bool  `json:"dhcpd_dns_enabled,omitempty"`
+	DHCPDDns1       string `json:"dhcpd_dns_1,omitempty"`
+	DHCPDDns2       string `json:"dhcpd_dns_2,omitempty"`
+	DHCPDDns3       string `json:"dhcpd_dns_3,omitempty"`
+	DHCPDDns4       string `json:"dhcpd_dns_4,omitempty"`
+}
+
+// NetworkDHCPBoot contains DHCP boot/PXE settings.
+type NetworkDHCPBoot struct {
+	DHCPDBootEnabled  *bool  `json:"dhcpd_boot_enabled,omitempty"`
+	DHCPDBootServer   string `json:"dhcpd_boot_server,omitempty"`
+	DHCPDBootFilename string `json:"dhcpd_boot_filename,omitempty"`
+	DHCPDTFTPServer   string `json:"dhcpd_tftp_server,omitempty"`
+}
+
+// NetworkDHCPNTP contains DHCP NTP server settings.
+type NetworkDHCPNTP struct {
+	DHCPDNTPEnabled *bool  `json:"dhcpd_ntp_enabled,omitempty"`
+	DHCPDNtp1       string `json:"dhcpd_ntp_1,omitempty"`
+	DHCPDNtp2       string `json:"dhcpd_ntp_2,omitempty"`
+}
+
+// NetworkDHCP contains all DHCP-related configuration for a network.
+type NetworkDHCP struct {
+	DHCPDEnabled           *bool  `json:"dhcpd_enabled,omitempty"`
+	DHCPDStart             string `json:"dhcpd_start,omitempty"`
+	DHCPDStop              string `json:"dhcpd_stop,omitempty"`
+	DHCPDLeasetime         *int   `json:"dhcpd_leasetime,omitempty"`
+	DHCPRelayEnabled       *bool  `json:"dhcp_relay_enabled,omitempty"`
+	DHCPDTimeOffsetEnabled *bool  `json:"dhcpd_time_offset_enabled,omitempty"`
+	DHCPDUnifiController   string `json:"dhcpd_unifi_controller,omitempty"`
+	DHCPDWPADUrl           string `json:"dhcpd_wpad_url,omitempty"`
+	DHCPGuardingEnabled    *bool  `json:"dhcpguard_enabled,omitempty"`
+	NetworkDHCPGateway
+	NetworkDHCPDNS
+	NetworkDHCPBoot
+	NetworkDHCPNTP
+}
+
+// NetworkWANIPv6 contains WAN IPv6-specific settings.
+type NetworkWANIPv6 struct {
+	WANTypeV6            string `json:"wan_type_v6,omitempty"`
+	WANIPv6DNS1          string `json:"wan_ipv6_dns1,omitempty"`
+	WANIPv6DNS2          string `json:"wan_ipv6_dns2,omitempty"`
+	WANIPv6DNSPreference string `json:"wan_ipv6_dns_preference,omitempty"`
+	WANDHCPv6Cos         *int   `json:"wan_dhcpv6_cos,omitempty"`
+	WANDHCPv6PDSizeAuto  *bool  `json:"wan_dhcpv6_pd_size_auto,omitempty"`
+}
+
+// NetworkWANQoS contains WAN Quality of Service settings.
+type NetworkWANQoS struct {
+	WANSmartQEnabled *bool  `json:"wan_smartq_enabled,omitempty"`
+	WANEgressQOS     string `json:"wan_egress_qos,omitempty"`
+	WANDHCPCos       *int   `json:"wan_dhcp_cos,omitempty"`
+}
+
+// NetworkWANLoadBalance contains WAN load balancing and failover settings.
+type NetworkWANLoadBalance struct {
+	WANFailoverPriority  *int   `json:"wan_failover_priority,omitempty"`
+	WANLoadBalanceType   string `json:"wan_load_balance_type,omitempty"`
+	WANLoadBalanceWeight *int   `json:"wan_load_balance_weight,omitempty"`
+}
+
+// NetworkWANVLAN contains WAN VLAN tagging settings.
+type NetworkWANVLAN struct {
+	WANVLANEnabled *bool `json:"wan_vlan_enabled,omitempty"`
+	WANVLAN        *int  `json:"wan_vlan,omitempty"`
+}
+
+// NetworkWAN contains all WAN-specific configuration for a network.
+type NetworkWAN struct {
+	WAN                     string                   `json:"wan,omitempty"`
+	WANType                 string                   `json:"wan_type,omitempty"`
+	WANIP                   string                   `json:"wan_ip,omitempty"`
+	WANNetmask              string                   `json:"wan_netmask,omitempty"`
+	WANGateway              string                   `json:"wan_gateway,omitempty"`
+	WANNetworkGroup         string                   `json:"wan_networkgroup,omitempty"`
+	WANIPAliases            []string                 `json:"wan_ip_aliases,omitempty"`
+	WANDNSPreference        string                   `json:"wan_dns_preference,omitempty"`
+	WANDHCPOptions          []json.RawMessage        `json:"wan_dhcp_options,omitempty"`
+	WANDsliteRemoteHost     string                   `json:"wan_dslite_remote_host,omitempty"`
+	WANDsliteRemoteHostAuto *bool                    `json:"wan_dslite_remote_host_auto,omitempty"`
+	WANProviderCapabilities *WANProviderCapabilities `json:"wan_provider_capabilities,omitempty"`
+	ReportWANEvent          *bool                    `json:"report_wan_event,omitempty"`
+	NetworkWANIPv6
+	NetworkWANQoS
+	NetworkWANLoadBalance
+	NetworkWANVLAN
+}
+
+// NetworkIPv6 contains IPv6 configuration settings.
+type NetworkIPv6 struct {
+	IPv6SettingPreference string `json:"ipv6_setting_preference,omitempty"`
+	IPv6WANDelegationType string `json:"ipv6_wan_delegation_type,omitempty"`
+}
+
+// NetworkMulticast contains multicast and IGMP settings.
+type NetworkMulticast struct {
+	IGMPSnooping      *bool  `json:"igmp_snooping,omitempty"`
+	IGMPProxyUpstream *bool  `json:"igmp_proxy_upstream,omitempty"`
+	IGMPProxyFor      string `json:"igmp_proxy_for,omitempty"`
+	DomainName        string `json:"domain_name,omitempty"`
+}
+
+// NetworkAccess contains network access and NAT settings.
+type NetworkAccess struct {
+	InternetAccessEnabled     *bool    `json:"internet_access_enabled,omitempty"`
+	IntraNetworkAccessEnabled *bool    `json:"intra_network_access_enabled,omitempty"`
+	IsNAT                     *bool    `json:"is_nat,omitempty"`
+	NATOutboundIPAddresses    []string `json:"nat_outbound_ip_addresses,omitempty"`
+	MACOverrideEnabled        *bool    `json:"mac_override_enabled,omitempty"`
+	MDNSEnabled               *bool    `json:"mdns_enabled,omitempty"`
+	LteLANEnabled             *bool    `json:"lte_lan_enabled,omitempty"`
+	UpnpLANEnabled            *bool    `json:"upnp_lan_enabled,omitempty"`
+	PptpcServerEnabled        *bool    `json:"pptpc_server_enabled,omitempty"`
+}
+
+// NetworkRouting contains routing and firewall zone configuration.
+type NetworkRouting struct {
+	NetworkGroup     string `json:"networkgroup,omitempty"`
+	RoutingTableID   *int   `json:"routing_table_id,omitempty"`
+	SingleNetworkLAN string `json:"single_network_lan,omitempty"`
+	FirewallZoneID   string `json:"firewall_zone_id,omitempty"`
+}
+
 // Network represents a UniFi network/VLAN configuration.
 // This corresponds to the networkconf REST endpoint.
 //
@@ -30,89 +170,24 @@ type QoSProfile struct {
 //   - GatewayType: "default", "switch"
 //   - WANLoadBalanceType: "failover-only", "weighted"
 type Network struct {
-	ID                          string   `json:"_id,omitempty"`
-	SiteID                      string   `json:"site_id,omitempty"`
-	Name                        string   `json:"name"`
-	Purpose                     string   `json:"purpose,omitempty"`
-	Enabled                     *bool    `json:"enabled,omitempty"`
-	VLAN                        *int     `json:"vlan,omitempty"`
-	VLANEnabled                 *bool    `json:"vlan_enabled,omitempty"`
-	IPSubnet                    string   `json:"ip_subnet,omitempty"`
-	NetworkGroup                string   `json:"networkgroup,omitempty"`
-	DHCPDEnabled                *bool    `json:"dhcpd_enabled,omitempty"`
-	DHCPDStart                  string   `json:"dhcpd_start,omitempty"`
-	DHCPDStop                   string   `json:"dhcpd_stop,omitempty"`
-	DHCPDLeasetime              *int     `json:"dhcpd_leasetime,omitempty"`
-	DHCPDGatewayEnabled         *bool    `json:"dhcpd_gateway_enabled,omitempty"`
-	DHCPDGateway                string   `json:"dhcpd_gateway,omitempty"`
-	DHCPDDNSEnabled             *bool    `json:"dhcpd_dns_enabled,omitempty"`
-	DHCPDDns1                   string   `json:"dhcpd_dns_1,omitempty"`
-	DHCPDDns2                   string   `json:"dhcpd_dns_2,omitempty"`
-	DHCPDDns3                   string   `json:"dhcpd_dns_3,omitempty"`
-	DHCPDDns4                   string   `json:"dhcpd_dns_4,omitempty"`
-	DHCPRelayEnabled            *bool    `json:"dhcp_relay_enabled,omitempty"`
-	DHCPDTimeOffsetEnabled      *bool    `json:"dhcpd_time_offset_enabled,omitempty"`
-	DHCPDBootEnabled            *bool    `json:"dhcpd_boot_enabled,omitempty"`
-	DHCPDBootServer             string   `json:"dhcpd_boot_server,omitempty"`
-	DHCPDBootFilename           string   `json:"dhcpd_boot_filename,omitempty"`
-	DHCPDTFTPServer             string   `json:"dhcpd_tftp_server,omitempty"`
-	DHCPDUnifiController        string   `json:"dhcpd_unifi_controller,omitempty"`
-	DHCPDWPADUrl                string   `json:"dhcpd_wpad_url,omitempty"`
-	DHCPDNTPEnabled             *bool    `json:"dhcpd_ntp_enabled,omitempty"`
-	DHCPDNtp1                   string   `json:"dhcpd_ntp_1,omitempty"`
-	DHCPDNtp2                   string   `json:"dhcpd_ntp_2,omitempty"`
-	DHCPGuardingEnabled         *bool    `json:"dhcpguard_enabled,omitempty"`
-	DomainName                  string   `json:"domain_name,omitempty"`
-	IGMPSnooping                *bool    `json:"igmp_snooping,omitempty"`
-	IGMPProxyUpstream           *bool    `json:"igmp_proxy_upstream,omitempty"`
-	IGMPProxyFor                string   `json:"igmp_proxy_for,omitempty"`
-	InternetAccessEnabled       *bool    `json:"internet_access_enabled,omitempty"`
-	IntraNetworkAccessEnabled   *bool    `json:"intra_network_access_enabled,omitempty"`
-	IsNAT                       *bool    `json:"is_nat,omitempty"`
-	LteLANEnabled               *bool    `json:"lte_lan_enabled,omitempty"`
-	MDNSEnabled                 *bool    `json:"mdns_enabled,omitempty"`
-	MACOverrideEnabled          *bool    `json:"mac_override_enabled,omitempty"`
-	NATOutboundIPAddresses      []string `json:"nat_outbound_ip_addresses,omitempty"`
-	PptpcServerEnabled          *bool    `json:"pptpc_server_enabled,omitempty"`
-	SettingPreference           string   `json:"setting_preference,omitempty"`
-	UpnpLANEnabled              *bool    `json:"upnp_lan_enabled,omitempty"`
-	ReportWANEvent              *bool    `json:"report_wan_event,omitempty"`
-	RoutingTableID              *int     `json:"routing_table_id,omitempty"`
-	SingleNetworkLAN            string   `json:"single_network_lan,omitempty"`
-	FirewallZoneID              string   `json:"firewall_zone_id,omitempty"`
-	WAN                         string   `json:"wan,omitempty"`
-	WANDHCPCos                  *int     `json:"wan_dhcp_cos,omitempty"`
-	WANDHCPOptions              []json.RawMessage `json:"wan_dhcp_options,omitempty"`
-	WANDHCPv6Cos                *int     `json:"wan_dhcpv6_cos,omitempty"`
-	WANDHCPv6PDSizeAuto         *bool    `json:"wan_dhcpv6_pd_size_auto,omitempty"`
-	WANDNSPreference            string   `json:"wan_dns_preference,omitempty"`
-	WANDsliteRemoteHost         string   `json:"wan_dslite_remote_host,omitempty"`
-	WANDsliteRemoteHostAuto     *bool    `json:"wan_dslite_remote_host_auto,omitempty"`
-	WANEgressQOS                string   `json:"wan_egress_qos,omitempty"`
-	WANFailoverPriority         *int     `json:"wan_failover_priority,omitempty"`
-	WANGateway                  string   `json:"wan_gateway,omitempty"`
-	WANIP                       string   `json:"wan_ip,omitempty"`
-	WANIPAliases                []string `json:"wan_ip_aliases,omitempty"`
-	WANIPv6DNS1                 string   `json:"wan_ipv6_dns1,omitempty"`
-	WANIPv6DNS2                 string   `json:"wan_ipv6_dns2,omitempty"`
-	WANIPv6DNSPreference        string   `json:"wan_ipv6_dns_preference,omitempty"`
-	WANLoadBalanceType          string   `json:"wan_load_balance_type,omitempty"`
-	WANLoadBalanceWeight        *int     `json:"wan_load_balance_weight,omitempty"`
-	WANNetmask                  string   `json:"wan_netmask,omitempty"`
-	WANNetworkGroup             string   `json:"wan_networkgroup,omitempty"`
-	WANProviderCapabilities     *WANProviderCapabilities `json:"wan_provider_capabilities,omitempty"`
-	WANSmartQEnabled            *bool    `json:"wan_smartq_enabled,omitempty"`
-	WANType                     string   `json:"wan_type,omitempty"`
-	WANTypeV6                   string   `json:"wan_type_v6,omitempty"`
-	WANVLANEnabled              *bool    `json:"wan_vlan_enabled,omitempty"`
-	WANVLAN                     *int     `json:"wan_vlan,omitempty"`
-	AutoScaleEnabled            *bool    `json:"auto_scale_enabled,omitempty"`
-	GatewayType                 string   `json:"gateway_type,omitempty"`
-	GatewayDevice               string   `json:"gateway_device,omitempty"`
-	IPv6SettingPreference       string   `json:"ipv6_setting_preference,omitempty"`
-	IPv6WANDelegationType       string   `json:"ipv6_wan_delegation_type,omitempty"`
-	AttrHiddenID                string   `json:"attr_hidden_id,omitempty"`
-	AttrNoDelete                *bool    `json:"attr_no_delete,omitempty"`
+	ID                string `json:"_id,omitempty"`
+	SiteID            string `json:"site_id,omitempty"`
+	Name              string `json:"name"`
+	Purpose           string `json:"purpose,omitempty"`
+	Enabled           *bool  `json:"enabled,omitempty"`
+	SettingPreference string `json:"setting_preference,omitempty"`
+	GatewayType       string `json:"gateway_type,omitempty"`
+	GatewayDevice     string `json:"gateway_device,omitempty"`
+	AutoScaleEnabled  *bool  `json:"auto_scale_enabled,omitempty"`
+	AttrHiddenID      string `json:"attr_hidden_id,omitempty"`
+	AttrNoDelete      *bool  `json:"attr_no_delete,omitempty"`
+	NetworkVLAN
+	NetworkDHCP
+	NetworkWAN
+	NetworkIPv6
+	NetworkMulticast
+	NetworkAccess
+	NetworkRouting
 }
 
 // FirewallRule represents a UniFi firewall rule.
@@ -1124,6 +1199,103 @@ func (w *WLANConf) Validate() error {
 	return nil
 }
 
+// Validate checks VLAN configuration.
+func (v *NetworkVLAN) Validate() error {
+	if v.IPSubnet != "" && !isValidCIDR(v.IPSubnet) {
+		return fmt.Errorf("network: ip_subnet must be a valid CIDR")
+	}
+	return nil
+}
+
+// Validate checks DHCP gateway configuration.
+func (g *NetworkDHCPGateway) Validate() error {
+	if g.DHCPDGateway != "" && !isValidIP(g.DHCPDGateway) {
+		return fmt.Errorf("network: dhcpd_gateway must be a valid IP address")
+	}
+	return nil
+}
+
+// Validate checks DHCP DNS configuration.
+func (d *NetworkDHCPDNS) Validate() error {
+	if d.DHCPDDns1 != "" && !isValidIP(d.DHCPDDns1) {
+		return fmt.Errorf("network: dhcpd_dns_1 must be a valid IP address")
+	}
+	if d.DHCPDDns2 != "" && !isValidIP(d.DHCPDDns2) {
+		return fmt.Errorf("network: dhcpd_dns_2 must be a valid IP address")
+	}
+	if d.DHCPDDns3 != "" && !isValidIP(d.DHCPDDns3) {
+		return fmt.Errorf("network: dhcpd_dns_3 must be a valid IP address")
+	}
+	if d.DHCPDDns4 != "" && !isValidIP(d.DHCPDDns4) {
+		return fmt.Errorf("network: dhcpd_dns_4 must be a valid IP address")
+	}
+	return nil
+}
+
+// Validate checks DHCP configuration.
+func (d *NetworkDHCP) Validate() error {
+	if d.DHCPDStart != "" && !isValidIP(d.DHCPDStart) {
+		return fmt.Errorf("network: dhcpd_start must be a valid IP address")
+	}
+	if d.DHCPDStop != "" && !isValidIP(d.DHCPDStop) {
+		return fmt.Errorf("network: dhcpd_stop must be a valid IP address")
+	}
+	if err := d.NetworkDHCPGateway.Validate(); err != nil {
+		return err
+	}
+	if err := d.NetworkDHCPDNS.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Validate checks WAN IPv6 configuration.
+func (w *NetworkWANIPv6) Validate() error {
+	if w.WANTypeV6 != "" && !isOneOf(w.WANTypeV6, "disabled", "dhcpv6", "static", "autoconf") {
+		return fmt.Errorf("network: wan_type_v6 must be one of: disabled, dhcpv6, static, autoconf")
+	}
+	return nil
+}
+
+// Validate checks WAN load balance configuration.
+func (w *NetworkWANLoadBalance) Validate() error {
+	if w.WANLoadBalanceType != "" && !isOneOf(w.WANLoadBalanceType, "failover-only", "weighted") {
+		return fmt.Errorf("network: wan_load_balance_type must be one of: failover-only, weighted")
+	}
+	return nil
+}
+
+// Validate checks WAN configuration.
+func (w *NetworkWAN) Validate() error {
+	if w.WANType != "" && !isOneOf(w.WANType, "dhcp", "static", "pppoe", "disabled") {
+		return fmt.Errorf("network: wan_type must be one of: dhcp, static, pppoe, disabled")
+	}
+	if w.WANGateway != "" && !isValidIP(w.WANGateway) {
+		return fmt.Errorf("network: wan_gateway must be a valid IP address")
+	}
+	if w.WANIP != "" && !isValidIP(w.WANIP) {
+		return fmt.Errorf("network: wan_ip must be a valid IP address")
+	}
+	if w.WANNetmask != "" && !isValidIP(w.WANNetmask) {
+		return fmt.Errorf("network: wan_netmask must be a valid IP address")
+	}
+	if err := w.NetworkWANIPv6.Validate(); err != nil {
+		return err
+	}
+	if err := w.NetworkWANLoadBalance.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Validate checks routing configuration.
+func (r *NetworkRouting) Validate() error {
+	if r.NetworkGroup != "" && !isOneOf(r.NetworkGroup, "LAN", "WAN", "WAN2") {
+		return fmt.Errorf("network: networkgroup must be one of: LAN, WAN, WAN2")
+	}
+	return nil
+}
+
 // Validate checks that required fields are set and values are valid.
 func (n *Network) Validate() error {
 	if n.Name == "" {
@@ -1132,56 +1304,23 @@ func (n *Network) Validate() error {
 	if n.Purpose != "" && !isOneOf(n.Purpose, "wan", "corporate", "vlan-only", "remote-user-vpn", "site-vpn", "guest") {
 		return fmt.Errorf("network: purpose must be one of: wan, corporate, vlan-only, remote-user-vpn, site-vpn, guest")
 	}
-	if n.NetworkGroup != "" && !isOneOf(n.NetworkGroup, "LAN", "WAN", "WAN2") {
-		return fmt.Errorf("network: networkgroup must be one of: LAN, WAN, WAN2")
-	}
-	if n.WANType != "" && !isOneOf(n.WANType, "dhcp", "static", "pppoe", "disabled") {
-		return fmt.Errorf("network: wan_type must be one of: dhcp, static, pppoe, disabled")
-	}
-	if n.WANTypeV6 != "" && !isOneOf(n.WANTypeV6, "disabled", "dhcpv6", "static", "autoconf") {
-		return fmt.Errorf("network: wan_type_v6 must be one of: disabled, dhcpv6, static, autoconf")
-	}
 	if n.SettingPreference != "" && !isOneOf(n.SettingPreference, "auto", "manual") {
 		return fmt.Errorf("network: setting_preference must be one of: auto, manual")
 	}
 	if n.GatewayType != "" && !isOneOf(n.GatewayType, "default", "switch") {
 		return fmt.Errorf("network: gateway_type must be one of: default, switch")
 	}
-	if n.WANLoadBalanceType != "" && !isOneOf(n.WANLoadBalanceType, "failover-only", "weighted") {
-		return fmt.Errorf("network: wan_load_balance_type must be one of: failover-only, weighted")
+	if err := n.NetworkVLAN.Validate(); err != nil {
+		return err
 	}
-	if n.IPSubnet != "" && !isValidCIDR(n.IPSubnet) {
-		return fmt.Errorf("network: ip_subnet must be a valid CIDR")
+	if err := n.NetworkDHCP.Validate(); err != nil {
+		return err
 	}
-	if n.DHCPDStart != "" && !isValidIP(n.DHCPDStart) {
-		return fmt.Errorf("network: dhcpd_start must be a valid IP address")
+	if err := n.NetworkWAN.Validate(); err != nil {
+		return err
 	}
-	if n.DHCPDStop != "" && !isValidIP(n.DHCPDStop) {
-		return fmt.Errorf("network: dhcpd_stop must be a valid IP address")
-	}
-	if n.DHCPDGateway != "" && !isValidIP(n.DHCPDGateway) {
-		return fmt.Errorf("network: dhcpd_gateway must be a valid IP address")
-	}
-	if n.DHCPDDns1 != "" && !isValidIP(n.DHCPDDns1) {
-		return fmt.Errorf("network: dhcpd_dns_1 must be a valid IP address")
-	}
-	if n.DHCPDDns2 != "" && !isValidIP(n.DHCPDDns2) {
-		return fmt.Errorf("network: dhcpd_dns_2 must be a valid IP address")
-	}
-	if n.DHCPDDns3 != "" && !isValidIP(n.DHCPDDns3) {
-		return fmt.Errorf("network: dhcpd_dns_3 must be a valid IP address")
-	}
-	if n.DHCPDDns4 != "" && !isValidIP(n.DHCPDDns4) {
-		return fmt.Errorf("network: dhcpd_dns_4 must be a valid IP address")
-	}
-	if n.WANGateway != "" && !isValidIP(n.WANGateway) {
-		return fmt.Errorf("network: wan_gateway must be a valid IP address")
-	}
-	if n.WANIP != "" && !isValidIP(n.WANIP) {
-		return fmt.Errorf("network: wan_ip must be a valid IP address")
-	}
-	if n.WANNetmask != "" && !isValidIP(n.WANNetmask) {
-		return fmt.Errorf("network: wan_netmask must be a valid IP address")
+	if err := n.NetworkRouting.Validate(); err != nil {
+		return err
 	}
 	return nil
 }

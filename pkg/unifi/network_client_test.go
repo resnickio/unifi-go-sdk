@@ -605,8 +605,8 @@ func TestNetworkClientCreateNetwork(t *testing.T) {
 	}
 
 	network := &Network{
-		Name:     "TestNetwork",
-		IPSubnet: "10.0.0.0/24",
+		Name:        "TestNetwork",
+		NetworkVLAN: NetworkVLAN{IPSubnet: "10.0.0.0/24"},
 	}
 
 	created, err := client.CreateNetwork(context.Background(), network)
@@ -1106,8 +1106,8 @@ func TestNetworkClientUpdateNetwork(t *testing.T) {
 	}
 
 	network := &Network{
-		Name:     "UpdatedNetwork",
-		IPSubnet: "10.0.0.0/24",
+		Name:        "UpdatedNetwork",
+		NetworkVLAN: NetworkVLAN{IPSubnet: "10.0.0.0/24"},
 	}
 
 	updated, err := client.UpdateNetwork(context.Background(), "abc123", network)

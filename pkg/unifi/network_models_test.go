@@ -1,6 +1,7 @@
 package unifi
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -329,13 +330,13 @@ func TestNetworkValidate(t *testing.T) {
 		{"valid", Network{Name: "Test", Purpose: "corporate"}, ""},
 		{"missing name", Network{}, "name is required"},
 		{"invalid purpose", Network{Name: "Test", Purpose: "invalid"}, "purpose must be one of"},
-		{"invalid networkgroup", Network{Name: "Test", NetworkGroup: "invalid"}, "networkgroup must be one of"},
-		{"invalid wan_type", Network{Name: "Test", WANType: "invalid"}, "wan_type must be one of"},
-		{"invalid ip_subnet", Network{Name: "Test", IPSubnet: "invalid"}, "ip_subnet must be a valid CIDR"},
-		{"invalid dhcpd_start", Network{Name: "Test", DHCPDStart: "invalid"}, "dhcpd_start must be a valid IP"},
-		{"invalid wan_gateway", Network{Name: "Test", WANGateway: "invalid"}, "wan_gateway must be a valid IP"},
-		{"valid cidr", Network{Name: "Test", IPSubnet: "192.168.1.0/24"}, ""},
-		{"valid dhcp", Network{Name: "Test", DHCPDStart: "192.168.1.100", DHCPDStop: "192.168.1.200"}, ""},
+		{"invalid networkgroup", Network{Name: "Test", NetworkRouting: NetworkRouting{NetworkGroup: "invalid"}}, "networkgroup must be one of"},
+		{"invalid wan_type", Network{Name: "Test", NetworkWAN: NetworkWAN{WANType: "invalid"}}, "wan_type must be one of"},
+		{"invalid ip_subnet", Network{Name: "Test", NetworkVLAN: NetworkVLAN{IPSubnet: "invalid"}}, "ip_subnet must be a valid CIDR"},
+		{"invalid dhcpd_start", Network{Name: "Test", NetworkDHCP: NetworkDHCP{DHCPDStart: "invalid"}}, "dhcpd_start must be a valid IP"},
+		{"invalid wan_gateway", Network{Name: "Test", NetworkWAN: NetworkWAN{WANGateway: "invalid"}}, "wan_gateway must be a valid IP"},
+		{"valid cidr", Network{Name: "Test", NetworkVLAN: NetworkVLAN{IPSubnet: "192.168.1.0/24"}}, ""},
+		{"valid dhcp", Network{Name: "Test", NetworkDHCP: NetworkDHCP{DHCPDStart: "192.168.1.100", DHCPDStop: "192.168.1.200"}}, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -359,5 +360,160 @@ func checkError(t *testing.T, err error, wantErr string) {
 	}
 	if !strings.Contains(err.Error(), wantErr) {
 		t.Errorf("expected error containing %q, got %q", wantErr, err.Error())
+	}
+}
+
+func TestNetworkJSONRoundTrip(t *testing.T) {
+	original := Network{
+		Name:              "TestNet",
+		Purpose:           "corporate",
+		SettingPreference: "auto",
+		GatewayType:       "default",
+		NetworkVLAN: NetworkVLAN{
+			VLAN:        IntPtr(100),
+			VLANEnabled: BoolPtr(true),
+			IPSubnet:    "192.168.1.0/24",
+		},
+		NetworkDHCP: NetworkDHCP{
+			DHCPDEnabled: BoolPtr(true),
+			DHCPDStart:   "192.168.1.100",
+			DHCPDStop:    "192.168.1.200",
+			NetworkDHCPDNS: NetworkDHCPDNS{
+				DHCPDDNSEnabled: BoolPtr(true),
+				DHCPDDns1:       "8.8.8.8",
+			},
+		},
+		NetworkWAN: NetworkWAN{
+			WANType:    "dhcp",
+			WANGateway: "192.168.1.1",
+		},
+		NetworkRouting: NetworkRouting{
+			NetworkGroup: "LAN",
+		},
+	}
+
+	data, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("unmarshal to map error: %v", err)
+	}
+
+	flatFields := []string{
+		"name", "purpose", "setting_preference", "gateway_type",
+		"vlan", "vlan_enabled", "ip_subnet",
+		"dhcpd_enabled", "dhcpd_start", "dhcpd_stop",
+		"dhcpd_dns_enabled", "dhcpd_dns_1",
+		"wan_type", "wan_gateway",
+		"networkgroup",
+	}
+	for _, field := range flatFields {
+		if _, ok := raw[field]; !ok {
+			t.Errorf("field %q should be at top level in JSON", field)
+		}
+	}
+
+	var decoded Network
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+
+	if decoded.Name != original.Name {
+		t.Errorf("Name mismatch: got %q, want %q", decoded.Name, original.Name)
+	}
+	if decoded.IPSubnet != original.IPSubnet {
+		t.Errorf("IPSubnet mismatch: got %q, want %q", decoded.IPSubnet, original.IPSubnet)
+	}
+	if decoded.DHCPDStart != original.DHCPDStart {
+		t.Errorf("DHCPDStart mismatch: got %q, want %q", decoded.DHCPDStart, original.DHCPDStart)
+	}
+	if decoded.WANType != original.WANType {
+		t.Errorf("WANType mismatch: got %q, want %q", decoded.WANType, original.WANType)
+	}
+	if decoded.NetworkGroup != original.NetworkGroup {
+		t.Errorf("NetworkGroup mismatch: got %q, want %q", decoded.NetworkGroup, original.NetworkGroup)
+	}
+}
+
+func TestNetworkVLANValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		vlan    NetworkVLAN
+		wantErr string
+	}{
+		{"valid empty", NetworkVLAN{}, ""},
+		{"valid cidr", NetworkVLAN{IPSubnet: "192.168.1.0/24"}, ""},
+		{"invalid cidr", NetworkVLAN{IPSubnet: "invalid"}, "ip_subnet must be a valid CIDR"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.vlan.Validate()
+			checkError(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestNetworkDHCPValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		dhcp    NetworkDHCP
+		wantErr string
+	}{
+		{"valid empty", NetworkDHCP{}, ""},
+		{"valid ips", NetworkDHCP{DHCPDStart: "192.168.1.100", DHCPDStop: "192.168.1.200"}, ""},
+		{"invalid start", NetworkDHCP{DHCPDStart: "invalid"}, "dhcpd_start must be a valid IP"},
+		{"invalid stop", NetworkDHCP{DHCPDStop: "invalid"}, "dhcpd_stop must be a valid IP"},
+		{"invalid gateway", NetworkDHCP{NetworkDHCPGateway: NetworkDHCPGateway{DHCPDGateway: "invalid"}}, "dhcpd_gateway must be a valid IP"},
+		{"invalid dns1", NetworkDHCP{NetworkDHCPDNS: NetworkDHCPDNS{DHCPDDns1: "invalid"}}, "dhcpd_dns_1 must be a valid IP"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.dhcp.Validate()
+			checkError(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestNetworkWANValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		wan     NetworkWAN
+		wantErr string
+	}{
+		{"valid empty", NetworkWAN{}, ""},
+		{"valid wan_type", NetworkWAN{WANType: "dhcp"}, ""},
+		{"invalid wan_type", NetworkWAN{WANType: "invalid"}, "wan_type must be one of"},
+		{"invalid wan_ip", NetworkWAN{WANIP: "invalid"}, "wan_ip must be a valid IP"},
+		{"invalid wan_gateway", NetworkWAN{WANGateway: "invalid"}, "wan_gateway must be a valid IP"},
+		{"invalid wan_netmask", NetworkWAN{WANNetmask: "invalid"}, "wan_netmask must be a valid IP"},
+		{"invalid wan_type_v6", NetworkWAN{NetworkWANIPv6: NetworkWANIPv6{WANTypeV6: "invalid"}}, "wan_type_v6 must be one of"},
+		{"invalid load_balance_type", NetworkWAN{NetworkWANLoadBalance: NetworkWANLoadBalance{WANLoadBalanceType: "invalid"}}, "wan_load_balance_type must be one of"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.wan.Validate()
+			checkError(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestNetworkRoutingValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		routing NetworkRouting
+		wantErr string
+	}{
+		{"valid empty", NetworkRouting{}, ""},
+		{"valid networkgroup", NetworkRouting{NetworkGroup: "LAN"}, ""},
+		{"invalid networkgroup", NetworkRouting{NetworkGroup: "invalid"}, "networkgroup must be one of"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.routing.Validate()
+			checkError(t, err, tt.wantErr)
+		})
 	}
 }
