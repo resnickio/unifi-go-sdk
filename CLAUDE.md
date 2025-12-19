@@ -146,24 +146,24 @@ Both APIs complete:
 
 **Network API (Legacy REST)**
 - `Login`, `Logout`, `IsLoggedIn`
-- Networks: `List`, `Get`, `Create`, `Update`, `Delete`
-- Firewall Rules: `List`, `Get`, `Create`, `Update`, `Delete`
-- Firewall Groups: `List`, `Get`, `Create`, `Update`, `Delete`
-- Port Forwards: `List`, `Get`, `Create`, `Update`, `Delete`
-- WLANs: `List`, `Get`, `Create`, `Update`, `Delete`
-- Port Profiles: `List`, `Get`, `Create`, `Update`, `Delete`
-- Static Routes: `List`, `Get`, `Create`, `Update`, `Delete`
-- User Groups: `List`, `Get`, `Create`, `Update`, `Delete`
-- RADIUS Profiles: `List`, `Get`, `Create`, `Update`, `Delete`
-- Dynamic DNS: `List`, `Get`, `Create`, `Update`, `Delete`
+- Networks: `ListNetworks`, `GetNetwork`, `CreateNetwork`, `UpdateNetwork`, `DeleteNetwork`
+- Firewall Rules: `ListFirewallRules`, `GetFirewallRule`, `CreateFirewallRule`, `UpdateFirewallRule`, `DeleteFirewallRule`
+- Firewall Groups: `ListFirewallGroups`, `GetFirewallGroup`, `CreateFirewallGroup`, `UpdateFirewallGroup`, `DeleteFirewallGroup`
+- Port Forwards: `ListPortForwards`, `GetPortForward`, `CreatePortForward`, `UpdatePortForward`, `DeletePortForward`
+- WLANs: `ListWLANs`, `GetWLAN`, `CreateWLAN`, `UpdateWLAN`, `DeleteWLAN`
+- Port Profiles: `ListPortConfs`, `GetPortConf`, `CreatePortConf`, `UpdatePortConf`, `DeletePortConf`
+- Static Routes: `ListRoutes`, `GetRoute`, `CreateRoute`, `UpdateRoute`, `DeleteRoute`
+- User Groups: `ListUserGroups`, `GetUserGroup`, `CreateUserGroup`, `UpdateUserGroup`, `DeleteUserGroup`
+- RADIUS Profiles: `ListRADIUSProfiles`, `GetRADIUSProfile`, `CreateRADIUSProfile`, `UpdateRADIUSProfile`, `DeleteRADIUSProfile`
+- Dynamic DNS: `ListDynamicDNS`, `GetDynamicDNS`, `CreateDynamicDNS`, `UpdateDynamicDNS`, `DeleteDynamicDNS`
 
 **Network API (v2)**
-- Firewall Policies: `List`, `Get`, `Create`, `Update`, `Delete`
-- Firewall Zones: `List`, `Get`, `Create`, `Update`, `Delete`
-- Static DNS: `List`, `Get`, `Create`, `Update`, `Delete`
-- Traffic Rules: `List`, `Get`, `Create`, `Update`, `Delete`
-- Traffic Routes: `List`, `Get`, `Create`, `Update`, `Delete`
-- NAT Rules: `List`, `Get`, `Create`, `Update`, `Delete`
+- Firewall Policies: `ListFirewallPolicies`, `GetFirewallPolicy`, `CreateFirewallPolicy`, `UpdateFirewallPolicy`, `DeleteFirewallPolicy`
+- Firewall Zones: `ListFirewallZones`, `GetFirewallZone`, `CreateFirewallZone`, `UpdateFirewallZone`, `DeleteFirewallZone`
+- Static DNS: `ListStaticDNS`, `GetStaticDNS`, `CreateStaticDNS`, `UpdateStaticDNS`, `DeleteStaticDNS`
+- Traffic Rules: `ListTrafficRules`, `GetTrafficRule`, `CreateTrafficRule`, `UpdateTrafficRule`, `DeleteTrafficRule`
+- Traffic Routes: `ListTrafficRoutes`, `GetTrafficRoute`, `CreateTrafficRoute`, `UpdateTrafficRoute`, `DeleteTrafficRoute`
+- NAT Rules: `ListNatRules`, `GetNatRule`, `CreateNatRule`, `UpdateNatRule`, `DeleteNatRule`
 - Active Clients: `ListActiveClients` (read-only)
 - Network Devices: `ListNetworkDevices` (read-only)
 - ACL Rules: `ListAclRules` (read-only)
