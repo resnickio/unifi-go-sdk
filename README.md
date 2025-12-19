@@ -77,6 +77,31 @@ func main() {
 | `ListDevices(ctx, opts)` | List devices grouped by host |
 | `ListAllDevices(ctx)` | List all devices (handles pagination) |
 
+#### Manual Pagination
+
+For fine-grained control over pagination, use the `List*` methods with options:
+
+```go
+var allHosts []unifi.Host
+var nextPage *string
+
+for {
+    hosts, err := client.ListHosts(ctx, unifi.ListHostsOptions{
+        PageToken: nextPage,
+        PageSize:  100,
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    allHosts = append(allHosts, hosts.Data...)
+
+    if hosts.NextPage == nil {
+        break
+    }
+    nextPage = hosts.NextPage
+}
+```
+
 Get your API key from the [UniFi Site Manager](https://unifi.ui.com).
 
 ## Network API Usage
@@ -166,7 +191,7 @@ func main() {
 |----------|---------|
 | Firewall Policies | `ListFirewallPolicies`, `GetFirewallPolicy`, `CreateFirewallPolicy`, `UpdateFirewallPolicy`, `DeleteFirewallPolicy` |
 | Firewall Zones | `ListFirewallZones`, `GetFirewallZone`, `CreateFirewallZone`, `UpdateFirewallZone`, `DeleteFirewallZone` |
-| Static DNS | `ListStaticDns`, `GetStaticDns`, `CreateStaticDns`, `UpdateStaticDns`, `DeleteStaticDns` |
+| Static DNS | `ListStaticDNS`, `GetStaticDNS`, `CreateStaticDNS`, `UpdateStaticDNS`, `DeleteStaticDNS` |
 | Traffic Rules | `ListTrafficRules`, `GetTrafficRule`, `CreateTrafficRule`, `UpdateTrafficRule`, `DeleteTrafficRule` |
 | Traffic Routes | `ListTrafficRoutes`, `GetTrafficRoute`, `CreateTrafficRoute`, `UpdateTrafficRoute`, `DeleteTrafficRoute` |
 | NAT Rules | `ListNatRules`, `GetNatRule`, `CreateNatRule`, `UpdateNatRule`, `DeleteNatRule` |
@@ -249,6 +274,20 @@ group, err := client.CreateFirewallGroup(ctx, &unifi.FirewallGroup{
 })
 ```
 
+#### Create a Port Profile
+
+```go
+enabled := true
+profile, err := client.CreatePortConf(ctx, &unifi.PortConf{
+    Name:            "Trunk Ports",
+    Forward:         "all",
+    NativeNetworkID: "default-network-id",
+    TaggedNetworks:  []string{"vlan100-id", "vlan200-id"},
+    Dot1XCtrl:       "force_authorized",
+    PortSecurityEnabled: &enabled,
+})
+```
+
 ### Interfaces for Mocking
 
 Both clients implement interfaces for easy mocking in tests:
@@ -303,7 +342,7 @@ Both clients parse `Retry-After` headers from 429 responses:
 1. Parse `Retry-After` header (supports integer seconds, fractional seconds, and HTTP-date format)
 2. Fall back to parsing delay from response body
 3. If server specifies a delay, use it exactly
-4. Otherwise, apply exponential backoff (1s, 2s, 4s...) with up to 50% jitter, capped at 30s
+4. Otherwise, apply exponential backoff (1s, 2s, 4s...) with 0-50% additional jitter, capped at 60s
 
 `MaxRetries` is `*int` — omit for default (3), or use the `IntPtr` helper to override (including `0` for no retries).
 
@@ -312,7 +351,7 @@ Both clients parse `Retry-After` headers from 429 responses:
 client, _ := unifi.NewSiteManagerClient(unifi.SiteManagerClientConfig{
     APIKey:       "your-api-key",
     MaxRetries:   unifi.IntPtr(5),      // default: 3 (nil), use 0 for no retries
-    MaxRetryWait: 120 * time.Second,    // default: 60s
+    MaxRetryWait: 120 * time.Second,    // custom max wait (default: 60s)
 })
 ```
 
@@ -325,6 +364,18 @@ client, _ := unifi.NewSiteManagerClient(unifi.SiteManagerClientConfig{
     APIKey:  "your-api-key",
     Timeout: 60 * time.Second,
 })
+```
+
+For per-request timeouts, use context:
+
+```go
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+
+hosts, err := client.ListAllHosts(ctx)
+if errors.Is(err, context.DeadlineExceeded) {
+    // Handle timeout
+}
 ```
 
 ## Debug Logging
@@ -349,6 +400,17 @@ client, _ := unifi.NewNetworkClient(unifi.NetworkClientConfig{
 type Logger interface {
     Printf(format string, v ...any)
 }
+
+// Example: structured JSON logger
+type JSONLogger struct{}
+
+func (l *JSONLogger) Printf(format string, v ...any) {
+    msg := fmt.Sprintf(format, v...)
+    json.NewEncoder(os.Stderr).Encode(map[string]string{
+        "level": "debug",
+        "msg":   msg,
+    })
+}
 ```
 
 Log output format:
@@ -356,6 +418,14 @@ Log output format:
 [unifi] 2024/01/15 10:30:00 -> GET https://api.ui.com/v1/hosts
 [unifi] 2024/01/15 10:30:01 <- 200 OK
 ```
+
+## Rate Limits
+
+The Site Manager API has the following rate limits:
+- **v1 endpoints**: 10,000 requests per minute
+- **EA (Early Access) endpoints**: 100 requests per minute
+
+The SDK automatically handles rate limit responses (429) by respecting `Retry-After` headers and retrying with exponential backoff. No manual rate limiting is required.
 
 ## Status
 
