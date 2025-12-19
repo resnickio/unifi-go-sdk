@@ -9,6 +9,7 @@ Go SDK for UniFi APIs (Site Manager and Network).
   - `sitemanager_models.go` - Cloud API models
   - `network_client.go` - Controller API client
   - `network_models.go` - Controller API models
+  - `validation.go` - Validation helper functions (IP, CIDR, port, MAC, enum)
   - `errors.go` - Sentinel errors
   - `retry.go` - Shared retry logic (backoff, jitter, Retry-After parsing)
   - `helpers.go` - Pointer helper functions (IntPtr, BoolPtr, StringPtr)
@@ -134,6 +135,32 @@ This SDK is intended to support a Terraform provider. Prioritize type safety wit
 - **Over-engineering**: Avoid. Don't add abstractions, helpers, or features beyond what's requested
 - **Error handling**: Limit response body reads to prevent memory exhaustion (64KB for errors, 10MB for success responses)
 - **File naming**: Use `{api}_client.go`, `{api}_models.go` pattern (e.g., `sitemanager_client.go`, `network_client.go`)
+
+## Validation Conventions
+
+All model structs used for Create/Update operations must have a `Validate() error` method:
+
+- **Required fields**: Return error if empty (e.g., `if n.Name == "" { return fmt.Errorf("network: name is required") }`)
+- **Enum fields**: Validate against allowed values using `isOneOf()` helper
+- **IP/CIDR fields**: Validate format using `isValidIP()` or `isValidCIDR()` helpers
+- **Port fields**: Validate range (1-65535) using `isValidPort()` helper
+- **MAC fields**: Validate format using `isValidMAC()` helper
+- **Port ranges**: Validate format using `isValidPortRange()` helper (supports "80" or "80-443")
+- **Error format**: `"structname: fieldname reason"` (lowercase struct, lowercase field)
+- **Helper location**: `pkg/unifi/validation.go`
+
+When adding new model structs:
+1. Add `Validate() error` method to the struct in `network_models.go`
+2. Validate required fields first, then enum fields, then format fields
+3. For optional fields, only validate if non-empty (e.g., `if n.Field != "" && !isValid(n.Field)`)
+4. Add unit tests in `network_models_test.go`
+
+## Post-Implementation Summaries
+
+After completing a planned task, provide a concise summary including:
+- **Files Created**: New files with brief descriptions
+- **Files Modified**: Existing files and what changed
+- **Key Details**: Coverage, scope, or other relevant metrics
 
 ## Status
 

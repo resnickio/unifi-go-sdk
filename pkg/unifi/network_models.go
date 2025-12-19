@@ -1,6 +1,9 @@
 package unifi
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // WANProviderCapabilities describes ISP bandwidth capabilities for a WAN network.
 type WANProviderCapabilities struct {
@@ -786,4 +789,399 @@ type WanSla struct {
 	Target              string   `json:"target,omitempty"`
 	ThresholdLatency    *int     `json:"threshold_latency,omitempty"`
 	ThresholdPacketLoss *float64 `json:"threshold_packet_loss,omitempty"`
+}
+
+// Validate checks that required fields are set and values are valid.
+func (u *UserGroup) Validate() error {
+	if u.Name == "" {
+		return fmt.Errorf("usergroup: name is required")
+	}
+	return nil
+}
+
+// Validate checks that required fields are set and values are valid.
+func (z *FirewallZone) Validate() error {
+	if z.Name == "" {
+		return fmt.Errorf("firewallzone: name is required")
+	}
+	return nil
+}
+
+// Validate checks that required fields are set and values are valid.
+func (g *FirewallGroup) Validate() error {
+	if g.Name == "" {
+		return fmt.Errorf("firewallgroup: name is required")
+	}
+	if g.GroupType != "" && !isOneOf(g.GroupType, "address-group", "port-group", "ipv6-address-group") {
+		return fmt.Errorf("firewallgroup: group_type must be one of: address-group, port-group, ipv6-address-group")
+	}
+	return nil
+}
+
+// Validate checks that required fields are set and values are valid.
+func (r *Routing) Validate() error {
+	if r.Name == "" {
+		return fmt.Errorf("routing: name is required")
+	}
+	if r.Type != "" && !isOneOf(r.Type, "static-route", "interface-route") {
+		return fmt.Errorf("routing: type must be one of: static-route, interface-route")
+	}
+	if r.StaticRouteType != "" && !isOneOf(r.StaticRouteType, "nexthop-route", "interface-route", "blackhole") {
+		return fmt.Errorf("routing: static-route_type must be one of: nexthop-route, interface-route, blackhole")
+	}
+	if r.StaticRouteNetwork != "" && !isValidCIDR(r.StaticRouteNetwork) {
+		return fmt.Errorf("routing: static-route_network must be a valid CIDR")
+	}
+	if r.StaticRouteNexthop != "" && !isValidIP(r.StaticRouteNexthop) {
+		return fmt.Errorf("routing: static-route_nexthop must be a valid IP address")
+	}
+	return nil
+}
+
+// Validate checks that required fields are set and values are valid.
+func (d *DynamicDNS) Validate() error {
+	if d.Service == "" {
+		return fmt.Errorf("dynamicdns: service is required")
+	}
+	if !isOneOf(d.Service, "afraid", "changeip", "cloudflare", "dnspark", "dslreports", "dyndns", "easydns", "namecheap", "noip", "sitelutions", "zoneedit", "custom") {
+		return fmt.Errorf("dynamicdns: service must be one of: afraid, changeip, cloudflare, dnspark, dslreports, dyndns, easydns, namecheap, noip, sitelutions, zoneedit, custom")
+	}
+	if d.HostName == "" {
+		return fmt.Errorf("dynamicdns: host_name is required")
+	}
+	if d.Interface != "" && !isOneOf(d.Interface, "wan", "wan2") {
+		return fmt.Errorf("dynamicdns: interface must be one of: wan, wan2")
+	}
+	return nil
+}
+
+// Validate checks that required fields are set and values are valid.
+func (n *NatRule) Validate() error {
+	if n.Type == "" {
+		return fmt.Errorf("natrule: type is required")
+	}
+	if !isOneOf(n.Type, "MASQUERADE", "DNAT", "SNAT") {
+		return fmt.Errorf("natrule: type must be one of: MASQUERADE, DNAT, SNAT")
+	}
+	if n.Protocol != "" && !isOneOf(n.Protocol, "all", "tcp", "udp", "tcp_udp") {
+		return fmt.Errorf("natrule: protocol must be one of: all, tcp, udp, tcp_udp")
+	}
+	if n.SourceAddress != "" && !isValidIP(n.SourceAddress) && !isValidCIDR(n.SourceAddress) {
+		return fmt.Errorf("natrule: source_address must be a valid IP or CIDR")
+	}
+	if n.SourcePort != "" && !isValidPortRange(n.SourcePort) {
+		return fmt.Errorf("natrule: source_port must be a valid port or port range")
+	}
+	if n.DestAddress != "" && !isValidIP(n.DestAddress) && !isValidCIDR(n.DestAddress) {
+		return fmt.Errorf("natrule: dest_address must be a valid IP or CIDR")
+	}
+	if n.DestPort != "" && !isValidPortRange(n.DestPort) {
+		return fmt.Errorf("natrule: dest_port must be a valid port or port range")
+	}
+	if n.TranslatedIP != "" && !isValidIP(n.TranslatedIP) {
+		return fmt.Errorf("natrule: translated_ip must be a valid IP address")
+	}
+	if n.TranslatedPort != "" && !isValidPortRange(n.TranslatedPort) {
+		return fmt.Errorf("natrule: translated_port must be a valid port or port range")
+	}
+	return nil
+}
+
+// Validate checks that required fields are set and values are valid.
+func (p *PortForward) Validate() error {
+	if p.Name == "" {
+		return fmt.Errorf("portforward: name is required")
+	}
+	if p.Proto != "" && !isOneOf(p.Proto, "tcp", "udp", "tcp_udp") {
+		return fmt.Errorf("portforward: proto must be one of: tcp, udp, tcp_udp")
+	}
+	if p.PfwdInterface != "" && !isOneOf(p.PfwdInterface, "wan", "wan2", "both") {
+		return fmt.Errorf("portforward: pfwd_interface must be one of: wan, wan2, both")
+	}
+	if p.DstPort != "" && !isValidPortRange(p.DstPort) {
+		return fmt.Errorf("portforward: dst_port must be a valid port or port range")
+	}
+	if p.FwdPort != "" && !isValidPortRange(p.FwdPort) {
+		return fmt.Errorf("portforward: fwd_port must be a valid port or port range")
+	}
+	if p.Fwd != "" && !isValidIP(p.Fwd) {
+		return fmt.Errorf("portforward: fwd must be a valid IP address")
+	}
+	if p.Src != "" && !isValidIP(p.Src) && !isValidCIDR(p.Src) {
+		return fmt.Errorf("portforward: src must be a valid IP or CIDR")
+	}
+	if p.DestinationIP != "" && !isValidIP(p.DestinationIP) {
+		return fmt.Errorf("portforward: destination_ip must be a valid IP address")
+	}
+	return nil
+}
+
+// Validate checks that required fields are set and values are valid.
+func (s *StaticDNS) Validate() error {
+	if s.Key == "" {
+		return fmt.Errorf("staticdns: key is required")
+	}
+	if s.Value == "" {
+		return fmt.Errorf("staticdns: value is required")
+	}
+	if s.RecordType != "" && !isOneOf(s.RecordType, "A", "AAAA", "CNAME", "MX", "NS", "TXT", "SRV") {
+		return fmt.Errorf("staticdns: record_type must be one of: A, AAAA, CNAME, MX, NS, TXT, SRV")
+	}
+	if s.Port != nil && !isValidPort(*s.Port) {
+		return fmt.Errorf("staticdns: port must be between 1 and 65535")
+	}
+	return nil
+}
+
+// Validate checks that required fields are set and values are valid.
+func (r *RADIUSProfile) Validate() error {
+	if r.Name == "" {
+		return fmt.Errorf("radiusprofile: name is required")
+	}
+	if r.VlanWlanMode != "" && !isOneOf(r.VlanWlanMode, "disabled", "optional", "required") {
+		return fmt.Errorf("radiusprofile: vlan_wlan_mode must be one of: disabled, optional, required")
+	}
+	for i, server := range r.AuthServers {
+		if server.IP != "" && !isValidIP(server.IP) {
+			return fmt.Errorf("radiusprofile: auth_servers[%d].ip must be a valid IP address", i)
+		}
+		if server.Port != nil && !isValidPort(*server.Port) {
+			return fmt.Errorf("radiusprofile: auth_servers[%d].port must be between 1 and 65535", i)
+		}
+	}
+	for i, server := range r.AcctServers {
+		if server.IP != "" && !isValidIP(server.IP) {
+			return fmt.Errorf("radiusprofile: acct_servers[%d].ip must be a valid IP address", i)
+		}
+		if server.Port != nil && !isValidPort(*server.Port) {
+			return fmt.Errorf("radiusprofile: acct_servers[%d].port must be between 1 and 65535", i)
+		}
+	}
+	return nil
+}
+
+// Validate checks that required fields are set and values are valid.
+func (f *FirewallRule) Validate() error {
+	if f.Name == "" {
+		return fmt.Errorf("firewallrule: name is required")
+	}
+	if f.Action != "" && !isOneOf(f.Action, "accept", "drop", "reject") {
+		return fmt.Errorf("firewallrule: action must be one of: accept, drop, reject")
+	}
+	if f.Ruleset != "" && !isOneOf(f.Ruleset,
+		"WAN_IN", "WAN_OUT", "WAN_LOCAL", "LAN_IN", "LAN_OUT", "LAN_LOCAL",
+		"GUEST_IN", "GUEST_OUT", "GUEST_LOCAL",
+		"WANv6_IN", "WANv6_OUT", "WANv6_LOCAL",
+		"LANv6_IN", "LANv6_OUT", "LANv6_LOCAL",
+		"GUESTv6_IN", "GUESTv6_OUT", "GUESTv6_LOCAL") {
+		return fmt.Errorf("firewallrule: ruleset must be a valid ruleset name")
+	}
+	if f.Protocol != "" && !isOneOf(f.Protocol,
+		"all", "tcp", "udp", "tcp_udp", "icmp", "ah", "ax.25", "dccp", "ddp",
+		"egp", "eigrp", "encap", "esp", "etherip", "fc", "ggp", "gre", "hip", "hmp",
+		"icmpv6", "idpr-cmtp", "idrp", "igmp", "igp", "ip", "ipcomp", "ipencap", "ipip",
+		"ipv6", "ipv6-frag", "ipv6-icmp", "ipv6-nonxt", "ipv6-opts", "ipv6-route",
+		"isis", "iso-tp4", "l2tp", "manet", "mobility-header", "mpls-in-ip", "ospf",
+		"pim", "pup", "rdp", "rohc", "rspf", "rsvp", "sctp", "shim6", "skip", "st",
+		"udplite", "vmtp", "vrrp", "wesp", "xns-idp", "xtp") {
+		return fmt.Errorf("firewallrule: protocol must be a valid protocol name")
+	}
+	if f.IPSec != "" && !isOneOf(f.IPSec, "match-ipsec", "match-none") {
+		return fmt.Errorf("firewallrule: ipsec must be one of: match-ipsec, match-none")
+	}
+	if f.SrcAddress != "" && !isValidIP(f.SrcAddress) && !isValidCIDR(f.SrcAddress) {
+		return fmt.Errorf("firewallrule: src_address must be a valid IP or CIDR")
+	}
+	if f.DstAddress != "" && !isValidIP(f.DstAddress) && !isValidCIDR(f.DstAddress) {
+		return fmt.Errorf("firewallrule: dst_address must be a valid IP or CIDR")
+	}
+	if f.SrcPort != "" && !isValidPortRange(f.SrcPort) {
+		return fmt.Errorf("firewallrule: src_port must be a valid port or port range")
+	}
+	if f.DstPort != "" && !isValidPortRange(f.DstPort) {
+		return fmt.Errorf("firewallrule: dst_port must be a valid port or port range")
+	}
+	if f.SrcMACAddress != "" && !isValidMAC(f.SrcMACAddress) {
+		return fmt.Errorf("firewallrule: src_mac_address must be a valid MAC address")
+	}
+	return nil
+}
+
+// Validate checks that required fields are set and values are valid.
+func (f *FirewallPolicy) Validate() error {
+	if f.Name == "" {
+		return fmt.Errorf("firewallpolicy: name is required")
+	}
+	if f.Action != "" && !isOneOf(f.Action, "ALLOW", "BLOCK", "REJECT") {
+		return fmt.Errorf("firewallpolicy: action must be one of: ALLOW, BLOCK, REJECT")
+	}
+	if f.Protocol != "" && !isOneOf(f.Protocol, "all", "tcp_udp", "tcp", "udp", "icmp", "icmpv6") {
+		return fmt.Errorf("firewallpolicy: protocol must be one of: all, tcp_udp, tcp, udp, icmp, icmpv6")
+	}
+	if f.IPVersion != "" && !isOneOf(f.IPVersion, "BOTH", "IPV4", "IPV6") {
+		return fmt.Errorf("firewallpolicy: ip_version must be one of: BOTH, IPV4, IPV6")
+	}
+	if f.ConnectionStateType != "" && !isOneOf(f.ConnectionStateType, "ALL", "RESPOND_ONLY", "CUSTOM") {
+		return fmt.Errorf("firewallpolicy: connection_state_type must be one of: ALL, RESPOND_ONLY, CUSTOM")
+	}
+	return nil
+}
+
+// Validate checks that required fields are set and values are valid.
+func (t *TrafficRule) Validate() error {
+	if t.Name == "" {
+		return fmt.Errorf("trafficrule: name is required")
+	}
+	if t.Action != "" && !isOneOf(t.Action, "BLOCK", "ALLOW") {
+		return fmt.Errorf("trafficrule: action must be one of: BLOCK, ALLOW")
+	}
+	if t.MatchingTarget != "" && !isOneOf(t.MatchingTarget, "INTERNET", "IP", "DOMAIN", "REGION", "APP") {
+		return fmt.Errorf("trafficrule: matching_target must be one of: INTERNET, IP, DOMAIN, REGION, APP")
+	}
+	for i, ip := range t.IPAddresses {
+		if !isValidIP(ip) && !isValidCIDR(ip) {
+			return fmt.Errorf("trafficrule: ip_addresses[%d] must be a valid IP or CIDR", i)
+		}
+	}
+	return nil
+}
+
+// Validate checks that required fields are set and values are valid.
+func (t *TrafficRoute) Validate() error {
+	if t.Name == "" {
+		return fmt.Errorf("trafficroute: name is required")
+	}
+	if t.MatchingTarget != "" && !isOneOf(t.MatchingTarget, "INTERNET", "IP", "DOMAIN", "REGION", "APP") {
+		return fmt.Errorf("trafficroute: matching_target must be one of: INTERNET, IP, DOMAIN, REGION, APP")
+	}
+	for i, ip := range t.IPAddresses {
+		if !isValidIP(ip) && !isValidCIDR(ip) {
+			return fmt.Errorf("trafficroute: ip_addresses[%d] must be a valid IP or CIDR", i)
+		}
+	}
+	return nil
+}
+
+// Validate checks that required fields are set and values are valid.
+func (p *PortConf) Validate() error {
+	if p.Name == "" {
+		return fmt.Errorf("portconf: name is required")
+	}
+	if p.Forward != "" && !isOneOf(p.Forward, "all", "native", "customize", "disabled") {
+		return fmt.Errorf("portconf: forward must be one of: all, native, customize, disabled")
+	}
+	if p.Dot1xCtrl != "" && !isOneOf(p.Dot1xCtrl, "force_authorized", "force_unauthorized", "auto", "mac_based", "multi_host") {
+		return fmt.Errorf("portconf: dot1x_ctrl must be one of: force_authorized, force_unauthorized, auto, mac_based, multi_host")
+	}
+	if p.OpMode != "" && !isOneOf(p.OpMode, "switch", "mirror", "aggregate") {
+		return fmt.Errorf("portconf: op_mode must be one of: switch, mirror, aggregate")
+	}
+	if p.PoeMode != "" && !isOneOf(p.PoeMode, "auto", "pasv24", "passthrough", "off") {
+		return fmt.Errorf("portconf: poe_mode must be one of: auto, pasv24, passthrough, off")
+	}
+	for i, mac := range p.PortSecurityMacAddress {
+		if !isValidMAC(mac) {
+			return fmt.Errorf("portconf: port_security_mac_address[%d] must be a valid MAC address", i)
+		}
+	}
+	return nil
+}
+
+// Validate checks that required fields are set and values are valid.
+func (w *WLANConf) Validate() error {
+	if w.Name == "" {
+		return fmt.Errorf("wlanconf: name is required")
+	}
+	if w.Security != "" && !isOneOf(w.Security, "open", "wep", "wpapsk", "wpaeap") {
+		return fmt.Errorf("wlanconf: security must be one of: open, wep, wpapsk, wpaeap")
+	}
+	if w.WPAMode != "" && !isOneOf(w.WPAMode, "wpa1", "wpa2", "wpa3") {
+		return fmt.Errorf("wlanconf: wpa_mode must be one of: wpa1, wpa2, wpa3")
+	}
+	if w.WPAEnc != "" && !isOneOf(w.WPAEnc, "ccmp", "gcmp", "auto") {
+		return fmt.Errorf("wlanconf: wpa_enc must be one of: ccmp, gcmp, auto")
+	}
+	if w.WLANBand != "" && !isOneOf(w.WLANBand, "2g", "5g", "both") {
+		return fmt.Errorf("wlanconf: wlan_band must be one of: 2g, 5g, both")
+	}
+	if w.MacFilterPolicy != "" && !isOneOf(w.MacFilterPolicy, "allow", "deny") {
+		return fmt.Errorf("wlanconf: mac_filter_policy must be one of: allow, deny")
+	}
+	if w.PmfMode != "" && !isOneOf(w.PmfMode, "disabled", "optional", "required") {
+		return fmt.Errorf("wlanconf: pmf_mode must be one of: disabled, optional, required")
+	}
+	if w.DtimMode != "" && !isOneOf(w.DtimMode, "default", "custom") {
+		return fmt.Errorf("wlanconf: dtim_mode must be one of: default, custom")
+	}
+	if w.APGroupMode != "" && !isOneOf(w.APGroupMode, "all", "groups") {
+		return fmt.Errorf("wlanconf: ap_group_mode must be one of: all, groups")
+	}
+	for i, mac := range w.MacFilterList {
+		if !isValidMAC(mac) {
+			return fmt.Errorf("wlanconf: mac_filter_list[%d] must be a valid MAC address", i)
+		}
+	}
+	return nil
+}
+
+// Validate checks that required fields are set and values are valid.
+func (n *Network) Validate() error {
+	if n.Name == "" {
+		return fmt.Errorf("network: name is required")
+	}
+	if n.Purpose != "" && !isOneOf(n.Purpose, "wan", "corporate", "vlan-only", "remote-user-vpn", "site-vpn", "guest") {
+		return fmt.Errorf("network: purpose must be one of: wan, corporate, vlan-only, remote-user-vpn, site-vpn, guest")
+	}
+	if n.NetworkGroup != "" && !isOneOf(n.NetworkGroup, "LAN", "WAN", "WAN2") {
+		return fmt.Errorf("network: networkgroup must be one of: LAN, WAN, WAN2")
+	}
+	if n.WANType != "" && !isOneOf(n.WANType, "dhcp", "static", "pppoe", "disabled") {
+		return fmt.Errorf("network: wan_type must be one of: dhcp, static, pppoe, disabled")
+	}
+	if n.WANTypeV6 != "" && !isOneOf(n.WANTypeV6, "disabled", "dhcpv6", "static", "autoconf") {
+		return fmt.Errorf("network: wan_type_v6 must be one of: disabled, dhcpv6, static, autoconf")
+	}
+	if n.SettingPreference != "" && !isOneOf(n.SettingPreference, "auto", "manual") {
+		return fmt.Errorf("network: setting_preference must be one of: auto, manual")
+	}
+	if n.GatewayType != "" && !isOneOf(n.GatewayType, "default", "switch") {
+		return fmt.Errorf("network: gateway_type must be one of: default, switch")
+	}
+	if n.WANLoadBalanceType != "" && !isOneOf(n.WANLoadBalanceType, "failover-only", "weighted") {
+		return fmt.Errorf("network: wan_load_balance_type must be one of: failover-only, weighted")
+	}
+	if n.IPSubnet != "" && !isValidCIDR(n.IPSubnet) {
+		return fmt.Errorf("network: ip_subnet must be a valid CIDR")
+	}
+	if n.DHCPDStart != "" && !isValidIP(n.DHCPDStart) {
+		return fmt.Errorf("network: dhcpd_start must be a valid IP address")
+	}
+	if n.DHCPDStop != "" && !isValidIP(n.DHCPDStop) {
+		return fmt.Errorf("network: dhcpd_stop must be a valid IP address")
+	}
+	if n.DHCPDGateway != "" && !isValidIP(n.DHCPDGateway) {
+		return fmt.Errorf("network: dhcpd_gateway must be a valid IP address")
+	}
+	if n.DHCPDDns1 != "" && !isValidIP(n.DHCPDDns1) {
+		return fmt.Errorf("network: dhcpd_dns_1 must be a valid IP address")
+	}
+	if n.DHCPDDns2 != "" && !isValidIP(n.DHCPDDns2) {
+		return fmt.Errorf("network: dhcpd_dns_2 must be a valid IP address")
+	}
+	if n.DHCPDDns3 != "" && !isValidIP(n.DHCPDDns3) {
+		return fmt.Errorf("network: dhcpd_dns_3 must be a valid IP address")
+	}
+	if n.DHCPDDns4 != "" && !isValidIP(n.DHCPDDns4) {
+		return fmt.Errorf("network: dhcpd_dns_4 must be a valid IP address")
+	}
+	if n.WANGateway != "" && !isValidIP(n.WANGateway) {
+		return fmt.Errorf("network: wan_gateway must be a valid IP address")
+	}
+	if n.WANIP != "" && !isValidIP(n.WANIP) {
+		return fmt.Errorf("network: wan_ip must be a valid IP address")
+	}
+	if n.WANNetmask != "" && !isValidIP(n.WANNetmask) {
+		return fmt.Errorf("network: wan_netmask must be a valid IP address")
+	}
+	return nil
 }
