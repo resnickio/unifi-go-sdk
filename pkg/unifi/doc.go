@@ -50,4 +50,17 @@
 // Both clients automatically retry transient errors (502, 503, 504) and rate limit
 // responses (429) with exponential backoff and jitter. Configure retry behavior
 // via MaxRetries and MaxRetryWait in the client config.
+//
+// # Model Field Conventions
+//
+// Some model structs have fields with an "X" prefix (e.g., XPassphrase, XPassword).
+// This follows the UniFi API convention where "x_" prefixed fields are write-only:
+// they can be set when creating/updating resources but are not returned in responses.
+// This is commonly used for sensitive data like passwords and pre-shared keys.
+//
+// Some fields use [json.RawMessage] for complex or rarely-used nested structures
+// (e.g., QoSPolicies, WANDHCPOptions, AccessDevices, ProtectDevices). These preserve
+// the raw JSON and can be unmarshaled into custom types if needed. Access and Protect
+// device fields are included for completeness but are outside the scope of this
+// Network API SDK.
 package unifi
