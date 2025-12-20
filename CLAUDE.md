@@ -13,6 +13,7 @@ Go SDK for UniFi APIs (Site Manager and Network).
   - `validation.go` - Validation helper functions (IP, CIDR, port, MAC, enum)
   - `errors.go` - Sentinel errors
   - `retry.go` - Shared retry logic (backoff, jitter, Retry-After parsing)
+  - `retry_test.go` - Unit tests for retry helpers
   - `helpers.go` - Pointer helper functions (IntPtr, BoolPtr, StringPtr)
   - `logger.go` - Logger interface and StdLogger
   - `doc.go` - Package documentation for pkg.go.dev
@@ -148,6 +149,8 @@ All model structs used for Create/Update operations must have a `Validate() erro
 - **Port fields**: Validate range (1-65535) using `isValidPort()` helper
 - **MAC fields**: Validate format using `isValidMAC()` helper
 - **Port ranges**: Validate format using `isValidPortRange()` helper (supports "80" or "80-443")
+- **Time fields**: Validate HH:MM format using `isValidTimeHHMM()` helper
+- **Nested structs**: Parent `Validate()` must call `Validate()` on nested structs (e.g., `FirewallPolicy` calls `Source.Validate()`, `Destination.Validate()`, `Schedule.Validate()`)
 - **Error format**: `"structname: fieldname reason"` (lowercase struct, lowercase field)
 - **Helper location**: `pkg/unifi/validation.go`
 
@@ -156,6 +159,19 @@ When adding new model structs:
 2. Validate required fields first, then enum fields, then format fields
 3. For optional fields, only validate if non-empty (e.g., `if n.Field != "" && !isValid(n.Field)`)
 4. Add unit tests in `network_models_test.go`
+
+## Testing Conventions
+
+- **Use public helpers**: Use `IntPtr`, `BoolPtr`, `StringPtr` from `helpers.go` instead of local test helpers
+- **Table-driven tests**: Prefer table-driven tests for validation and error cases
+- **Mock HTTP servers**: Use `httptest.NewServer` for client tests
+- **Logger testing**: Use a mock logger struct that captures messages to verify logging behavior
+- **Retry testing**: Test retry helpers (`isRetryable`, `isNetworkError`, `applyBackoffWithJitter`) with edge cases including nil errors, wrapped errors, and boundary conditions
+
+## Concurrency Patterns
+
+- **Mutex scope**: Methods that write to struct fields protected by mutex should either be called while holding the lock, or return values for the caller to assign under lock
+- **Timer cleanup**: Use `time.NewTimer` + `defer timer.Stop()` or explicit `Stop()` on context cancellation instead of `time.After` in select statements to prevent memory leaks
 
 ## Post-Implementation Summaries
 
