@@ -142,7 +142,7 @@ func TestNetworkClientAPIKeyAuth(t *testing.T) {
 	}
 }
 
-func TestNetworkClientAPIKeyIsLoggedIn(t *testing.T) {
+func TestNetworkClientAPIKeyHasLocalSession(t *testing.T) {
 	client, err := NewNetworkClient(NetworkClientConfig{
 		BaseURL: "https://192.168.1.1",
 		APIKey:  "test-api-key",
@@ -151,8 +151,8 @@ func TestNetworkClientAPIKeyIsLoggedIn(t *testing.T) {
 		t.Fatalf("NewNetworkClient() error = %v", err)
 	}
 
-	if !client.IsLoggedIn() {
-		t.Error("IsLoggedIn() should return true with API key auth")
+	if !client.HasLocalSession() {
+		t.Error("HasLocalSession() should return true with API key auth")
 	}
 }
 
@@ -293,16 +293,16 @@ func TestNetworkClientLogin(t *testing.T) {
 		t.Fatalf("NewNetworkClient() error = %v", err)
 	}
 
-	if client.IsLoggedIn() {
-		t.Error("client should not be logged in initially")
+	if client.HasLocalSession() {
+		t.Error("client should not have local session initially")
 	}
 
 	if err := client.Login(context.Background()); err != nil {
 		t.Errorf("Login() error = %v", err)
 	}
 
-	if !client.IsLoggedIn() {
-		t.Error("client should be logged in after Login()")
+	if !client.HasLocalSession() {
+		t.Error("client should have local session after Login()")
 	}
 }
 
@@ -332,10 +332,10 @@ func TestNetworkClientLoginFailure(t *testing.T) {
 		t.Errorf("error should be APIError, got %T", err)
 	}
 
-	if !client.IsLoggedIn() {
+	if !client.HasLocalSession() {
 		return // Expected
 	}
-	t.Error("client should not be logged in after failed login")
+	t.Error("client should not have local session after failed login")
 }
 
 func TestNetworkClientLoginFailureScenarios(t *testing.T) {
@@ -408,8 +408,8 @@ func TestNetworkClientLoginFailureScenarios(t *testing.T) {
 				t.Errorf("expected %v, got %v", tt.expectedErr, err)
 			}
 
-			if client.IsLoggedIn() {
-				t.Error("client should not be logged in after failed login")
+			if client.HasLocalSession() {
+				t.Error("client should not have local session after failed login")
 			}
 		})
 	}
@@ -994,16 +994,16 @@ func TestNetworkClientLogout(t *testing.T) {
 		t.Fatalf("Login() error = %v", err)
 	}
 
-	if !client.IsLoggedIn() {
-		t.Error("client should be logged in")
+	if !client.HasLocalSession() {
+		t.Error("client should have local session")
 	}
 
 	if err := client.Logout(context.Background()); err != nil {
 		t.Errorf("Logout() error = %v", err)
 	}
 
-	if client.IsLoggedIn() {
-		t.Error("client should not be logged in after logout")
+	if client.HasLocalSession() {
+		t.Error("client should not have local session after logout")
 	}
 }
 

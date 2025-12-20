@@ -262,8 +262,8 @@ func cleanupTestResources(t *testing.T, client *NetworkClient, ctx context.Conte
 func TestIntegration_Authentication(t *testing.T) {
 	client := skipIfNoEnv(t)
 
-	if !client.IsLoggedIn() {
-		t.Error("Expected client to be logged in after setup")
+	if !client.HasLocalSession() {
+		t.Error("Expected client to have local session after setup")
 	}
 
 	// Note: We don't test logout/re-login with the shared client

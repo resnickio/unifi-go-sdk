@@ -25,7 +25,7 @@ const (
 type NetworkManager interface {
 	Login(ctx context.Context) error
 	Logout(ctx context.Context) error
-	IsLoggedIn() bool
+	HasLocalSession() bool
 
 	// Legacy REST API - Networks
 	ListNetworks(ctx context.Context) ([]Network, error)
@@ -429,14 +429,14 @@ func (c *NetworkClient) Logout(ctx context.Context) error {
 	return nil
 }
 
-// IsLoggedIn returns whether the client is ready to make API requests.
-//
-// When using API key authentication, this always returns true.
-// When using session authentication, this returns true after a successful Login().
+// HasLocalSession returns true if the client is ready to make authenticated requests.
+// This returns true when either:
+//   - API key authentication is configured, or
+//   - A session cookie exists from a previous Login() call
 //
 // Note: For session auth, this only reflects local state. The server-side session
 // may have expired independently. See NetworkClient documentation for details.
-func (c *NetworkClient) IsLoggedIn() bool {
+func (c *NetworkClient) HasLocalSession() bool {
 	if c.apiKey != "" {
 		return true
 	}
