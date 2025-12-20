@@ -657,6 +657,9 @@ func (c *NetworkClient) GetNetwork(ctx context.Context, id string) (*Network, er
 }
 
 func (c *NetworkClient) CreateNetwork(ctx context.Context, network *Network) (*Network, error) {
+	if err := network.Validate(); err != nil {
+		return nil, err
+	}
 	var networks []Network
 	endpoint := c.restPath("networkconf")
 	err := c.do(ctx, "POST", endpoint, network, &networks)
@@ -670,6 +673,9 @@ func (c *NetworkClient) CreateNetwork(ctx context.Context, network *Network) (*N
 }
 
 func (c *NetworkClient) UpdateNetwork(ctx context.Context, id string, network *Network) (*Network, error) {
+	if err := network.Validate(); err != nil {
+		return nil, err
+	}
 	var networks []Network
 	endpoint := c.restPathWithID("networkconf", id)
 	err := c.do(ctx, "PUT", endpoint, network, &networks)
@@ -710,6 +716,9 @@ func (c *NetworkClient) GetFirewallRule(ctx context.Context, id string) (*Firewa
 }
 
 func (c *NetworkClient) CreateFirewallRule(ctx context.Context, rule *FirewallRule) (*FirewallRule, error) {
+	if err := rule.Validate(); err != nil {
+		return nil, err
+	}
 	var rules []FirewallRule
 	endpoint := c.restPath("firewallrule")
 	err := c.do(ctx, "POST", endpoint, rule, &rules)
@@ -723,6 +732,9 @@ func (c *NetworkClient) CreateFirewallRule(ctx context.Context, rule *FirewallRu
 }
 
 func (c *NetworkClient) UpdateFirewallRule(ctx context.Context, id string, rule *FirewallRule) (*FirewallRule, error) {
+	if err := rule.Validate(); err != nil {
+		return nil, err
+	}
 	var rules []FirewallRule
 	endpoint := c.restPathWithID("firewallrule", id)
 	err := c.do(ctx, "PUT", endpoint, rule, &rules)
@@ -763,6 +775,9 @@ func (c *NetworkClient) GetFirewallGroup(ctx context.Context, id string) (*Firew
 }
 
 func (c *NetworkClient) CreateFirewallGroup(ctx context.Context, group *FirewallGroup) (*FirewallGroup, error) {
+	if err := group.Validate(); err != nil {
+		return nil, err
+	}
 	var groups []FirewallGroup
 	endpoint := c.restPath("firewallgroup")
 	err := c.do(ctx, "POST", endpoint, group, &groups)
@@ -776,6 +791,9 @@ func (c *NetworkClient) CreateFirewallGroup(ctx context.Context, group *Firewall
 }
 
 func (c *NetworkClient) UpdateFirewallGroup(ctx context.Context, id string, group *FirewallGroup) (*FirewallGroup, error) {
+	if err := group.Validate(); err != nil {
+		return nil, err
+	}
 	var groups []FirewallGroup
 	endpoint := c.restPathWithID("firewallgroup", id)
 	err := c.do(ctx, "PUT", endpoint, group, &groups)
@@ -816,6 +834,9 @@ func (c *NetworkClient) GetPortForward(ctx context.Context, id string) (*PortFor
 }
 
 func (c *NetworkClient) CreatePortForward(ctx context.Context, forward *PortForward) (*PortForward, error) {
+	if err := forward.Validate(); err != nil {
+		return nil, err
+	}
 	var forwards []PortForward
 	endpoint := c.restPath("portforward")
 	err := c.do(ctx, "POST", endpoint, forward, &forwards)
@@ -829,6 +850,9 @@ func (c *NetworkClient) CreatePortForward(ctx context.Context, forward *PortForw
 }
 
 func (c *NetworkClient) UpdatePortForward(ctx context.Context, id string, forward *PortForward) (*PortForward, error) {
+	if err := forward.Validate(); err != nil {
+		return nil, err
+	}
 	var forwards []PortForward
 	endpoint := c.restPathWithID("portforward", id)
 	err := c.do(ctx, "PUT", endpoint, forward, &forwards)
@@ -869,6 +893,9 @@ func (c *NetworkClient) GetWLAN(ctx context.Context, id string) (*WLANConf, erro
 }
 
 func (c *NetworkClient) CreateWLAN(ctx context.Context, wlan *WLANConf) (*WLANConf, error) {
+	if err := wlan.Validate(); err != nil {
+		return nil, err
+	}
 	var wlans []WLANConf
 	endpoint := c.restPath("wlanconf")
 	err := c.do(ctx, "POST", endpoint, wlan, &wlans)
@@ -882,6 +909,9 @@ func (c *NetworkClient) CreateWLAN(ctx context.Context, wlan *WLANConf) (*WLANCo
 }
 
 func (c *NetworkClient) UpdateWLAN(ctx context.Context, id string, wlan *WLANConf) (*WLANConf, error) {
+	if err := wlan.Validate(); err != nil {
+		return nil, err
+	}
 	var wlans []WLANConf
 	endpoint := c.restPathWithID("wlanconf", id)
 	err := c.do(ctx, "PUT", endpoint, wlan, &wlans)
@@ -922,6 +952,9 @@ func (c *NetworkClient) GetPortConf(ctx context.Context, id string) (*PortConf, 
 }
 
 func (c *NetworkClient) CreatePortConf(ctx context.Context, portconf *PortConf) (*PortConf, error) {
+	if err := portconf.Validate(); err != nil {
+		return nil, err
+	}
 	var portconfs []PortConf
 	endpoint := c.restPath("portconf")
 	err := c.do(ctx, "POST", endpoint, portconf, &portconfs)
@@ -935,6 +968,9 @@ func (c *NetworkClient) CreatePortConf(ctx context.Context, portconf *PortConf) 
 }
 
 func (c *NetworkClient) UpdatePortConf(ctx context.Context, id string, portconf *PortConf) (*PortConf, error) {
+	if err := portconf.Validate(); err != nil {
+		return nil, err
+	}
 	var portconfs []PortConf
 	err := c.do(ctx, "PUT", c.restPathWithID("portconf", id), portconf, &portconfs)
 	if err != nil {
@@ -974,6 +1010,9 @@ func (c *NetworkClient) GetRoute(ctx context.Context, id string) (*Routing, erro
 }
 
 func (c *NetworkClient) CreateRoute(ctx context.Context, route *Routing) (*Routing, error) {
+	if err := route.Validate(); err != nil {
+		return nil, err
+	}
 	var routes []Routing
 	endpoint := c.restPath("routing")
 	err := c.do(ctx, "POST", endpoint, route, &routes)
@@ -987,6 +1026,9 @@ func (c *NetworkClient) CreateRoute(ctx context.Context, route *Routing) (*Routi
 }
 
 func (c *NetworkClient) UpdateRoute(ctx context.Context, id string, route *Routing) (*Routing, error) {
+	if err := route.Validate(); err != nil {
+		return nil, err
+	}
 	var routes []Routing
 	endpoint := c.restPathWithID("routing", id)
 	err := c.do(ctx, "PUT", endpoint, route, &routes)
@@ -1027,6 +1069,9 @@ func (c *NetworkClient) GetUserGroup(ctx context.Context, id string) (*UserGroup
 }
 
 func (c *NetworkClient) CreateUserGroup(ctx context.Context, group *UserGroup) (*UserGroup, error) {
+	if err := group.Validate(); err != nil {
+		return nil, err
+	}
 	var groups []UserGroup
 	endpoint := c.restPath("usergroup")
 	err := c.do(ctx, "POST", endpoint, group, &groups)
@@ -1040,6 +1085,9 @@ func (c *NetworkClient) CreateUserGroup(ctx context.Context, group *UserGroup) (
 }
 
 func (c *NetworkClient) UpdateUserGroup(ctx context.Context, id string, group *UserGroup) (*UserGroup, error) {
+	if err := group.Validate(); err != nil {
+		return nil, err
+	}
 	var groups []UserGroup
 	endpoint := c.restPathWithID("usergroup", id)
 	err := c.do(ctx, "PUT", endpoint, group, &groups)
@@ -1080,6 +1128,9 @@ func (c *NetworkClient) GetRADIUSProfile(ctx context.Context, id string) (*RADIU
 }
 
 func (c *NetworkClient) CreateRADIUSProfile(ctx context.Context, profile *RADIUSProfile) (*RADIUSProfile, error) {
+	if err := profile.Validate(); err != nil {
+		return nil, err
+	}
 	var profiles []RADIUSProfile
 	endpoint := c.restPath("radiusprofile")
 	err := c.do(ctx, "POST", endpoint, profile, &profiles)
@@ -1093,6 +1144,9 @@ func (c *NetworkClient) CreateRADIUSProfile(ctx context.Context, profile *RADIUS
 }
 
 func (c *NetworkClient) UpdateRADIUSProfile(ctx context.Context, id string, profile *RADIUSProfile) (*RADIUSProfile, error) {
+	if err := profile.Validate(); err != nil {
+		return nil, err
+	}
 	var profiles []RADIUSProfile
 	endpoint := c.restPathWithID("radiusprofile", id)
 	err := c.do(ctx, "PUT", endpoint, profile, &profiles)
@@ -1133,6 +1187,9 @@ func (c *NetworkClient) GetDynamicDNS(ctx context.Context, id string) (*DynamicD
 }
 
 func (c *NetworkClient) CreateDynamicDNS(ctx context.Context, config *DynamicDNS) (*DynamicDNS, error) {
+	if err := config.Validate(); err != nil {
+		return nil, err
+	}
 	var configs []DynamicDNS
 	endpoint := c.restPath("dynamicdns")
 	err := c.do(ctx, "POST", endpoint, config, &configs)
@@ -1146,6 +1203,9 @@ func (c *NetworkClient) CreateDynamicDNS(ctx context.Context, config *DynamicDNS
 }
 
 func (c *NetworkClient) UpdateDynamicDNS(ctx context.Context, id string, config *DynamicDNS) (*DynamicDNS, error) {
+	if err := config.Validate(); err != nil {
+		return nil, err
+	}
 	var configs []DynamicDNS
 	endpoint := c.restPathWithID("dynamicdns", id)
 	err := c.do(ctx, "PUT", endpoint, config, &configs)
@@ -1186,6 +1246,9 @@ func (c *NetworkClient) GetFirewallPolicy(ctx context.Context, id string) (*Fire
 }
 
 func (c *NetworkClient) CreateFirewallPolicy(ctx context.Context, policy *FirewallPolicy) (*FirewallPolicy, error) {
+	if err := policy.Validate(); err != nil {
+		return nil, err
+	}
 	var result FirewallPolicy
 	err := c.doV2(ctx, "POST", c.v2Path("firewall-policies"), policy, &result)
 	if err != nil {
@@ -1195,6 +1258,9 @@ func (c *NetworkClient) CreateFirewallPolicy(ctx context.Context, policy *Firewa
 }
 
 func (c *NetworkClient) UpdateFirewallPolicy(ctx context.Context, id string, policy *FirewallPolicy) (*FirewallPolicy, error) {
+	if err := policy.Validate(); err != nil {
+		return nil, err
+	}
 	var result FirewallPolicy
 	err := c.doV2(ctx, "PUT", c.v2PathWithID("firewall-policies", id), policy, &result)
 	if err != nil {
@@ -1231,6 +1297,9 @@ func (c *NetworkClient) GetFirewallZone(ctx context.Context, id string) (*Firewa
 }
 
 func (c *NetworkClient) CreateFirewallZone(ctx context.Context, zone *FirewallZone) (*FirewallZone, error) {
+	if err := zone.Validate(); err != nil {
+		return nil, err
+	}
 	var result FirewallZone
 	err := c.doV2(ctx, "POST", c.v2Path("firewall/zone"), zone, &result)
 	if err != nil {
@@ -1240,6 +1309,9 @@ func (c *NetworkClient) CreateFirewallZone(ctx context.Context, zone *FirewallZo
 }
 
 func (c *NetworkClient) UpdateFirewallZone(ctx context.Context, id string, zone *FirewallZone) (*FirewallZone, error) {
+	if err := zone.Validate(); err != nil {
+		return nil, err
+	}
 	var result FirewallZone
 	err := c.doV2(ctx, "PUT", c.v2PathWithID("firewall/zone", id), zone, &result)
 	if err != nil {
@@ -1295,6 +1367,9 @@ func (c *NetworkClient) getStaticDNSByList(ctx context.Context, id string) (*Sta
 }
 
 func (c *NetworkClient) CreateStaticDNS(ctx context.Context, record *StaticDNS) (*StaticDNS, error) {
+	if err := record.Validate(); err != nil {
+		return nil, err
+	}
 	var result StaticDNS
 	err := c.doV2(ctx, "POST", c.v2Path("static-dns"), record, &result)
 	if err != nil {
@@ -1304,6 +1379,9 @@ func (c *NetworkClient) CreateStaticDNS(ctx context.Context, record *StaticDNS) 
 }
 
 func (c *NetworkClient) UpdateStaticDNS(ctx context.Context, id string, record *StaticDNS) (*StaticDNS, error) {
+	if err := record.Validate(); err != nil {
+		return nil, err
+	}
 	var result StaticDNS
 	err := c.doV2(ctx, "PUT", c.v2PathWithID("static-dns", id), record, &result)
 	if err != nil {
@@ -1381,6 +1459,9 @@ func (c *NetworkClient) getTrafficRuleByList(ctx context.Context, id string) (*T
 }
 
 func (c *NetworkClient) CreateTrafficRule(ctx context.Context, rule *TrafficRule) (*TrafficRule, error) {
+	if err := rule.Validate(); err != nil {
+		return nil, err
+	}
 	var result TrafficRule
 	err := c.doV2(ctx, "POST", c.v2Path("trafficrules"), rule, &result)
 	if err != nil {
@@ -1390,6 +1471,9 @@ func (c *NetworkClient) CreateTrafficRule(ctx context.Context, rule *TrafficRule
 }
 
 func (c *NetworkClient) UpdateTrafficRule(ctx context.Context, id string, rule *TrafficRule) (*TrafficRule, error) {
+	if err := rule.Validate(); err != nil {
+		return nil, err
+	}
 	var result TrafficRule
 	err := c.doV2(ctx, "PUT", c.v2PathWithID("trafficrules", id), rule, &result)
 	if err != nil {
@@ -1445,6 +1529,9 @@ func (c *NetworkClient) getTrafficRouteByList(ctx context.Context, id string) (*
 }
 
 func (c *NetworkClient) CreateTrafficRoute(ctx context.Context, route *TrafficRoute) (*TrafficRoute, error) {
+	if err := route.Validate(); err != nil {
+		return nil, err
+	}
 	var result TrafficRoute
 	err := c.doV2(ctx, "POST", c.v2Path("trafficroutes"), route, &result)
 	if err != nil {
@@ -1454,6 +1541,9 @@ func (c *NetworkClient) CreateTrafficRoute(ctx context.Context, route *TrafficRo
 }
 
 func (c *NetworkClient) UpdateTrafficRoute(ctx context.Context, id string, route *TrafficRoute) (*TrafficRoute, error) {
+	if err := route.Validate(); err != nil {
+		return nil, err
+	}
 	var result TrafficRoute
 	err := c.doV2(ctx, "PUT", c.v2PathWithID("trafficroutes", id), route, &result)
 	if err != nil {
@@ -1490,6 +1580,9 @@ func (c *NetworkClient) GetNatRule(ctx context.Context, id string) (*NatRule, er
 }
 
 func (c *NetworkClient) CreateNatRule(ctx context.Context, rule *NatRule) (*NatRule, error) {
+	if err := rule.Validate(); err != nil {
+		return nil, err
+	}
 	var result NatRule
 	err := c.doV2(ctx, "POST", c.v2Path("nat"), rule, &result)
 	if err != nil {
@@ -1499,6 +1592,9 @@ func (c *NetworkClient) CreateNatRule(ctx context.Context, rule *NatRule) (*NatR
 }
 
 func (c *NetworkClient) UpdateNatRule(ctx context.Context, id string, rule *NatRule) (*NatRule, error) {
+	if err := rule.Validate(); err != nil {
+		return nil, err
+	}
 	var result NatRule
 	err := c.doV2(ctx, "PUT", c.v2PathWithID("nat", id), rule, &result)
 	if err != nil {

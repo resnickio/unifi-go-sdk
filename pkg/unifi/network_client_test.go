@@ -1974,6 +1974,7 @@ func TestNetworkClientDynamicDNS(t *testing.T) {
 
 	t.Run("Update", func(t *testing.T) {
 		config := &DynamicDNS{
+			Service:  "dyndns",
 			HostName: "updated.dyndns.org",
 		}
 		updated, err := client.UpdateDynamicDNS(context.Background(), "ddns1", config)
@@ -3685,7 +3686,7 @@ func TestNetworkClientNatRules(t *testing.T) {
 	})
 
 	t.Run("Update", func(t *testing.T) {
-		rule := &NatRule{Description: "Updated NAT"}
+		rule := &NatRule{Type: "SNAT", Description: "Updated NAT"}
 		updated, err := client.UpdateNatRule(context.Background(), "nat1", rule)
 		if err != nil {
 			t.Fatalf("UpdateNatRule() error = %v", err)
