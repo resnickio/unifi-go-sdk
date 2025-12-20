@@ -25,8 +25,8 @@ func TestFirewallPolicyBuilder(t *testing.T) {
 		if policy.Enabled == nil || !*policy.Enabled {
 			t.Error("expected enabled to be true by default")
 		}
-		if policy.IPVersion != "IPv4" {
-			t.Errorf("expected IP version 'IPv4' by default, got %q", policy.IPVersion)
+		if policy.IPVersion != "IPV4" {
+			t.Errorf("expected IP version 'IPV4' by default, got %q", policy.IPVersion)
 		}
 	})
 
@@ -287,7 +287,7 @@ func TestBuilderChaining(t *testing.T) {
 		Name("Chaining Test").
 		Action("DROP").
 		Protocol("tcp").
-		IPVersion("IPv4").
+		IPVersion("IPV4").
 		Index(5).
 		Logging(true).
 		Enabled(true).

@@ -10,7 +10,7 @@ func NewFirewallPolicyBuilder() *FirewallPolicyBuilder {
 	return &FirewallPolicyBuilder{
 		policy: FirewallPolicy{
 			Enabled:   BoolPtr(true),
-			IPVersion: "IPv4",
+			IPVersion: "IPV4",
 		},
 	}
 }
@@ -39,7 +39,7 @@ func (b *FirewallPolicyBuilder) Protocol(protocol string) *FirewallPolicyBuilder
 	return b
 }
 
-// IPVersion sets the IP version (IPv4, IPv6, BOTH).
+// IPVersion sets the IP version (IPV4, IPV6, BOTH).
 func (b *FirewallPolicyBuilder) IPVersion(version string) *FirewallPolicyBuilder {
 	b.policy.IPVersion = version
 	return b
