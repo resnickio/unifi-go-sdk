@@ -350,37 +350,38 @@ func (c *NetworkClient) Login(ctx context.Context) error {
 
 	c.loggedIn = true
 
-	if err := c.fetchCSRFToken(ctx); err != nil {
+	token, err := c.fetchCSRFToken(ctx)
+	if err != nil {
 		if c.Logger != nil {
 			c.Logger.Printf("warning: failed to fetch CSRF token: %v", err)
 		}
+	} else {
+		c.csrfToken = token
 	}
 
 	return nil
 }
 
-func (c *NetworkClient) fetchCSRFToken(ctx context.Context) error {
+func (c *NetworkClient) fetchCSRFToken(ctx context.Context) (string, error) {
 	csrfURL := c.BaseURL + "/proxy/network/api/s/" + url.PathEscape(c.Site) + "/self"
 	req, err := http.NewRequestWithContext(ctx, "GET", csrfURL, nil)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer resp.Body.Close()
 
-	if token := resp.Header.Get("X-Csrf-Token"); token != "" {
-		c.csrfToken = token
-		if c.Logger != nil {
-			c.Logger.Printf("acquired CSRF token")
-		}
-	}
-
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxErrorBodySize))
-	return nil
+
+	token := resp.Header.Get("X-Csrf-Token")
+	if token != "" && c.Logger != nil {
+		c.Logger.Printf("acquired CSRF token")
+	}
+	return token, nil
 }
 
 // Logout ends the current session with the UniFi controller.
@@ -526,17 +527,19 @@ func (c *NetworkClient) executeWithRetry(ctx context.Context, fn func() error) e
 			c.Logger.Printf("retrying in %v (attempt %d/%d)", wait, attempt+1, c.maxRetries)
 		}
 
+		timer := time.NewTimer(wait)
 		select {
 		case <-ctx.Done():
+			timer.Stop()
 			return ctx.Err()
-		case <-time.After(wait):
+		case <-timer.C:
 		}
 	}
 
 	return lastErr
 }
 
-func (c *NetworkClient) doV2Once(ctx context.Context, method, path string, bodyBytes []byte, result any) error {
+func (c *NetworkClient) executeRequest(ctx context.Context, method, path string, bodyBytes []byte) ([]byte, int, error) {
 	reqURL := c.BaseURL + path
 
 	var bodyReader io.Reader
@@ -546,7 +549,7 @@ func (c *NetworkClient) doV2Once(ctx context.Context, method, path string, bodyB
 
 	req, err := http.NewRequestWithContext(ctx, method, reqURL, bodyReader)
 	if err != nil {
-		return fmt.Errorf("creating request: %w", err)
+		return nil, 0, fmt.Errorf("creating request: %w", err)
 	}
 
 	req.Header.Set("Accept", "application/json")
@@ -574,7 +577,7 @@ func (c *NetworkClient) doV2Once(ctx context.Context, method, path string, bodyB
 		if c.Logger != nil {
 			c.Logger.Printf("<- error: %v", err)
 		}
-		return fmt.Errorf("executing request: %w", err)
+		return nil, 0, fmt.Errorf("executing request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -582,14 +585,31 @@ func (c *NetworkClient) doV2Once(ctx context.Context, method, path string, bodyB
 		c.Logger.Printf("<- %d %s", resp.StatusCode, resp.Status)
 	}
 
+	var body []byte
 	if resp.StatusCode >= 400 {
-		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodySize))
-		return c.parseErrorResponse(resp.StatusCode, respBody)
+		body, _ = io.ReadAll(io.LimitReader(resp.Body, maxErrorBodySize))
+	} else {
+		body, err = io.ReadAll(io.LimitReader(resp.Body, maxResponseBodySize))
+		if err != nil {
+			return nil, resp.StatusCode, fmt.Errorf("reading response body: %w", err)
+		}
+	}
+
+	return body, resp.StatusCode, nil
+}
+
+func (c *NetworkClient) doV2Once(ctx context.Context, method, path string, bodyBytes []byte, result any) error {
+	body, statusCode, err := c.executeRequest(ctx, method, path, bodyBytes)
+	if err != nil {
+		return err
+	}
+
+	if statusCode >= 400 {
+		return c.parseErrorResponse(statusCode, body)
 	}
 
 	if result != nil {
-		limitedBody := io.LimitReader(resp.Body, maxResponseBodySize)
-		if err := json.NewDecoder(limitedBody).Decode(result); err != nil {
+		if err := json.Unmarshal(body, result); err != nil {
 			return fmt.Errorf("decoding response: %w", err)
 		}
 	}
@@ -598,65 +618,23 @@ func (c *NetworkClient) doV2Once(ctx context.Context, method, path string, bodyB
 }
 
 func (c *NetworkClient) doOnce(ctx context.Context, method, path string, bodyBytes []byte, result any) error {
-	reqURL := c.BaseURL + path
-
-	var bodyReader io.Reader
-	if bodyBytes != nil {
-		bodyReader = bytes.NewReader(bodyBytes)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, method, reqURL, bodyReader)
+	body, statusCode, err := c.executeRequest(ctx, method, path, bodyBytes)
 	if err != nil {
-		return fmt.Errorf("creating request: %w", err)
+		return err
 	}
 
-	req.Header.Set("Accept", "application/json")
-	if bodyBytes != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-
-	if c.apiKey != "" {
-		req.Header.Set("X-API-KEY", c.apiKey)
-	} else {
-		c.mu.RLock()
-		csrfToken := c.csrfToken
-		c.mu.RUnlock()
-		if csrfToken != "" && (method == "POST" || method == "PUT" || method == "DELETE") {
-			req.Header.Set("X-Csrf-Token", csrfToken)
-		}
-	}
-
-	if c.Logger != nil {
-		c.Logger.Printf("-> %s %s", method, reqURL)
-	}
-
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		if c.Logger != nil {
-			c.Logger.Printf("<- error: %v", err)
-		}
-		return fmt.Errorf("executing request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if c.Logger != nil {
-		c.Logger.Printf("<- %d %s", resp.StatusCode, resp.Status)
-	}
-
-	if resp.StatusCode >= 400 {
-		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodySize))
-		return c.parseErrorResponse(resp.StatusCode, respBody)
+	if statusCode >= 400 {
+		return c.parseErrorResponse(statusCode, body)
 	}
 
 	var apiResp networkAPIResponse
-	limitedBody := io.LimitReader(resp.Body, maxResponseBodySize)
-	if err := json.NewDecoder(limitedBody).Decode(&apiResp); err != nil {
+	if err := json.Unmarshal(body, &apiResp); err != nil {
 		return fmt.Errorf("decoding response: %w", err)
 	}
 
 	if apiResp.Meta.RC != "ok" {
 		return &APIError{
-			StatusCode: resp.StatusCode,
+			StatusCode: statusCode,
 			Message:    apiResp.Meta.Msg,
 			Err:        sentinelForAPIMessage(apiResp.Meta.Msg),
 		}
@@ -1325,6 +1303,9 @@ func (c *NetworkClient) ListStaticDNS(ctx context.Context) ([]StaticDNS, error) 
 	return records, nil
 }
 
+// GetStaticDNS retrieves a static DNS record by ID.
+// Some controller versions don't support GET by ID (return 405 Method Not Allowed),
+// so this method falls back to listing all records and filtering by ID.
 func (c *NetworkClient) GetStaticDNS(ctx context.Context, id string) (*StaticDNS, error) {
 	var record StaticDNS
 	err := c.doV2(ctx, "GET", c.v2PathWithID("static-dns", id), nil, &record)
@@ -1408,6 +1389,9 @@ func (c *NetworkClient) ListTrafficRules(ctx context.Context) ([]TrafficRule, er
 	return rules, nil
 }
 
+// GetTrafficRule retrieves a traffic rule by ID.
+// Some controller versions don't support GET by ID (return 405 Method Not Allowed),
+// so this method falls back to listing all rules and filtering by ID.
 func (c *NetworkClient) GetTrafficRule(ctx context.Context, id string) (*TrafficRule, error) {
 	var rule TrafficRule
 	err := c.doV2(ctx, "GET", c.v2PathWithID("trafficrules", id), nil, &rule)
@@ -1469,6 +1453,9 @@ func (c *NetworkClient) ListTrafficRoutes(ctx context.Context) ([]TrafficRoute, 
 	return routes, nil
 }
 
+// GetTrafficRoute retrieves a traffic route by ID.
+// Some controller versions don't support GET by ID (return 405 Method Not Allowed),
+// so this method falls back to listing all routes and filtering by ID.
 func (c *NetworkClient) GetTrafficRoute(ctx context.Context, id string) (*TrafficRoute, error) {
 	var route TrafficRoute
 	err := c.doV2(ctx, "GET", c.v2PathWithID("trafficroutes", id), nil, &route)

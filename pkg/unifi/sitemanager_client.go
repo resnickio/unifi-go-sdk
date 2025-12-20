@@ -121,16 +121,17 @@ func (c *SiteManagerClient) do(ctx context.Context, method, path string, result 
 			c.Logger.Printf("retrying in %v (attempt %d/%d)", wait, attempt+1, c.maxRetries)
 		}
 
+		timer := time.NewTimer(wait)
 		select {
 		case <-ctx.Done():
+			timer.Stop()
 			return ctx.Err()
-		case <-time.After(wait):
+		case <-timer.C:
 		}
 	}
 
 	return lastErr
 }
-
 
 func (c *SiteManagerClient) doOnce(ctx context.Context, method, path string, result any) error {
 	reqURL := c.BaseURL + path
