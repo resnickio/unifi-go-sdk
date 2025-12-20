@@ -522,6 +522,36 @@ type PolicyEndpoint struct {
 	ClientMACs         []string `json:"client_macs,omitempty"`
 }
 
+// Validate checks that PolicyEndpoint fields have valid values.
+func (p *PolicyEndpoint) Validate() error {
+	if p.MatchingTarget != "" && !isOneOf(p.MatchingTarget, "ANY", "IP", "NETWORK", "DOMAIN", "REGION", "PORT_GROUP", "ADDRESS_GROUP") {
+		return fmt.Errorf("policyendpoint: matching_target must be one of: ANY, IP, NETWORK, DOMAIN, REGION, PORT_GROUP, ADDRESS_GROUP")
+	}
+	if p.MatchingTargetType != "" && !isOneOf(p.MatchingTargetType, "SPECIFIC", "OBJECT") {
+		return fmt.Errorf("policyendpoint: matching_target_type must be one of: SPECIFIC, OBJECT")
+	}
+	if p.PortMatchingType != "" && !isOneOf(p.PortMatchingType, "ANY", "SPECIFIC") {
+		return fmt.Errorf("policyendpoint: port_matching_type must be one of: ANY, SPECIFIC")
+	}
+	for _, ip := range p.IPs {
+		if !isValidIP(ip) && !isValidCIDR(ip) {
+			return fmt.Errorf("policyendpoint: ip %q must be a valid IP address or CIDR", ip)
+		}
+	}
+	if p.Port != "" && !isValidPortRange(p.Port) {
+		return fmt.Errorf("policyendpoint: port must be a valid port or port range")
+	}
+	if p.MAC != "" && !isValidMAC(p.MAC) {
+		return fmt.Errorf("policyendpoint: mac must be a valid MAC address")
+	}
+	for _, mac := range p.ClientMACs {
+		if !isValidMAC(mac) {
+			return fmt.Errorf("policyendpoint: client_mac %q must be a valid MAC address", mac)
+		}
+	}
+	return nil
+}
+
 // PolicySchedule defines when a firewall policy is active.
 //
 // Field value reference:
@@ -532,6 +562,26 @@ type PolicySchedule struct {
 	TimeRangeStart string   `json:"time_range_start,omitempty"`
 	TimeRangeEnd   string   `json:"time_range_end,omitempty"`
 	DaysOfWeek     []string `json:"days_of_week,omitempty"`
+}
+
+// Validate checks that PolicySchedule fields have valid values.
+func (s *PolicySchedule) Validate() error {
+	if s.Mode != "" && !isOneOf(s.Mode, "ALWAYS", "CUSTOM") {
+		return fmt.Errorf("policyschedule: mode must be one of: ALWAYS, CUSTOM")
+	}
+	if s.TimeRangeStart != "" && !isValidTimeHHMM(s.TimeRangeStart) {
+		return fmt.Errorf("policyschedule: time_range_start must be in HH:MM format")
+	}
+	if s.TimeRangeEnd != "" && !isValidTimeHHMM(s.TimeRangeEnd) {
+		return fmt.Errorf("policyschedule: time_range_end must be in HH:MM format")
+	}
+	validDays := []string{"MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"}
+	for _, day := range s.DaysOfWeek {
+		if !isOneOf(day, validDays...) {
+			return fmt.Errorf("policyschedule: day %q must be one of: MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY", day)
+		}
+	}
+	return nil
 }
 
 // FirewallZone represents a firewall zone (v2 API).
@@ -1098,6 +1148,21 @@ func (f *FirewallPolicy) Validate() error {
 	}
 	if f.ConnectionStateType != "" && !isOneOf(f.ConnectionStateType, "ALL", "RESPOND_ONLY", "CUSTOM") {
 		return fmt.Errorf("firewallpolicy: connection_state_type must be one of: ALL, RESPOND_ONLY, CUSTOM")
+	}
+	if f.Source != nil {
+		if err := f.Source.Validate(); err != nil {
+			return err
+		}
+	}
+	if f.Destination != nil {
+		if err := f.Destination.Validate(); err != nil {
+			return err
+		}
+	}
+	if f.Schedule != nil {
+		if err := f.Schedule.Validate(); err != nil {
+			return err
+		}
 	}
 	return nil
 }

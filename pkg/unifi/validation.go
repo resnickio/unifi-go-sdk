@@ -66,3 +66,12 @@ func isOneOf(value string, allowed ...string) bool {
 	}
 	return false
 }
+
+var timeHHMMRegex = regexp.MustCompile(`^([01]?[0-9]|2[0-3]):[0-5][0-9]$`)
+
+func isValidTimeHHMM(s string) bool {
+	if s == "" {
+		return false
+	}
+	return timeHHMMRegex.MatchString(s)
+}

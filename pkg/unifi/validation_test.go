@@ -132,3 +132,29 @@ func TestIsOneOf(t *testing.T) {
 		}
 	}
 }
+
+func TestIsValidTimeHHMM(t *testing.T) {
+	tests := []struct {
+		input string
+		want  bool
+	}{
+		{"00:00", true},
+		{"12:30", true},
+		{"23:59", true},
+		{"08:00", true},
+		{"8:00", true},
+		{"0:00", true},
+		{"", false},
+		{"invalid", false},
+		{"24:00", false},
+		{"12:60", false},
+		{"12", false},
+		{"12:30:00", false},
+		{"-1:00", false},
+	}
+	for _, tt := range tests {
+		if got := isValidTimeHHMM(tt.input); got != tt.want {
+			t.Errorf("isValidTimeHHMM(%q) = %v, want %v", tt.input, got, tt.want)
+		}
+	}
+}
