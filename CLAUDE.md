@@ -190,7 +190,7 @@ Both APIs complete:
 - `ListDevices`, `ListAllDevices`
 
 **Network API (Legacy REST)**
-- `Login`, `Logout`, `IsLoggedIn`
+- `Login`, `Logout`, `HasLocalSession`
 - Networks: `ListNetworks`, `GetNetwork`, `CreateNetwork`, `UpdateNetwork`, `DeleteNetwork`
 - Firewall Rules: `ListFirewallRules`, `GetFirewallRule`, `CreateFirewallRule`, `UpdateFirewallRule`, `DeleteFirewallRule`
 - Firewall Groups: `ListFirewallGroups`, `GetFirewallGroup`, `CreateFirewallGroup`, `UpdateFirewallGroup`, `DeleteFirewallGroup`
@@ -210,12 +210,47 @@ Both APIs complete:
 - Traffic Routes: `ListTrafficRoutes`, `GetTrafficRoute`, `CreateTrafficRoute`, `UpdateTrafficRoute`, `DeleteTrafficRoute`
 - NAT Rules: `ListNatRules`, `GetNatRule`, `CreateNatRule`, `UpdateNatRule`, `DeleteNatRule`
 - Active Clients: `ListActiveClients` (read-only)
-- Network Devices: `ListNetworkDevices` (read-only)
+- Devices: `ListDevices` (read-only)
 - ACL Rules: `ListAclRules` (read-only)
 - QoS Rules: `ListQosRules` (read-only)
 - Content Filtering: `GetContentFiltering` (read-only)
 - VPN Connections: `ListVpnConnections` (read-only)
 - WAN SLAs: `ListWanSlas` (read-only)
+
+## Versioning and Releases
+
+This SDK follows [Semantic Versioning](https://semver.org/):
+- **v0.x.x** - Development phase, breaking changes allowed between minor versions
+- **v1.0.0+** - Stable API, breaking changes only in major versions
+
+### Current Status
+
+- SDK is in **v0.x** development phase
+- Breaking changes should increment minor version (v0.1.0 → v0.2.0)
+- Bug fixes increment patch version (v0.1.0 → v0.1.1)
+
+### Branching Strategy
+
+- **main** - Always deployable, protected branch
+- **feature/*** - Short-lived feature branches, merge via PR
+- Tags mark releases (e.g., `v0.1.0`, `v0.2.0`)
+
+### Release Process
+
+1. Ensure all tests pass: `go test -race ./pkg/...`
+2. Ensure build succeeds: `go build ./...`
+3. Create annotated tag: `git tag -a vX.Y.Z -m "Release description"`
+4. Push tag: `git push origin vX.Y.Z`
+
+### Related Repositories
+
+- **SDK**: `github.com/resnickio/unifi-go-sdk` (this repo)
+- **Terraform Provider**: `github.com/resnickio/terraform-provider-unifi` (imports SDK)
+
+Provider pins to specific SDK versions:
+```go
+require github.com/resnickio/unifi-go-sdk v0.1.0
+```
 
 ## Related Projects
 
