@@ -307,9 +307,6 @@ func (c *NetworkClient) Login(ctx context.Context) error {
 		return nil
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	payload := map[string]string{
 		"username": c.username,
 		"password": c.password,
@@ -348,16 +345,15 @@ func (c *NetworkClient) Login(ctx context.Context) error {
 		return c.parseErrorResponse(resp.StatusCode, respBody, resp.Header.Get("Retry-After"))
 	}
 
-	c.loggedIn = true
-
 	token, err := c.fetchCSRFToken(ctx)
-	if err != nil {
-		if c.Logger != nil {
-			c.Logger.Printf("warning: failed to fetch CSRF token: %v", err)
-		}
-	} else {
-		c.csrfToken = token
+	if err != nil && c.Logger != nil {
+		c.Logger.Printf("warning: failed to fetch CSRF token: %v", err)
 	}
+
+	c.mu.Lock()
+	c.loggedIn = true
+	c.csrfToken = token
+	c.mu.Unlock()
 
 	return nil
 }
