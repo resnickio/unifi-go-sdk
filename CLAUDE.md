@@ -249,7 +249,7 @@ This SDK follows [Semantic Versioning](https://semver.org/):
 
 Provider pins to specific SDK versions:
 ```go
-require github.com/resnickio/unifi-go-sdk v0.1.0
+require github.com/resnickio/unifi-go-sdk v0.2.0
 ```
 
 ## Related Projects
