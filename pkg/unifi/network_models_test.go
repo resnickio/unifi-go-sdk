@@ -46,11 +46,13 @@ func TestFirewallGroupValidate(t *testing.T) {
 		group   FirewallGroup
 		wantErr string
 	}{
-		{"valid address-group", FirewallGroup{Name: "Test", GroupType: "address-group"}, ""},
-		{"valid port-group", FirewallGroup{Name: "Test", GroupType: "port-group"}, ""},
-		{"valid ipv6-address-group", FirewallGroup{Name: "Test", GroupType: "ipv6-address-group"}, ""},
-		{"missing name", FirewallGroup{GroupType: "address-group"}, "name is required"},
-		{"invalid group_type", FirewallGroup{Name: "Test", GroupType: "invalid"}, "group_type must be one of"},
+		{"valid address-group", FirewallGroup{Name: "Test", GroupType: "address-group", GroupMembers: []string{"192.168.1.1"}}, ""},
+		{"valid port-group", FirewallGroup{Name: "Test", GroupType: "port-group", GroupMembers: []string{"80"}}, ""},
+		{"valid ipv6-address-group", FirewallGroup{Name: "Test", GroupType: "ipv6-address-group", GroupMembers: []string{"::1"}}, ""},
+		{"valid name only", FirewallGroup{Name: "Test"}, ""},
+		{"missing name", FirewallGroup{GroupType: "address-group", GroupMembers: []string{"192.168.1.1"}}, "name is required"},
+		{"invalid group_type", FirewallGroup{Name: "Test", GroupType: "invalid", GroupMembers: []string{"192.168.1.1"}}, "group_type must be one of"},
+		{"empty group_members with group_type", FirewallGroup{Name: "Test", GroupType: "address-group"}, "group_members cannot be empty"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

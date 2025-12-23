@@ -2283,7 +2283,7 @@ func TestNetworkClientCreateFirewallGroup(t *testing.T) {
 	})
 	client.Login(context.Background())
 
-	group := &FirewallGroup{Name: "New Group", GroupType: "address-group"}
+	group := &FirewallGroup{Name: "New Group", GroupType: "address-group", GroupMembers: []string{"192.168.1.1"}}
 	created, err := client.CreateFirewallGroup(context.Background(), group)
 	if err != nil {
 		t.Fatalf("CreateFirewallGroup() error = %v", err)

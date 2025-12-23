@@ -940,6 +940,9 @@ func (g *FirewallGroup) Validate() error {
 	if g.GroupType != "" && !isOneOf(g.GroupType, "address-group", "port-group", "ipv6-address-group") {
 		return fmt.Errorf("firewallgroup: group_type must be one of: address-group, port-group, ipv6-address-group")
 	}
+	if g.GroupType != "" && len(g.GroupMembers) == 0 {
+		return fmt.Errorf("firewallgroup: group_members cannot be empty when group_type is set")
+	}
 	return nil
 }
 
