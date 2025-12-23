@@ -978,6 +978,9 @@ func (c *NetworkClient) CreatePortConf(ctx context.Context, portconf *PortConf) 
 	return &portconfs[0], nil
 }
 
+// UpdatePortConf updates an existing port profile.
+// Note: The UniFi API sometimes returns an empty response on successful updates,
+// so this method falls back to GetPortConf to ensure the updated resource is returned.
 func (c *NetworkClient) UpdatePortConf(ctx context.Context, id string, portconf *PortConf) (*PortConf, error) {
 	if err := portconf.Validate(); err != nil {
 		return nil, err
