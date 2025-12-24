@@ -3062,6 +3062,7 @@ func TestNetworkClientFirewallZones(t *testing.T) {
 				response := []map[string]any{
 					{
 						"_id":          "zone1",
+						"external_id":  "550e8400-e29b-41d4-a716-446655440000",
 						"name":         "Internal",
 						"zone_key":     "internal",
 						"default_zone": true,
@@ -3072,8 +3073,9 @@ func TestNetworkClientFirewallZones(t *testing.T) {
 				var zone FirewallZone
 				json.NewDecoder(r.Body).Decode(&zone)
 				response := map[string]any{
-					"_id":  "newzone",
-					"name": zone.Name,
+					"_id":         "newzone",
+					"external_id": "660e8400-e29b-41d4-a716-446655440001",
+					"name":        zone.Name,
 				}
 				json.NewEncoder(w).Encode(response)
 			}
@@ -3081,17 +3083,19 @@ func TestNetworkClientFirewallZones(t *testing.T) {
 			switch r.Method {
 			case "GET":
 				response := map[string]any{
-					"_id":      "zone1",
-					"name":     "Internal",
-					"zone_key": "internal",
+					"_id":         "zone1",
+					"external_id": "550e8400-e29b-41d4-a716-446655440000",
+					"name":        "Internal",
+					"zone_key":    "internal",
 				}
 				json.NewEncoder(w).Encode(response)
 			case "PUT":
 				var zone FirewallZone
 				json.NewDecoder(r.Body).Decode(&zone)
 				response := map[string]any{
-					"_id":  "zone1",
-					"name": zone.Name,
+					"_id":         "zone1",
+					"external_id": "550e8400-e29b-41d4-a716-446655440000",
+					"name":        zone.Name,
 				}
 				json.NewEncoder(w).Encode(response)
 			case "DELETE":
@@ -3118,6 +3122,9 @@ func TestNetworkClientFirewallZones(t *testing.T) {
 		if len(zones) != 1 {
 			t.Errorf("expected 1 zone, got %d", len(zones))
 		}
+		if zones[0].ExternalID != "550e8400-e29b-41d4-a716-446655440000" {
+			t.Errorf("expected ExternalID '550e8400-e29b-41d4-a716-446655440000', got '%s'", zones[0].ExternalID)
+		}
 	})
 
 	t.Run("Get", func(t *testing.T) {
@@ -3127,6 +3134,9 @@ func TestNetworkClientFirewallZones(t *testing.T) {
 		}
 		if zone.ID != "zone1" {
 			t.Errorf("expected ID 'zone1', got '%s'", zone.ID)
+		}
+		if zone.ExternalID != "550e8400-e29b-41d4-a716-446655440000" {
+			t.Errorf("expected ExternalID '550e8400-e29b-41d4-a716-446655440000', got '%s'", zone.ExternalID)
 		}
 	})
 
@@ -3138,6 +3148,9 @@ func TestNetworkClientFirewallZones(t *testing.T) {
 		}
 		if created.ID != "newzone" {
 			t.Errorf("expected ID 'newzone', got '%s'", created.ID)
+		}
+		if created.ExternalID != "660e8400-e29b-41d4-a716-446655440001" {
+			t.Errorf("expected ExternalID '660e8400-e29b-41d4-a716-446655440001', got '%s'", created.ExternalID)
 		}
 	})
 

@@ -587,9 +587,13 @@ func (s *PolicySchedule) Validate() error {
 // FirewallZone represents a firewall zone (v2 API).
 //
 // Field value reference:
-//   - ZoneKey: "internal", "external", "gateway", "vpn", "hotspot", "dmz" (nil for custom zones)
+//   - ZoneKey: "internal", "external", "gateway", "vpn", "hotspot", "dmz" (read-only, nil for custom zones)
+//
+// Note: Zone creation may fail on standalone Network Applications (non-UDM) if required
+// system zones (e.g., "hotspot") don't exist. This is a controller-side limitation.
 type FirewallZone struct {
 	ID          string   `json:"_id,omitempty"`
+	ExternalID  string   `json:"external_id,omitempty"`
 	Name        string   `json:"name"`
 	ZoneKey     *string  `json:"zone_key,omitempty"`
 	DefaultZone *bool    `json:"default_zone,omitempty"`

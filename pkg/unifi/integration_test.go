@@ -805,6 +805,143 @@ func TestIntegration_RADIUSProfiles_CRUD(t *testing.T) {
 	}
 }
 
+func TestIntegration_WLANs_CRUD(t *testing.T) {
+	client := skipIfNoEnv(t)
+	ctx := context.Background()
+
+	t.Cleanup(func() {
+		cleanupTestResources(t, client, ctx)
+	})
+
+	networks, err := client.ListNetworks(ctx)
+	if err != nil {
+		t.Fatalf("ListNetworks failed: %v", err)
+	}
+	if len(networks) == 0 {
+		t.Skip("No networks available to associate WLAN with")
+	}
+	networkID := networks[0].ID
+
+	name := testName("wlan")
+	wlan := &WLANConf{
+		Name:          name,
+		Enabled:       BoolPtr(false),
+		Security:      "wpapsk",
+		WPAMode:       "wpa2",
+		XPassphrase:   "testwlanpassword123",
+		NetworkConfID: networkID,
+		HideSsid:      BoolPtr(false),
+	}
+
+	created, err := client.CreateWLAN(ctx, wlan)
+	if err != nil {
+		t.Fatalf("CreateWLAN failed: %v", err)
+	}
+	if created.ID == "" {
+		t.Fatal("Created WLAN has no ID")
+	}
+
+	fetched, err := client.GetWLAN(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("GetWLAN failed: %v", err)
+	}
+	if fetched.Name != name {
+		t.Errorf("Expected name %q, got %q", name, fetched.Name)
+	}
+
+	list, err := client.ListWLANs(ctx)
+	if err != nil {
+		t.Fatalf("ListWLANs failed: %v", err)
+	}
+	found := false
+	for _, w := range list {
+		if w.ID == created.ID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("Created WLAN not found in list")
+	}
+
+	newName := testName("wlan_updated")
+	fetched.Name = newName
+	updated, err := client.UpdateWLAN(ctx, fetched.ID, fetched)
+	if err != nil {
+		t.Fatalf("UpdateWLAN failed: %v", err)
+	}
+	if updated.Name != newName {
+		t.Errorf("Expected name %q, got %q", newName, updated.Name)
+	}
+
+	if err := client.DeleteWLAN(ctx, created.ID); err != nil {
+		t.Fatalf("DeleteWLAN failed: %v", err)
+	}
+}
+
+func TestIntegration_DynamicDNS_CRUD(t *testing.T) {
+	client := skipIfNoEnv(t)
+	ctx := context.Background()
+
+	t.Cleanup(func() {
+		cleanupTestResources(t, client, ctx)
+	})
+
+	hostname := testName("ddns")
+	ddns := &DynamicDNS{
+		Service:   "dyndns",
+		HostName:  hostname,
+		Login:     "testuser",
+		XPassword: "testpassword",
+		Server:    "members.dyndns.org",
+	}
+
+	created, err := client.CreateDynamicDNS(ctx, ddns)
+	if err != nil {
+		t.Fatalf("CreateDynamicDNS failed: %v", err)
+	}
+	if created.ID == "" {
+		t.Fatal("Created DynamicDNS has no ID")
+	}
+
+	fetched, err := client.GetDynamicDNS(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("GetDynamicDNS failed: %v", err)
+	}
+	if fetched.HostName != hostname {
+		t.Errorf("Expected hostname %q, got %q", hostname, fetched.HostName)
+	}
+
+	list, err := client.ListDynamicDNS(ctx)
+	if err != nil {
+		t.Fatalf("ListDynamicDNS failed: %v", err)
+	}
+	found := false
+	for _, d := range list {
+		if d.ID == created.ID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("Created DynamicDNS not found in list")
+	}
+
+	newHostname := testName("ddns_updated")
+	fetched.HostName = newHostname
+	updated, err := client.UpdateDynamicDNS(ctx, fetched.ID, fetched)
+	if err != nil {
+		t.Fatalf("UpdateDynamicDNS failed: %v", err)
+	}
+	if updated.HostName != newHostname {
+		t.Errorf("Expected hostname %q, got %q", newHostname, updated.HostName)
+	}
+
+	if err := client.DeleteDynamicDNS(ctx, created.ID); err != nil {
+		t.Fatalf("DeleteDynamicDNS failed: %v", err)
+	}
+}
+
 func TestIntegration_V2_FirewallZones_CRUD(t *testing.T) {
 	client := skipIfNoEnv(t)
 	ctx := context.Background()
@@ -820,14 +957,15 @@ func TestIntegration_V2_FirewallZones_CRUD(t *testing.T) {
 
 	created, err := client.CreateFirewallZone(ctx, zone)
 	if err != nil {
-		if errors.Is(err, ErrServerError) {
-			t.Skip("FirewallZone creation not supported on this controller")
+		if errors.Is(err, ErrServerError) || errors.Is(err, ErrNotFound) {
+			t.Skip("FirewallZone creation not supported on this controller (may require UDM or system zones)")
 		}
 		t.Fatalf("CreateFirewallZone failed: %v", err)
 	}
 	if created.ID == "" {
 		t.Fatal("Created zone has no ID")
 	}
+	t.Logf("Created zone with ID=%s, ExternalID=%s", created.ID, created.ExternalID)
 
 	fetched, err := client.GetFirewallZone(ctx, created.ID)
 	if err != nil {
@@ -835,6 +973,14 @@ func TestIntegration_V2_FirewallZones_CRUD(t *testing.T) {
 	}
 	if fetched.Name != name {
 		t.Errorf("Expected name %q, got %q", name, fetched.Name)
+	}
+	if fetched.ExternalID == "" {
+		t.Log("Warning: ExternalID is empty (may not be supported on this controller)")
+	} else {
+		t.Logf("Zone ExternalID: %s", fetched.ExternalID)
+	}
+	if fetched.ZoneKey != nil {
+		t.Logf("Zone ZoneKey: %s (expected nil for custom zones)", *fetched.ZoneKey)
 	}
 
 	list, err := client.ListFirewallZones(ctx)
@@ -845,6 +991,9 @@ func TestIntegration_V2_FirewallZones_CRUD(t *testing.T) {
 	for _, z := range list {
 		if z.ID == created.ID {
 			found = true
+			if z.ExternalID != fetched.ExternalID {
+				t.Errorf("ExternalID mismatch in list: expected %q, got %q", fetched.ExternalID, z.ExternalID)
+			}
 			break
 		}
 	}
@@ -860,6 +1009,9 @@ func TestIntegration_V2_FirewallZones_CRUD(t *testing.T) {
 	}
 	if updated.Name != newName {
 		t.Errorf("Expected name %q, got %q", newName, updated.Name)
+	}
+	if updated.ExternalID != fetched.ExternalID {
+		t.Errorf("ExternalID changed after update: expected %q, got %q", fetched.ExternalID, updated.ExternalID)
 	}
 
 	if err := client.DeleteFirewallZone(ctx, created.ID); err != nil {

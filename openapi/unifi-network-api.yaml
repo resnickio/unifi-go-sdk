@@ -1384,15 +1384,24 @@ components:
 
     FirewallZone:
       type: object
+      description: |
+        Firewall zone for zone-based firewall policies.
+        Note: Zone creation may fail on standalone Network Applications (non-UDM) if required
+        system zones (e.g., "hotspot") don't exist. This is a controller-side limitation.
       properties:
         _id:
           type: string
+        external_id:
+          type: string
+          format: uuid
+          description: External UUID for the zone (read-only, assigned by controller)
         name:
           type: string
         zone_key:
           type: string
           enum: [internal, external, gateway, vpn, hotspot, dmz]
           nullable: true
+          description: System zone key (read-only, null for custom zones)
         default_zone:
           type: boolean
         attr_no_edit:
