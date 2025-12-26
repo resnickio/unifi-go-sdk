@@ -164,6 +164,37 @@ func TestFirewallPolicyBuilder(t *testing.T) {
 			t.Error("expected source zone to survive round-trip")
 		}
 	})
+
+	t.Run("schedule_direct_assignment", func(t *testing.T) {
+		schedule := &PolicySchedule{
+			Mode:           "CUSTOM",
+			TimeRangeStart: "10:00",
+			TimeRangeEnd:   "14:00",
+			DaysOfWeek:     []string{"MONDAY", "WEDNESDAY", "FRIDAY"},
+		}
+
+		policy := NewFirewallPolicyBuilder().
+			Name("Direct Schedule").
+			Action("DROP").
+			Schedule(schedule).
+			Build()
+
+		if policy.Schedule == nil {
+			t.Fatal("expected schedule to be set")
+		}
+		if policy.Schedule.Mode != "CUSTOM" {
+			t.Errorf("expected mode 'CUSTOM', got %q", policy.Schedule.Mode)
+		}
+		if policy.Schedule.TimeRangeStart != "10:00" {
+			t.Errorf("expected start time '10:00', got %q", policy.Schedule.TimeRangeStart)
+		}
+		if policy.Schedule.TimeRangeEnd != "14:00" {
+			t.Errorf("expected end time '14:00', got %q", policy.Schedule.TimeRangeEnd)
+		}
+		if len(policy.Schedule.DaysOfWeek) != 3 {
+			t.Errorf("expected 3 days, got %d", len(policy.Schedule.DaysOfWeek))
+		}
+	})
 }
 
 func TestPolicyEndpointBuilder(t *testing.T) {
@@ -232,6 +263,64 @@ func TestPolicyEndpointBuilder(t *testing.T) {
 
 		if endpoint.NetworkID != "network-123" {
 			t.Errorf("expected network ID 'network-123', got %q", endpoint.NetworkID)
+		}
+	})
+
+	t.Run("match_opposite_ips_enabled", func(t *testing.T) {
+		endpoint := NewPolicyEndpointBuilder().
+			ZoneID("test-zone").
+			IPs("192.168.1.0/24").
+			MatchOppositeIPs(true).
+			Build()
+
+		if endpoint.MatchOppositeIPs == nil {
+			t.Fatal("expected MatchOppositeIPs to be set")
+		}
+		if !*endpoint.MatchOppositeIPs {
+			t.Error("expected MatchOppositeIPs to be true")
+		}
+	})
+
+	t.Run("match_opposite_ips_disabled", func(t *testing.T) {
+		endpoint := NewPolicyEndpointBuilder().
+			ZoneID("test-zone").
+			MatchOppositeIPs(false).
+			Build()
+
+		if endpoint.MatchOppositeIPs == nil {
+			t.Fatal("expected MatchOppositeIPs to be set")
+		}
+		if *endpoint.MatchOppositeIPs {
+			t.Error("expected MatchOppositeIPs to be false")
+		}
+	})
+
+	t.Run("match_opposite_ports_enabled", func(t *testing.T) {
+		endpoint := NewPolicyEndpointBuilder().
+			ZoneID("test-zone").
+			Port("443").
+			MatchOppositePorts(true).
+			Build()
+
+		if endpoint.MatchOppositePorts == nil {
+			t.Fatal("expected MatchOppositePorts to be set")
+		}
+		if !*endpoint.MatchOppositePorts {
+			t.Error("expected MatchOppositePorts to be true")
+		}
+	})
+
+	t.Run("match_opposite_ports_disabled", func(t *testing.T) {
+		endpoint := NewPolicyEndpointBuilder().
+			ZoneID("test-zone").
+			MatchOppositePorts(false).
+			Build()
+
+		if endpoint.MatchOppositePorts == nil {
+			t.Fatal("expected MatchOppositePorts to be set")
+		}
+		if *endpoint.MatchOppositePorts {
+			t.Error("expected MatchOppositePorts to be false")
 		}
 	})
 }

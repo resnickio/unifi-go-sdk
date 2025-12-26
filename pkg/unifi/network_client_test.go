@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 )
@@ -4004,6 +4005,517 @@ func TestNetworkClient405Fallback(t *testing.T) {
 		}
 		if route.ID != "route2" {
 			t.Errorf("expected ID 'route2', got '%s'", route.ID)
+		}
+	})
+}
+
+func TestNetworkClientListAPGroups(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/api/auth/login":
+				w.WriteHeader(http.StatusOK)
+			case "/proxy/network/v2/api/site/default/apgroups":
+				response := []map[string]any{
+					{
+						"_id":           "group1",
+						"name":          "Default",
+						"attr_no_delete": true,
+						"device_macs":   []string{"00:11:22:33:44:55"},
+					},
+					{
+						"_id":         "group2",
+						"name":        "Office APs",
+						"device_macs": []string{"aa:bb:cc:dd:ee:ff", "11:22:33:44:55:66"},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		defer server.Close()
+
+		client, _ := NewNetworkClient(NetworkClientConfig{
+			BaseURL:  server.URL,
+			Username: "admin",
+			Password: "password",
+		})
+		client.Login(context.Background())
+
+		groups, err := client.ListAPGroups(context.Background())
+		if err != nil {
+			t.Fatalf("ListAPGroups() error = %v", err)
+		}
+		if len(groups) != 2 {
+			t.Errorf("expected 2 groups, got %d", len(groups))
+		}
+		if groups[0].Name != "Default" {
+			t.Errorf("expected name 'Default', got '%s'", groups[0].Name)
+		}
+		if len(groups[1].DeviceMACs) != 2 {
+			t.Errorf("expected 2 device MACs, got %d", len(groups[1].DeviceMACs))
+		}
+	})
+
+	t.Run("EmptyList", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/api/auth/login":
+				w.WriteHeader(http.StatusOK)
+			case "/proxy/network/v2/api/site/default/apgroups":
+				json.NewEncoder(w).Encode([]map[string]any{})
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		defer server.Close()
+
+		client, _ := NewNetworkClient(NetworkClientConfig{
+			BaseURL:  server.URL,
+			Username: "admin",
+			Password: "password",
+		})
+		client.Login(context.Background())
+
+		groups, err := client.ListAPGroups(context.Background())
+		if err != nil {
+			t.Fatalf("ListAPGroups() error = %v", err)
+		}
+		if len(groups) != 0 {
+			t.Errorf("expected 0 groups, got %d", len(groups))
+		}
+	})
+
+	t.Run("APIError", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/api/auth/login":
+				w.WriteHeader(http.StatusOK)
+			case "/proxy/network/v2/api/site/default/apgroups":
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(`{"error": "internal server error"}`))
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		defer server.Close()
+
+		client, _ := NewNetworkClient(NetworkClientConfig{
+			BaseURL:  server.URL,
+			Username: "admin",
+			Password: "password",
+		})
+		client.Login(context.Background())
+
+		_, err := client.ListAPGroups(context.Background())
+		if err == nil {
+			t.Fatal("expected error for 500 response")
+		}
+		if !errors.Is(err, ErrServerError) {
+			t.Errorf("expected ErrServerError, got %v", err)
+		}
+	})
+}
+
+func TestNetworkClientV2CreateOperations(t *testing.T) {
+	t.Run("CreateFirewallPolicy_Success", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/api/auth/login":
+				w.WriteHeader(http.StatusOK)
+			case "/proxy/network/v2/api/site/default/firewall-policies":
+				if r.Method == "POST" {
+					response := map[string]any{"_id": "policy1", "name": "Test Policy"}
+					json.NewEncoder(w).Encode(response)
+				}
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		defer server.Close()
+
+		client, _ := NewNetworkClient(NetworkClientConfig{
+			BaseURL:  server.URL,
+			Username: "admin",
+			Password: "password",
+		})
+		client.Login(context.Background())
+
+		policy := &FirewallPolicy{Name: "Test Policy", Action: "ALLOW"}
+		created, err := client.CreateFirewallPolicy(context.Background(), policy)
+		if err != nil {
+			t.Fatalf("CreateFirewallPolicy() error = %v", err)
+		}
+		if created.ID != "policy1" {
+			t.Errorf("expected ID 'policy1', got '%s'", created.ID)
+		}
+	})
+
+	t.Run("CreateFirewallPolicy_ValidationError", func(t *testing.T) {
+		client, _ := NewNetworkClient(NetworkClientConfig{
+			BaseURL:  "http://localhost",
+			Username: "admin",
+			Password: "password",
+		})
+
+		policy := &FirewallPolicy{} // Missing required name
+		_, err := client.CreateFirewallPolicy(context.Background(), policy)
+		if err == nil {
+			t.Fatal("expected validation error")
+		}
+		if !strings.Contains(err.Error(), "name is required") {
+			t.Errorf("expected 'name is required' error, got: %v", err)
+		}
+	})
+
+	t.Run("CreateStaticDNS_Success", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/api/auth/login":
+				w.WriteHeader(http.StatusOK)
+			case "/proxy/network/v2/api/site/default/static-dns":
+				if r.Method == "POST" {
+					response := map[string]any{"_id": "dns1", "key": "test.local", "value": "192.168.1.100"}
+					json.NewEncoder(w).Encode(response)
+				}
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		defer server.Close()
+
+		client, _ := NewNetworkClient(NetworkClientConfig{
+			BaseURL:  server.URL,
+			Username: "admin",
+			Password: "password",
+		})
+		client.Login(context.Background())
+
+		dns := &StaticDNS{Key: "test.local", Value: "192.168.1.100", RecordType: "A"}
+		created, err := client.CreateStaticDNS(context.Background(), dns)
+		if err != nil {
+			t.Fatalf("CreateStaticDNS() error = %v", err)
+		}
+		if created.ID != "dns1" {
+			t.Errorf("expected ID 'dns1', got '%s'", created.ID)
+		}
+	})
+
+	t.Run("CreateStaticDNS_ValidationError", func(t *testing.T) {
+		client, _ := NewNetworkClient(NetworkClientConfig{
+			BaseURL:  "http://localhost",
+			Username: "admin",
+			Password: "password",
+		})
+
+		dns := &StaticDNS{} // Missing required key and value
+		_, err := client.CreateStaticDNS(context.Background(), dns)
+		if err == nil {
+			t.Fatal("expected validation error")
+		}
+		if !strings.Contains(err.Error(), "key is required") {
+			t.Errorf("expected 'key is required' error, got: %v", err)
+		}
+	})
+
+	t.Run("CreateTrafficRule_Success", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/api/auth/login":
+				w.WriteHeader(http.StatusOK)
+			case "/proxy/network/v2/api/site/default/trafficrules":
+				if r.Method == "POST" {
+					response := map[string]any{"_id": "rule1", "name": "Test Rule"}
+					json.NewEncoder(w).Encode(response)
+				}
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		defer server.Close()
+
+		client, _ := NewNetworkClient(NetworkClientConfig{
+			BaseURL:  server.URL,
+			Username: "admin",
+			Password: "password",
+		})
+		client.Login(context.Background())
+
+		rule := &TrafficRule{Name: "Test Rule", Action: "BLOCK"}
+		created, err := client.CreateTrafficRule(context.Background(), rule)
+		if err != nil {
+			t.Fatalf("CreateTrafficRule() error = %v", err)
+		}
+		if created.ID != "rule1" {
+			t.Errorf("expected ID 'rule1', got '%s'", created.ID)
+		}
+	})
+
+	t.Run("CreateTrafficRoute_Success", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/api/auth/login":
+				w.WriteHeader(http.StatusOK)
+			case "/proxy/network/v2/api/site/default/trafficroutes":
+				if r.Method == "POST" {
+					response := map[string]any{"_id": "route1", "name": "Test Route"}
+					json.NewEncoder(w).Encode(response)
+				}
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		defer server.Close()
+
+		client, _ := NewNetworkClient(NetworkClientConfig{
+			BaseURL:  server.URL,
+			Username: "admin",
+			Password: "password",
+		})
+		client.Login(context.Background())
+
+		route := &TrafficRoute{Name: "Test Route"}
+		created, err := client.CreateTrafficRoute(context.Background(), route)
+		if err != nil {
+			t.Fatalf("CreateTrafficRoute() error = %v", err)
+		}
+		if created.ID != "route1" {
+			t.Errorf("expected ID 'route1', got '%s'", created.ID)
+		}
+	})
+
+	t.Run("CreateNatRule_Success", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/api/auth/login":
+				w.WriteHeader(http.StatusOK)
+			case "/proxy/network/v2/api/site/default/nat":
+				if r.Method == "POST" {
+					response := map[string]any{"_id": "nat1", "type": "MASQUERADE"}
+					json.NewEncoder(w).Encode(response)
+				}
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		defer server.Close()
+
+		client, _ := NewNetworkClient(NetworkClientConfig{
+			BaseURL:  server.URL,
+			Username: "admin",
+			Password: "password",
+		})
+		client.Login(context.Background())
+
+		rule := &NatRule{Type: "MASQUERADE"}
+		created, err := client.CreateNatRule(context.Background(), rule)
+		if err != nil {
+			t.Fatalf("CreateNatRule() error = %v", err)
+		}
+		if created.ID != "nat1" {
+			t.Errorf("expected ID 'nat1', got '%s'", created.ID)
+		}
+	})
+
+	t.Run("CreateNatRule_ValidationError", func(t *testing.T) {
+		client, _ := NewNetworkClient(NetworkClientConfig{
+			BaseURL:  "http://localhost",
+			Username: "admin",
+			Password: "password",
+		})
+
+		rule := &NatRule{} // Missing required type
+		_, err := client.CreateNatRule(context.Background(), rule)
+		if err == nil {
+			t.Fatal("expected validation error")
+		}
+		if !strings.Contains(err.Error(), "type is required") {
+			t.Errorf("expected 'type is required' error, got: %v", err)
+		}
+	})
+}
+
+func TestNetworkClientV2UpdateOperations(t *testing.T) {
+	t.Run("UpdateFirewallPolicy_Success", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/api/auth/login":
+				w.WriteHeader(http.StatusOK)
+			case "/proxy/network/v2/api/site/default/firewall-policies/policy1":
+				if r.Method == "PUT" {
+					response := map[string]any{"_id": "policy1", "name": "Updated Policy"}
+					json.NewEncoder(w).Encode(response)
+				}
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		defer server.Close()
+
+		client, _ := NewNetworkClient(NetworkClientConfig{
+			BaseURL:  server.URL,
+			Username: "admin",
+			Password: "password",
+		})
+		client.Login(context.Background())
+
+		policy := &FirewallPolicy{Name: "Updated Policy", Action: "BLOCK"}
+		updated, err := client.UpdateFirewallPolicy(context.Background(), "policy1", policy)
+		if err != nil {
+			t.Fatalf("UpdateFirewallPolicy() error = %v", err)
+		}
+		if updated.Name != "Updated Policy" {
+			t.Errorf("expected name 'Updated Policy', got '%s'", updated.Name)
+		}
+	})
+
+	t.Run("UpdateFirewallPolicy_ValidationError", func(t *testing.T) {
+		client, _ := NewNetworkClient(NetworkClientConfig{
+			BaseURL:  "http://localhost",
+			Username: "admin",
+			Password: "password",
+		})
+
+		policy := &FirewallPolicy{} // Missing required name
+		_, err := client.UpdateFirewallPolicy(context.Background(), "policy1", policy)
+		if err == nil {
+			t.Fatal("expected validation error")
+		}
+		if !strings.Contains(err.Error(), "name is required") {
+			t.Errorf("expected 'name is required' error, got: %v", err)
+		}
+	})
+
+	t.Run("UpdateStaticDNS_Success", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/api/auth/login":
+				w.WriteHeader(http.StatusOK)
+			case "/proxy/network/v2/api/site/default/static-dns/dns1":
+				if r.Method == "PUT" {
+					response := map[string]any{"_id": "dns1", "key": "updated.local", "value": "192.168.1.200"}
+					json.NewEncoder(w).Encode(response)
+				}
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		defer server.Close()
+
+		client, _ := NewNetworkClient(NetworkClientConfig{
+			BaseURL:  server.URL,
+			Username: "admin",
+			Password: "password",
+		})
+		client.Login(context.Background())
+
+		dns := &StaticDNS{Key: "updated.local", Value: "192.168.1.200", RecordType: "A"}
+		updated, err := client.UpdateStaticDNS(context.Background(), "dns1", dns)
+		if err != nil {
+			t.Fatalf("UpdateStaticDNS() error = %v", err)
+		}
+		if updated.Key != "updated.local" {
+			t.Errorf("expected key 'updated.local', got '%s'", updated.Key)
+		}
+	})
+
+	t.Run("UpdateTrafficRule_Success", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/api/auth/login":
+				w.WriteHeader(http.StatusOK)
+			case "/proxy/network/v2/api/site/default/trafficrules/rule1":
+				if r.Method == "PUT" {
+					response := map[string]any{"_id": "rule1", "name": "Updated Rule"}
+					json.NewEncoder(w).Encode(response)
+				}
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		defer server.Close()
+
+		client, _ := NewNetworkClient(NetworkClientConfig{
+			BaseURL:  server.URL,
+			Username: "admin",
+			Password: "password",
+		})
+		client.Login(context.Background())
+
+		rule := &TrafficRule{Name: "Updated Rule", Action: "ALLOW"}
+		updated, err := client.UpdateTrafficRule(context.Background(), "rule1", rule)
+		if err != nil {
+			t.Fatalf("UpdateTrafficRule() error = %v", err)
+		}
+		if updated.Name != "Updated Rule" {
+			t.Errorf("expected name 'Updated Rule', got '%s'", updated.Name)
+		}
+	})
+
+	t.Run("UpdateTrafficRoute_Success", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/api/auth/login":
+				w.WriteHeader(http.StatusOK)
+			case "/proxy/network/v2/api/site/default/trafficroutes/route1":
+				if r.Method == "PUT" {
+					response := map[string]any{"_id": "route1", "name": "Updated Route"}
+					json.NewEncoder(w).Encode(response)
+				}
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		defer server.Close()
+
+		client, _ := NewNetworkClient(NetworkClientConfig{
+			BaseURL:  server.URL,
+			Username: "admin",
+			Password: "password",
+		})
+		client.Login(context.Background())
+
+		route := &TrafficRoute{Name: "Updated Route"}
+		updated, err := client.UpdateTrafficRoute(context.Background(), "route1", route)
+		if err != nil {
+			t.Fatalf("UpdateTrafficRoute() error = %v", err)
+		}
+		if updated.Name != "Updated Route" {
+			t.Errorf("expected name 'Updated Route', got '%s'", updated.Name)
+		}
+	})
+
+	t.Run("UpdateNatRule_Success", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/api/auth/login":
+				w.WriteHeader(http.StatusOK)
+			case "/proxy/network/v2/api/site/default/nat/nat1":
+				if r.Method == "PUT" {
+					response := map[string]any{"_id": "nat1", "type": "SNAT"}
+					json.NewEncoder(w).Encode(response)
+				}
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		defer server.Close()
+
+		client, _ := NewNetworkClient(NetworkClientConfig{
+			BaseURL:  server.URL,
+			Username: "admin",
+			Password: "password",
+		})
+		client.Login(context.Background())
+
+		rule := &NatRule{Type: "SNAT"}
+		updated, err := client.UpdateNatRule(context.Background(), "nat1", rule)
+		if err != nil {
+			t.Fatalf("UpdateNatRule() error = %v", err)
+		}
+		if updated.Type != "SNAT" {
+			t.Errorf("expected type 'SNAT', got '%s'", updated.Type)
 		}
 	})
 }
