@@ -929,8 +929,9 @@ func TestApplyBackoffWithJitter(t *testing.T) {
 
 	for range 100 {
 		wait := applyBackoffWithJitter(10*time.Second, 0, maxWait)
-		if wait != 10*time.Second {
-			t.Errorf("server wait 10s: want exactly 10s, got %v", wait)
+		// Server wait (10s) + jitter (0-5s) = 10s to 15s
+		if wait < 10*time.Second || wait > 15*time.Second {
+			t.Errorf("server wait 10s: want 10s-15s, got %v", wait)
 		}
 	}
 
@@ -945,20 +946,29 @@ func TestApplyBackoffWithJitter(t *testing.T) {
 func TestApplyBackoffWithJitterCapsServerWait(t *testing.T) {
 	maxWait := 60 * time.Second
 
-	wait := applyBackoffWithJitter(120*time.Second, 0, maxWait)
-	if wait != 60*time.Second {
-		t.Errorf("server wait 120s should be capped at 60s, got %v", wait)
+	// Server wait 120s + jitter would exceed maxWait, should be capped
+	for range 100 {
+		wait := applyBackoffWithJitter(120*time.Second, 0, maxWait)
+		if wait != 60*time.Second {
+			t.Errorf("server wait 120s should be capped at 60s, got %v", wait)
+		}
 	}
 
-	wait = applyBackoffWithJitter(30*time.Second, 0, maxWait)
-	if wait != 30*time.Second {
-		t.Errorf("server wait 30s should not be capped, got %v", wait)
+	// Server wait 30s + jitter (0-15s) = 30s to 45s, all below maxWait
+	for range 100 {
+		wait := applyBackoffWithJitter(30*time.Second, 0, maxWait)
+		if wait < 30*time.Second || wait > 45*time.Second {
+			t.Errorf("server wait 30s: want 30s-45s, got %v", wait)
+		}
 	}
 
+	// With custom maxWait of 10s, server wait 30s + jitter should be capped at 10s
 	customMax := 10 * time.Second
-	wait = applyBackoffWithJitter(30*time.Second, 0, customMax)
-	if wait != 10*time.Second {
-		t.Errorf("server wait 30s should be capped at custom 10s, got %v", wait)
+	for range 100 {
+		wait := applyBackoffWithJitter(30*time.Second, 0, customMax)
+		if wait != 10*time.Second {
+			t.Errorf("server wait 30s should be capped at custom 10s, got %v", wait)
+		}
 	}
 }
 

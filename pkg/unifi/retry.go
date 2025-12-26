@@ -57,9 +57,15 @@ func isNetworkError(err error) bool {
 func applyBackoffWithJitter(serverWait time.Duration, attempt int, maxWait time.Duration) time.Duration {
 	var wait time.Duration
 	if serverWait > 0 {
-		wait = serverWait
+		// Apply jitter even with server-specified wait to avoid thundering herd
+		jitter := time.Duration(float64(serverWait) * jitterFraction * rand.Float64())
+		wait = serverWait + jitter
 	} else {
-		backoff := baseBackoff << attempt
+		// Calculate exponential backoff without overflow (loop instead of shift)
+		backoff := baseBackoff
+		for i := 0; i < attempt && backoff < maxBackoff; i++ {
+			backoff *= 2
+		}
 		if backoff > maxBackoff {
 			backoff = maxBackoff
 		}

@@ -107,10 +107,35 @@ func TestApplyBackoffWithJitterMaxBackoff(t *testing.T) {
 func TestApplyBackoffWithJitterServerWaitRespected(t *testing.T) {
 	maxWait := 120 * time.Second
 
-	// When server provides wait time, it should be used instead of calculated backoff
-	wait := applyBackoffWithJitter(30*time.Second, 0, maxWait)
-	if wait != 30*time.Second {
-		t.Errorf("server wait should be respected: got %v, want 30s", wait)
+	// When server provides wait time, it should be used with jitter added
+	// to avoid thundering herd when multiple clients retry simultaneously
+	for i := 0; i < 100; i++ {
+		wait := applyBackoffWithJitter(30*time.Second, 0, maxWait)
+		// Server wait (30s) + jitter (0-15s) = 30s to 45s
+		if wait < 30*time.Second || wait > 45*time.Second {
+			t.Errorf("server wait: got %v, want between 30s and 45s", wait)
+		}
+	}
+}
+
+func TestApplyBackoffWithJitterNoOverflow(t *testing.T) {
+	maxWait := 120 * time.Second
+
+	// Very high attempt counts should not cause overflow or panic
+	for i := 0; i < 100; i++ {
+		wait := applyBackoffWithJitter(0, 50, maxWait)
+		// Should be capped at maxBackoff (60s) + jitter (0-30s) = 60s to 90s
+		if wait < 60*time.Second || wait > 90*time.Second {
+			t.Errorf("high attempt (50): wait %v outside expected bounds [60s, 90s]", wait)
+		}
+	}
+
+	// Even higher attempt count (would overflow int64 with bit shift)
+	for i := 0; i < 100; i++ {
+		wait := applyBackoffWithJitter(0, 100, maxWait)
+		if wait < 60*time.Second || wait > 90*time.Second {
+			t.Errorf("very high attempt (100): wait %v outside expected bounds [60s, 90s]", wait)
+		}
 	}
 }
 
