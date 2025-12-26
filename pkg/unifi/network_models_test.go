@@ -222,8 +222,8 @@ func TestFirewallRuleValidate(t *testing.T) {
 
 func TestFirewallPolicyValidate(t *testing.T) {
 	tests := []struct {
-		name   string
-		policy FirewallPolicy
+		name    string
+		policy  FirewallPolicy
 		wantErr string
 	}{
 		{"valid", FirewallPolicy{Name: "Test", Action: "ALLOW"}, ""},
@@ -231,6 +231,47 @@ func TestFirewallPolicyValidate(t *testing.T) {
 		{"invalid action", FirewallPolicy{Name: "Test", Action: "invalid"}, "action must be one of"},
 		{"invalid protocol", FirewallPolicy{Name: "Test", Protocol: "invalid"}, "protocol must be one of"},
 		{"invalid ip_version", FirewallPolicy{Name: "Test", IPVersion: "invalid"}, "ip_version must be one of"},
+		{"invalid connection_state_type", FirewallPolicy{Name: "Test", ConnectionStateType: "invalid"}, "connection_state_type must be one of"},
+		{"valid connection_state_type ALL", FirewallPolicy{Name: "Test", ConnectionStateType: "ALL"}, ""},
+		{"valid connection_state_type CUSTOM", FirewallPolicy{Name: "Test", ConnectionStateType: "CUSTOM"}, ""},
+		{
+			"source validation error propagates",
+			FirewallPolicy{
+				Name:   "Test",
+				Source: &PolicyEndpoint{MatchingTarget: "INVALID"},
+			},
+			"matching_target must be one of",
+		},
+		{
+			"destination validation error propagates",
+			FirewallPolicy{
+				Name:        "Test",
+				Destination: &PolicyEndpoint{Port: "invalid-port"},
+			},
+			"port must be a valid port",
+		},
+		{
+			"schedule validation error propagates",
+			FirewallPolicy{
+				Name:     "Test",
+				Schedule: &PolicySchedule{Mode: "INVALID"},
+			},
+			"mode must be one of",
+		},
+		{
+			"all valid fields comprehensive",
+			FirewallPolicy{
+				Name:                "Full Policy",
+				Action:              "BLOCK",
+				Protocol:            "tcp",
+				IPVersion:           "BOTH",
+				ConnectionStateType: "CUSTOM",
+				Source:              &PolicyEndpoint{ZoneID: "zone1", MatchingTarget: "ANY"},
+				Destination:         &PolicyEndpoint{ZoneID: "zone2", Port: "443", PortMatchingType: "SPECIFIC"},
+				Schedule:            &PolicySchedule{Mode: "ALWAYS"},
+			},
+			"",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -246,12 +287,12 @@ func TestTrafficRuleValidate(t *testing.T) {
 		rule    TrafficRule
 		wantErr string
 	}{
-		{"valid", TrafficRule{Action: "BLOCK"}, ""},
-		{"valid with name", TrafficRule{Name: "Test", Action: "BLOCK"}, ""},
-		{"invalid action", TrafficRule{Action: "invalid"}, "action must be one of"},
-		{"invalid matching_target", TrafficRule{MatchingTarget: "invalid"}, "matching_target must be one of"},
-		{"invalid ip_addresses", TrafficRule{IPAddresses: []string{"invalid"}}, "ip_addresses[0] must be a valid IP or CIDR"},
-		{"valid ip_addresses", TrafficRule{IPAddresses: []string{"192.168.1.0/24"}}, ""},
+		{"valid", TrafficRule{Name: "Test", Action: "BLOCK"}, ""},
+		{"missing name", TrafficRule{Action: "BLOCK"}, "name is required"},
+		{"invalid action", TrafficRule{Name: "Test", Action: "invalid"}, "action must be one of"},
+		{"invalid matching_target", TrafficRule{Name: "Test", MatchingTarget: "invalid"}, "matching_target must be one of"},
+		{"invalid ip_addresses", TrafficRule{Name: "Test", IPAddresses: []string{"invalid"}}, "ip_addresses[0] must be a valid IP or CIDR"},
+		{"valid ip_addresses", TrafficRule{Name: "Test", IPAddresses: []string{"192.168.1.0/24"}}, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -267,10 +308,10 @@ func TestTrafficRouteValidate(t *testing.T) {
 		route   TrafficRoute
 		wantErr string
 	}{
-		{"valid", TrafficRoute{}, ""},
-		{"valid with name", TrafficRoute{Name: "Test"}, ""},
-		{"invalid matching_target", TrafficRoute{MatchingTarget: "invalid"}, "matching_target must be one of"},
-		{"invalid ip_addresses", TrafficRoute{IPAddresses: []string{"invalid"}}, "ip_addresses[0] must be a valid IP or CIDR"},
+		{"valid", TrafficRoute{Name: "Test"}, ""},
+		{"missing name", TrafficRoute{}, "name is required"},
+		{"invalid matching_target", TrafficRoute{Name: "Test", MatchingTarget: "invalid"}, "matching_target must be one of"},
+		{"invalid ip_addresses", TrafficRoute{Name: "Test", IPAddresses: []string{"invalid"}}, "ip_addresses[0] must be a valid IP or CIDR"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

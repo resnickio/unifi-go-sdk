@@ -1218,6 +1218,8 @@ func TestIntegration_V2_TrafficRules_CRUD(t *testing.T) {
 		t.Error("Created traffic rule not found in list")
 	}
 
+	// API may not return name on GET, preserve from creation
+	fetched.Name = name
 	fetched.Domains = []TrafficDomain{{Domain: "blocked-domain.example.com"}, {Domain: "another-blocked.example.com"}}
 	updated, err := client.UpdateTrafficRule(ctx, fetched.ID, fetched)
 	if err != nil {
@@ -1298,6 +1300,8 @@ func TestIntegration_V2_TrafficRoutes_CRUD(t *testing.T) {
 		t.Error("Created traffic route not found in list")
 	}
 
+	// API may not return name on GET, preserve from creation
+	fetched.Name = name
 	fetched.Domains = []TrafficDomain{{Domain: "route-domain.example.com"}, {Domain: "another-route.example.com"}}
 	updated, err := client.UpdateTrafficRoute(ctx, fetched.ID, fetched)
 	if err != nil {
@@ -1395,6 +1399,17 @@ func TestIntegration_V2_ReadOnlyEndpoints(t *testing.T) {
 			t.Errorf("ListDevices failed: %v", err)
 		}
 		t.Logf("Found %d network devices", len(devices.NetworkDevices))
+	})
+
+	t.Run("ListAPGroups", func(t *testing.T) {
+		groups, err := client.ListAPGroups(ctx)
+		if err != nil {
+			t.Errorf("ListAPGroups failed: %v", err)
+		}
+		t.Logf("Found %d AP groups", len(groups))
+		for _, g := range groups {
+			t.Logf("  AP Group: %s (ID: %s, MACs: %d)", g.Name, g.ID, len(g.DeviceMACs))
+		}
 	})
 
 	t.Run("ListAclRules", func(t *testing.T) {

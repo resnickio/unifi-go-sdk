@@ -608,7 +608,7 @@ type FirewallZone struct {
 	ZoneKey     *string  `json:"zone_key,omitempty"`
 	DefaultZone *bool    `json:"default_zone,omitempty"`
 	AttrNoEdit  *bool    `json:"attr_no_edit,omitempty"`
-	NetworkIDs  []string `json:"network_ids,omitempty"`
+	NetworkIDs  []string `json:"network_ids"`
 }
 
 // StaticDNS represents a static DNS record (v2 API).
@@ -1186,6 +1186,9 @@ func (f *FirewallPolicy) Validate() error {
 
 // Validate checks that required fields are set and values are valid.
 func (t *TrafficRule) Validate() error {
+	if t.Name == "" {
+		return fmt.Errorf("trafficrule: name is required")
+	}
 	if t.Action != "" && !isOneOf(t.Action, "BLOCK", "ALLOW") {
 		return fmt.Errorf("trafficrule: action must be one of: BLOCK, ALLOW")
 	}
@@ -1202,6 +1205,9 @@ func (t *TrafficRule) Validate() error {
 
 // Validate checks that required fields are set and values are valid.
 func (t *TrafficRoute) Validate() error {
+	if t.Name == "" {
+		return fmt.Errorf("trafficroute: name is required")
+	}
 	if t.MatchingTarget != "" && !isOneOf(t.MatchingTarget, "INTERNET", "IP", "DOMAIN", "REGION", "APP") {
 		return fmt.Errorf("trafficroute: matching_target must be one of: INTERNET, IP, DOMAIN, REGION, APP")
 	}
