@@ -395,8 +395,8 @@ Both clients automatically retry transient errors (502, 503, 504) and rate limit
 Both clients parse `Retry-After` headers from 429 responses:
 1. Parse `Retry-After` header (supports integer seconds, fractional seconds, and HTTP-date format)
 2. Fall back to parsing delay from response body
-3. If server specifies a delay, use it exactly
-4. Otherwise, apply exponential backoff (1s, 2s, 4s...) with 0-50% additional jitter, capped at 60s
+3. Apply exponential backoff (1s, 2s, 4s...) with 0-50% additional jitter, capped at 60s
+4. Server-specified delays also receive jitter to prevent thundering herd when multiple clients retry simultaneously
 
 `MaxRetries` is `*int` — omit for default (3), or use the `IntPtr` helper to override (including `0` for no retries).
 
