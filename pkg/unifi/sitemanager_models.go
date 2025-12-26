@@ -2,17 +2,17 @@ package unifi
 
 // UserData contains information about a UniFi user account.
 type UserData struct {
-	Email               string                 `json:"email"`
-	FullName            string                 `json:"fullName"`
-	Role                string                 `json:"role"`
-	RoleID              string                 `json:"roleId"`
-	Status              string                 `json:"status"`
-	LocalID             string                 `json:"localId"`
-	Apps                []string               `json:"apps"`
-	Controllers         []string               `json:"controllers"`
-	ConsoleGroupMembers []ConsoleGroupMember   `json:"consoleGroupMembers"`
-	Features            UserFeatures           `json:"features"`
-	Permissions         map[string][]string    `json:"permissions"`
+	Email               string               `json:"email"`
+	FullName            string               `json:"fullName"`
+	Role                string               `json:"role"`
+	RoleID              string               `json:"roleId"`
+	Status              string               `json:"status"`
+	LocalID             string               `json:"localId"`
+	Apps                []string             `json:"apps"`
+	Controllers         []string             `json:"controllers"`
+	ConsoleGroupMembers []ConsoleGroupMember `json:"consoleGroupMembers"`
+	Features            UserFeatures         `json:"features"`
+	Permissions         map[string][]string  `json:"permissions"`
 }
 
 // ConsoleGroupMember represents a console's membership in a group.
@@ -25,10 +25,10 @@ type ConsoleGroupMember struct {
 
 // RoleAttributes contains role-specific attributes for a console.
 type RoleAttributes struct {
-	Applications            map[string]ApplicationRole `json:"applications"`
-	CandidateRoles          []string                   `json:"candidateRoles"`
-	ConnectedState          string                     `json:"connectedState"`
-	ConnectedStateLastChanged string                   `json:"connectedStateLastChanged"`
+	Applications              map[string]ApplicationRole `json:"applications"`
+	CandidateRoles            []string                   `json:"candidateRoles"`
+	ConnectedState            string                     `json:"connectedState"`
+	ConnectedStateLastChanged string                     `json:"connectedStateLastChanged"`
 }
 
 // ApplicationRole describes a user's role for a specific application.
@@ -40,12 +40,12 @@ type ApplicationRole struct {
 
 // UserFeatures describes the features available to a user.
 type UserFeatures struct {
-	DeviceGroups       bool              `json:"deviceGroups"`
-	Floorplan          FloorplanFeature  `json:"floorplan"`
-	ManageApplications bool              `json:"manageApplications"`
-	Notifications      bool              `json:"notifications"`
-	Pion               bool              `json:"pion"`
-	WebRTC             WebRTCFeature     `json:"webrtc"`
+	DeviceGroups       bool             `json:"deviceGroups"`
+	Floorplan          FloorplanFeature `json:"floorplan"`
+	ManageApplications bool             `json:"manageApplications"`
+	Notifications      bool             `json:"notifications"`
+	Pion               bool             `json:"pion"`
+	WebRTC             WebRTCFeature    `json:"webrtc"`
 }
 
 // FloorplanFeature describes floorplan capabilities for a user.
@@ -149,23 +149,23 @@ type UIDB struct {
 
 // Device represents a UniFi device (AP, switch, gateway, etc.).
 type Device struct {
-	ID             string  `json:"id"`
-	MAC            string  `json:"mac"`
-	Name           string  `json:"name"`
-	Model          string  `json:"model"`
-	Shortname      string  `json:"shortname"`
-	IP             string  `json:"ip"`
-	ProductLine    string  `json:"productLine"`
-	Status         string  `json:"status"`
-	Version        string  `json:"version"`
-	FirmwareStatus string  `json:"firmwareStatus"`
+	ID              string  `json:"id"`
+	MAC             string  `json:"mac"`
+	Name            string  `json:"name"`
+	Model           string  `json:"model"`
+	Shortname       string  `json:"shortname"`
+	IP              string  `json:"ip"`
+	ProductLine     string  `json:"productLine"`
+	Status          string  `json:"status"`
+	Version         string  `json:"version"`
+	FirmwareStatus  string  `json:"firmwareStatus"`
 	UpdateAvailable *string `json:"updateAvailable"`
-	IsConsole      bool    `json:"isConsole"`
-	IsManaged      bool    `json:"isManaged"`
-	StartupTime    *string `json:"startupTime"`
-	AdoptionTime   *string `json:"adoptionTime"`
-	Note           *string `json:"note"`
-	UIDB           UIDB    `json:"uidb"`
+	IsConsole       bool    `json:"isConsole"`
+	IsManaged       bool    `json:"isManaged"`
+	StartupTime     *string `json:"startupTime"`
+	AdoptionTime    *string `json:"adoptionTime"`
+	Note            *string `json:"note"`
+	UIDB            UIDB    `json:"uidb"`
 }
 
 // HostDevices contains devices associated with a specific host.
@@ -238,11 +238,11 @@ type ReportedState struct {
 	UnadoptedUnifiOSDevices    []string       `json:"unadoptedUnifiOSDevices"`
 	Features                   Features       `json:"features"`
 	// Network Server specific fields
-	DeviceID            string  `json:"deviceId"`
-	FirmwareVersion     *string `json:"firmware_version"`
-	HardwareID          string  `json:"hardware_id"`
-	InformPort          int     `json:"inform_port"`
-	OverrideInformHost  bool    `json:"override_inform_host"`
+	DeviceID           string  `json:"deviceId"`
+	FirmwareVersion    *string `json:"firmware_version"`
+	HardwareID         string  `json:"hardware_id"`
+	InformPort         int     `json:"inform_port"`
+	OverrideInformHost bool    `json:"override_inform_host"`
 }
 
 // Host represents a UniFi console or controller host (e.g., UDM, Cloud Key).
@@ -299,11 +299,11 @@ type SiteMeta struct {
 
 // SiteStatistics contains statistics for a UniFi site.
 type SiteStatistics struct {
-	Counts         SiteCounts       `json:"counts"`
-	Gateway        SiteGateway      `json:"gateway"`
-	ISPInfo        SiteISPInfo      `json:"ispInfo"`
-	Percentages    SitePercentages  `json:"percentages"`
-	InternetIssues []any            `json:"internetIssues"`
+	Counts         SiteCounts      `json:"counts"`
+	Gateway        SiteGateway     `json:"gateway"`
+	ISPInfo        SiteISPInfo     `json:"ispInfo"`
+	Percentages    SitePercentages `json:"percentages"`
+	InternetIssues []any           `json:"internetIssues"`
 }
 
 // SiteCounts contains device and client counts for a site.

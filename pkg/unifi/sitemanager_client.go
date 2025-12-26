@@ -46,7 +46,7 @@ type SiteManagerClientConfig struct {
 	APIKey       string
 	BaseURL      string
 	Timeout      time.Duration
-	MaxRetries   *int          // nil = default (3), 0 = no retries
+	MaxRetries   *int // nil = default (3), 0 = no retries
 	MaxRetryWait time.Duration
 	Logger       Logger
 }
@@ -146,7 +146,6 @@ func (c *SiteManagerClient) doOnce(ctx context.Context, method, path string, res
 
 	return nil
 }
-
 
 func (c *SiteManagerClient) ListHosts(ctx context.Context, opts *ListHostsOptions) (*ListHostsResponse, error) {
 	var response struct {
