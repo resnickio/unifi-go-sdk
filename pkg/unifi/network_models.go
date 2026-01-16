@@ -402,6 +402,7 @@ type PortConf struct {
 	Forward                       string      `json:"forward,omitempty"`
 	NativeNetworkconfID           string      `json:"native_networkconf_id,omitempty"`
 	TaggedNetworkconfIDs          []string    `json:"tagged_networkconf_ids,omitempty"`
+	ExcludedNetworkconfIDs        []string    `json:"excluded_networkconf_ids,omitempty"`
 	VoiceNetworkconfID            string      `json:"voice_networkconf_id,omitempty"`
 	Autoneg                       *bool       `json:"autoneg,omitempty"`
 	Dot1xCtrl                     string      `json:"dot1x_ctrl,omitempty"`
