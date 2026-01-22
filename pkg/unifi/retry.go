@@ -24,6 +24,10 @@ const (
 	baseBackoff    = 1 * time.Second  // Initial backoff duration
 	maxBackoff     = 60 * time.Second // Maximum backoff before jitter
 	jitterFraction = 0.5              // Up to 50% additional random delay
+
+	// Default retry configuration shared by all clients.
+	DefaultMaxRetries   = 3
+	DefaultMaxRetryWait = 60 * time.Second
 )
 
 var retryAfterRegex = regexp.MustCompile(`retry after ([\d.]+)s`)

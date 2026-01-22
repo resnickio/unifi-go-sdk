@@ -15,11 +15,6 @@ import (
 	"time"
 )
 
-const (
-	defaultNetworkMaxRetries   = 3
-	defaultNetworkMaxRetryWait = 60 * time.Second
-)
-
 // NetworkManager defines the interface for the UniFi Network API.
 // This local controller API provides full CRUD operations on network configuration.
 type NetworkManager interface {
@@ -262,14 +257,14 @@ func NewNetworkClient(cfg NetworkClientConfig) (*NetworkClient, error) {
 		timeout = defaultTimeout
 	}
 
-	maxRetries := defaultNetworkMaxRetries
+	maxRetries := DefaultMaxRetries
 	if cfg.MaxRetries != nil {
 		maxRetries = *cfg.MaxRetries
 	}
 
 	maxRetryWait := cfg.MaxRetryWait
 	if maxRetryWait == 0 {
-		maxRetryWait = defaultNetworkMaxRetryWait
+		maxRetryWait = DefaultMaxRetryWait
 	}
 
 	jar, err := cookiejar.New(nil)

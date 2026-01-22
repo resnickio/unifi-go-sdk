@@ -52,9 +52,7 @@ type SiteManagerClientConfig struct {
 }
 
 const (
-	defaultBaseURL      = "https://api.ui.com"
-	defaultRetries      = 3
-	defaultMaxRetryWait = 60 * time.Second
+	defaultBaseURL = "https://api.ui.com"
 )
 
 // NewSiteManagerClient creates a new Site Manager API client with the given configuration.
@@ -73,14 +71,14 @@ func NewSiteManagerClient(cfg SiteManagerClientConfig) (*SiteManagerClient, erro
 		timeout = defaultTimeout
 	}
 
-	maxRetries := defaultRetries
+	maxRetries := DefaultMaxRetries
 	if cfg.MaxRetries != nil {
 		maxRetries = *cfg.MaxRetries
 	}
 
 	maxRetryWait := cfg.MaxRetryWait
 	if maxRetryWait == 0 {
-		maxRetryWait = defaultMaxRetryWait
+		maxRetryWait = DefaultMaxRetryWait
 	}
 
 	return &SiteManagerClient{
