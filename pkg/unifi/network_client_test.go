@@ -4852,3 +4852,193 @@ func TestNetworkClientDeviceConfig(t *testing.T) {
 		}
 	})
 }
+
+func TestNetworkClientUsers(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/self":
+			w.Header().Set("X-Csrf-Token", "test-csrf-token")
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/rest/user":
+			if r.Method == "GET" {
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":          "user1",
+							"mac":          "aa:bb:cc:dd:ee:ff",
+							"name":         "ESXi Host 1",
+							"use_fixedip":  true,
+							"fixed_ip":     "192.168.1.100",
+							"network_id":   "net1",
+							"blocked":      false,
+							"usergroup_id": "group1",
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			} else if r.Method == "POST" {
+				var user User
+				if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+					t.Errorf("failed to decode request body: %v", err)
+				}
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":  "newuser1",
+							"mac":  user.MAC,
+							"name": user.Name,
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			}
+		case "/proxy/network/api/s/default/rest/user/user1":
+			switch r.Method {
+			case "GET":
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":         "user1",
+							"mac":         "aa:bb:cc:dd:ee:ff",
+							"name":        "ESXi Host 1",
+							"use_fixedip": true,
+							"fixed_ip":    "192.168.1.100",
+							"network_id":  "net1",
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			case "PUT":
+				var user User
+				if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+					t.Errorf("failed to decode request body: %v", err)
+				}
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{
+							"_id":  "user1",
+							"mac":  user.MAC,
+							"name": user.Name,
+						},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			case "DELETE":
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []any{},
+				}
+				json.NewEncoder(w).Encode(response)
+			}
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewNetworkClient(NetworkClientConfig{
+		BaseURL:  server.URL,
+		Username: "admin",
+		Password: "password",
+	})
+	if err != nil {
+		t.Fatalf("NewNetworkClient() error = %v", err)
+	}
+
+	if err := client.Login(context.Background()); err != nil {
+		t.Fatalf("Login() error = %v", err)
+	}
+
+	t.Run("List", func(t *testing.T) {
+		users, err := client.ListUsers(context.Background())
+		if err != nil {
+			t.Fatalf("ListUsers() error = %v", err)
+		}
+		if len(users) != 1 {
+			t.Fatalf("expected 1 user, got %d", len(users))
+		}
+		if users[0].MAC != "aa:bb:cc:dd:ee:ff" {
+			t.Errorf("expected MAC 'aa:bb:cc:dd:ee:ff', got '%s'", users[0].MAC)
+		}
+		if users[0].Name != "ESXi Host 1" {
+			t.Errorf("expected name 'ESXi Host 1', got '%s'", users[0].Name)
+		}
+		if users[0].FixedIP != "192.168.1.100" {
+			t.Errorf("expected fixed_ip '192.168.1.100', got '%s'", users[0].FixedIP)
+		}
+	})
+
+	t.Run("Get", func(t *testing.T) {
+		user, err := client.GetUser(context.Background(), "user1")
+		if err != nil {
+			t.Fatalf("GetUser() error = %v", err)
+		}
+		if user.ID != "user1" {
+			t.Errorf("expected ID 'user1', got '%s'", user.ID)
+		}
+		if user.FixedIP != "192.168.1.100" {
+			t.Errorf("expected fixed_ip '192.168.1.100', got '%s'", user.FixedIP)
+		}
+	})
+
+	t.Run("Create", func(t *testing.T) {
+		user := &User{
+			MAC:        "11:22:33:44:55:66",
+			Name:       "New Server",
+			UseFixedIP: BoolPtr(true),
+			FixedIP:    "192.168.1.200",
+		}
+		created, err := client.CreateUser(context.Background(), user)
+		if err != nil {
+			t.Fatalf("CreateUser() error = %v", err)
+		}
+		if created.ID != "newuser1" {
+			t.Errorf("expected ID 'newuser1', got '%s'", created.ID)
+		}
+		if created.MAC != "11:22:33:44:55:66" {
+			t.Errorf("expected MAC '11:22:33:44:55:66', got '%s'", created.MAC)
+		}
+	})
+
+	t.Run("Create_ValidationError", func(t *testing.T) {
+		user := &User{MAC: "invalid"}
+		_, err := client.CreateUser(context.Background(), user)
+		if err == nil {
+			t.Fatal("expected validation error")
+		}
+	})
+
+	t.Run("Update", func(t *testing.T) {
+		user := &User{
+			MAC:  "aa:bb:cc:dd:ee:ff",
+			Name: "Updated Host",
+		}
+		updated, err := client.UpdateUser(context.Background(), "user1", user)
+		if err != nil {
+			t.Fatalf("UpdateUser() error = %v", err)
+		}
+		if updated.Name != "Updated Host" {
+			t.Errorf("expected name 'Updated Host', got '%s'", updated.Name)
+		}
+	})
+
+	t.Run("Update_ValidationError", func(t *testing.T) {
+		user := &User{MAC: "bad-mac"}
+		_, err := client.UpdateUser(context.Background(), "user1", user)
+		if err == nil {
+			t.Fatal("expected validation error")
+		}
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		if err := client.DeleteUser(context.Background(), "user1"); err != nil {
+			t.Fatalf("DeleteUser() error = %v", err)
+		}
+	})
+}

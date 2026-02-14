@@ -872,3 +872,40 @@ func TestDeviceConfigValidate(t *testing.T) {
 		})
 	}
 }
+
+func TestUserValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		user    User
+		wantErr string
+	}{
+		{"valid minimal", User{MAC: "aa:bb:cc:dd:ee:ff"}, ""},
+		{"valid with name", User{MAC: "aa:bb:cc:dd:ee:ff", Name: "My Device"}, ""},
+		{"valid with fixed ip", User{MAC: "aa:bb:cc:dd:ee:ff", UseFixedIP: BoolPtr(true), FixedIP: "192.168.1.100"}, ""},
+		{"valid with all fields", User{
+			MAC:                   "aa:bb:cc:dd:ee:ff",
+			Name:                  "My Device",
+			Note:                  "Test note",
+			Noted:                 BoolPtr(true),
+			UseFixedIP:            BoolPtr(true),
+			FixedIP:               "192.168.1.100",
+			NetworkID:             "network123",
+			LocalDnsRecord:        "mydevice",
+			LocalDnsRecordEnabled: BoolPtr(true),
+			UsergroupID:           "group123",
+			Blocked:               BoolPtr(false),
+		}, ""},
+		{"missing mac", User{Name: "No MAC"}, "mac is required"},
+		{"invalid mac", User{MAC: "invalid"}, "mac must be a valid MAC"},
+		{"invalid mac short", User{MAC: "aa:bb:cc"}, "mac must be a valid MAC"},
+		{"invalid fixed_ip", User{MAC: "aa:bb:cc:dd:ee:ff", FixedIP: "not-an-ip"}, "fixed_ip must be a valid IP"},
+		{"invalid fixed_ip cidr", User{MAC: "aa:bb:cc:dd:ee:ff", FixedIP: "192.168.1.0/24"}, "fixed_ip must be a valid IP"},
+		{"empty fixed_ip allowed", User{MAC: "aa:bb:cc:dd:ee:ff", FixedIP: ""}, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.user.Validate()
+			checkError(t, err, tt.wantErr)
+		})
+	}
+}

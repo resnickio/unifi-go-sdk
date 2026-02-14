@@ -49,6 +49,8 @@ tags:
     description: RADIUS profiles (Legacy REST)
   - name: Dynamic DNS
     description: Dynamic DNS configuration (Legacy REST)
+  - name: Users
+    description: Client device records and DHCP reservations (Legacy REST)
   - name: Device Configuration
     description: Device settings and port overrides (Legacy REST)
   - name: Static DNS
@@ -989,6 +991,74 @@ paths:
       responses:
         '200':
           description: Profile deleted
+
+  /api/s/{site}/rest/user:
+    get:
+      tags: [Users]
+      summary: List users (client device records)
+      operationId: listUsers
+      parameters:
+        - $ref: '#/components/parameters/siteLegacy'
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestResponse'
+    post:
+      tags: [Users]
+      summary: Create user (DHCP reservation, device record)
+      operationId: createUser
+      parameters:
+        - $ref: '#/components/parameters/siteLegacy'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: User created
+
+  /api/s/{site}/rest/user/{id}:
+    get:
+      tags: [Users]
+      summary: Get user
+      operationId: getUser
+      parameters:
+        - $ref: '#/components/parameters/siteLegacy'
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: User
+    put:
+      tags: [Users]
+      summary: Update user
+      operationId: updateUser
+      parameters:
+        - $ref: '#/components/parameters/siteLegacy'
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: User updated
+    delete:
+      tags: [Users]
+      summary: Delete user
+      operationId: deleteUser
+      parameters:
+        - $ref: '#/components/parameters/siteLegacy'
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: User deleted
 
   /api/s/{site}/rest/usergroup:
     get:
@@ -2041,6 +2111,62 @@ components:
           type: string
         autoneg:
           type: boolean
+
+    User:
+      type: object
+      required: [mac]
+      properties:
+        _id:
+          type: string
+        site_id:
+          type: string
+        mac:
+          type: string
+          description: MAC address of the client device (required, colon-separated)
+        name:
+          type: string
+          description: Display name for the device
+        note:
+          type: string
+        noted:
+          type: boolean
+        use_fixedip:
+          type: boolean
+          description: Enable DHCP reservation
+        fixed_ip:
+          type: string
+          description: Static IP address for DHCP reservation
+        network_id:
+          type: string
+          description: Network ID for the fixed IP assignment
+        local_dns_record:
+          type: string
+          description: Local DNS hostname
+        local_dns_record_enabled:
+          type: boolean
+        usergroup_id:
+          type: string
+          description: User group for QoS rate limiting
+        blocked:
+          type: boolean
+          description: Whether the device is blocked from the network
+        ip:
+          type: string
+          readOnly: true
+        hostname:
+          type: string
+          readOnly: true
+        oui:
+          type: string
+          readOnly: true
+        first_seen:
+          type: integer
+          format: int64
+          readOnly: true
+        last_seen:
+          type: integer
+          format: int64
+          readOnly: true
 
     UserGroup:
       type: object

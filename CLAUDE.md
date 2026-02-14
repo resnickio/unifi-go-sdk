@@ -89,7 +89,7 @@ Integration tests:
 - Include concurrent operation tests
 
 **Coverage:**
-- Legacy REST: Networks, Firewall Rules/Groups, Port Forwards, User Groups, Routes, Port Confs, RADIUS Profiles
+- Legacy REST: Networks, Firewall Rules/Groups, Port Forwards, User Groups, Routes, Port Confs, RADIUS Profiles, Users
 - v2 API: Firewall Zones/Policies, Static DNS, Traffic Rules/Routes, NAT Rules
 - Read-only endpoints: Active Clients, Network Devices, ACL/QoS Rules, Content Filtering, VPN, WAN SLAs
 
@@ -202,6 +202,7 @@ Both APIs complete:
 - RADIUS Profiles: `ListRADIUSProfiles`, `GetRADIUSProfile`, `CreateRADIUSProfile`, `UpdateRADIUSProfile`, `DeleteRADIUSProfile`
 - Dynamic DNS: `ListDynamicDNS`, `GetDynamicDNS`, `CreateDynamicDNS`, `UpdateDynamicDNS`, `DeleteDynamicDNS`
 - Device Configuration: `GetDeviceByMAC`, `UpdateDevice` (port overrides, device settings)
+- Users: `ListUsers`, `GetUser`, `CreateUser`, `UpdateUser`, `DeleteUser` (DHCP reservations, device names, blocking)
 
 **Network API (v2)**
 - Firewall Policies: `ListFirewallPolicies`, `GetFirewallPolicy`, `CreateFirewallPolicy`, `UpdateFirewallPolicy`, `DeleteFirewallPolicy`

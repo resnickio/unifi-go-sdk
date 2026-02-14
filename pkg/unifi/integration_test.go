@@ -216,6 +216,13 @@ func cleanupTestResources(t *testing.T, client *NetworkClient, ctx context.Conte
 		}
 	}
 
+	users, _ := client.ListUsers(ctx)
+	for _, u := range users {
+		if strings.HasPrefix(u.Name, testPrefix) {
+			_ = client.DeleteUser(ctx, u.ID)
+		}
+	}
+
 	policies, _ := client.ListFirewallPolicies(ctx)
 	for _, p := range policies {
 		if strings.HasPrefix(p.Name, testPrefix) {
@@ -947,6 +954,75 @@ func TestIntegration_DynamicDNS_CRUD(t *testing.T) {
 
 	if err := client.DeleteDynamicDNS(ctx, created.ID); err != nil {
 		t.Fatalf("DeleteDynamicDNS failed: %v", err)
+	}
+}
+
+func TestIntegration_Users_CRUD(t *testing.T) {
+	client := skipIfNoEnv(t)
+	ctx := context.Background()
+
+	t.Cleanup(func() {
+		cleanupTestResources(t, client, ctx)
+	})
+
+	name := testName("user")
+	mac := "02:00:00:00:ff:01"
+
+	user := &User{
+		MAC:        mac,
+		Name:       name,
+		Note:       "Integration test user",
+		Noted:      BoolPtr(true),
+		UseFixedIP: BoolPtr(false),
+		Blocked:    BoolPtr(false),
+	}
+
+	created, err := client.CreateUser(ctx, user)
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+	if created.ID == "" {
+		t.Fatal("Created user has no ID")
+	}
+
+	fetched, err := client.GetUser(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("GetUser failed: %v", err)
+	}
+	if fetched.MAC != mac {
+		t.Errorf("Expected MAC %q, got %q", mac, fetched.MAC)
+	}
+	if fetched.Name != name {
+		t.Errorf("Expected name %q, got %q", name, fetched.Name)
+	}
+
+	list, err := client.ListUsers(ctx)
+	if err != nil {
+		t.Fatalf("ListUsers failed: %v", err)
+	}
+	found := false
+	for _, u := range list {
+		if u.ID == created.ID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("Created user not found in list")
+	}
+
+	newName := testName("user_updated")
+	fetched.Name = newName
+	updated, err := client.UpdateUser(ctx, fetched.ID, fetched)
+	if err != nil {
+		t.Fatalf("UpdateUser failed: %v", err)
+	}
+	if updated.Name != newName {
+		t.Errorf("Expected name %q, got %q", newName, updated.Name)
+	}
+
+	if err := client.DeleteUser(ctx, created.ID); err != nil {
+		t.Fatalf("DeleteUser failed: %v", err)
 	}
 }
 

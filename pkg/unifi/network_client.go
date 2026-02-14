@@ -96,6 +96,13 @@ type NetworkManager interface {
 	GetDeviceByMAC(ctx context.Context, mac string) (*DeviceConfig, error)
 	UpdateDevice(ctx context.Context, id string, device *DeviceConfig) (*DeviceConfig, error)
 
+	// Legacy REST API - Users (client device records, DHCP reservations)
+	ListUsers(ctx context.Context) ([]User, error)
+	GetUser(ctx context.Context, id string) (*User, error)
+	CreateUser(ctx context.Context, user *User) (*User, error)
+	UpdateUser(ctx context.Context, id string, user *User) (*User, error)
+	DeleteUser(ctx context.Context, id string) error
+
 	// v2 API - Firewall Policies (zone-based firewall)
 	ListFirewallPolicies(ctx context.Context) ([]FirewallPolicy, error)
 	GetFirewallPolicy(ctx context.Context, id string) (*FirewallPolicy, error)
@@ -1273,6 +1280,65 @@ func (c *NetworkClient) UpdateDevice(ctx context.Context, id string, device *Dev
 		return nil, &EmptyResponseError{Operation: "update", Resource: "device", Endpoint: endpoint}
 	}
 	return &devices[0], nil
+}
+
+// User CRUD operations (client device records)
+
+func (c *NetworkClient) ListUsers(ctx context.Context) ([]User, error) {
+	var users []User
+	err := c.do(ctx, "GET", c.restPath("user"), nil, &users)
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+func (c *NetworkClient) GetUser(ctx context.Context, id string) (*User, error) {
+	var users []User
+	err := c.do(ctx, "GET", c.restPathWithID("user", id), nil, &users)
+	if err != nil {
+		return nil, err
+	}
+	if len(users) == 0 {
+		return nil, ErrNotFound
+	}
+	return &users[0], nil
+}
+
+func (c *NetworkClient) CreateUser(ctx context.Context, user *User) (*User, error) {
+	if err := user.Validate(); err != nil {
+		return nil, err
+	}
+	var users []User
+	endpoint := c.restPath("user")
+	err := c.do(ctx, "POST", endpoint, user, &users)
+	if err != nil {
+		return nil, err
+	}
+	if len(users) == 0 {
+		return nil, &EmptyResponseError{Operation: "create", Resource: "user", Endpoint: endpoint}
+	}
+	return &users[0], nil
+}
+
+func (c *NetworkClient) UpdateUser(ctx context.Context, id string, user *User) (*User, error) {
+	if err := user.Validate(); err != nil {
+		return nil, err
+	}
+	var users []User
+	endpoint := c.restPathWithID("user", id)
+	err := c.do(ctx, "PUT", endpoint, user, &users)
+	if err != nil {
+		return nil, err
+	}
+	if len(users) == 0 {
+		return nil, &EmptyResponseError{Operation: "update", Resource: "user", Endpoint: endpoint}
+	}
+	return &users[0], nil
+}
+
+func (c *NetworkClient) DeleteUser(ctx context.Context, id string) error {
+	return c.do(ctx, "DELETE", c.restPathWithID("user", id), nil, nil)
 }
 
 // FirewallPolicy CRUD operations (v2 API)

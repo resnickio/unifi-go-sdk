@@ -88,6 +88,40 @@ func ExampleNetworkClient_CreateNetwork() {
 	fmt.Printf("Created network: %s\n", network.ID)
 }
 
+func ExampleNetworkClient_CreateUser() {
+	client, err := unifi.NewNetworkClient(unifi.NetworkClientConfig{
+		BaseURL:  "https://192.168.1.1",
+		Username: "admin",
+		Password: "password",
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ctx := context.Background()
+
+	if err := client.Login(ctx); err != nil {
+		log.Fatal(err)
+	}
+	defer client.Logout(ctx)
+
+	// Create a DHCP reservation with a local DNS record
+	user, err := client.CreateUser(ctx, &unifi.User{
+		MAC:                   "aa:bb:cc:dd:ee:ff",
+		Name:                  "ESXi Host 1",
+		UseFixedIP:            unifi.BoolPtr(true),
+		FixedIP:               "192.168.1.100",
+		NetworkID:             "network-id-here",
+		LocalDnsRecord:        "esxi1",
+		LocalDnsRecordEnabled: unifi.BoolPtr(true),
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Created user: %s (%s -> %s)\n", user.Name, user.MAC, user.FixedIP)
+}
+
 func Example_errorHandling() {
 	client, _ := unifi.NewSiteManagerClient(unifi.SiteManagerClientConfig{
 		APIKey: "your-api-key",

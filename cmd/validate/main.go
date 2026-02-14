@@ -128,6 +128,7 @@ func validateNetworkAPI(url, user, pass string) Report {
 	report.Results = append(report.Results, validateUserGroups(client))
 	report.Results = append(report.Results, validateRADIUSProfiles(client))
 	report.Results = append(report.Results, validateDynamicDNS(client))
+	report.Results = append(report.Results, validateUsers(client))
 
 	for _, r := range report.Results {
 		if len(r.MissingFields) > 0 {
@@ -658,6 +659,39 @@ func validateDynamicDNS(client *unifi.NetworkClient) ValidationResult {
 	}
 
 	structFields := getJSONFields(reflect.TypeOf(unifi.DynamicDNS{}))
+	result.MissingFields = findMissingFields(raw, structFields, "")
+
+	if len(result.MissingFields) > 0 {
+		result.Status = "drift detected"
+	}
+
+	return result
+}
+
+func validateUsers(client *unifi.NetworkClient) ValidationResult {
+	result := ValidationResult{Endpoint: "user", Status: "ok"}
+
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+
+	users, err := client.ListUsers(ctx)
+	if err != nil {
+		result.Status = fmt.Sprintf("error: %v", err)
+		return result
+	}
+
+	if len(users) == 0 {
+		result.Status = "skipped (no data)"
+		return result
+	}
+
+	raw, err := fetchNetworkRaw(client, "user")
+	if err != nil {
+		result.Status = fmt.Sprintf("raw fetch error: %v", err)
+		return result
+	}
+
+	structFields := getJSONFields(reflect.TypeOf(unifi.User{}))
 	result.MissingFields = findMissingFields(raw, structFields, "")
 
 	if len(result.MissingFields) > 0 {

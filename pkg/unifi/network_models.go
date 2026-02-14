@@ -464,6 +464,39 @@ type UserGroup struct {
 	AttrNoDelete   *bool  `json:"attr_no_delete,omitempty"`
 }
 
+// User represents a UniFi user/client device record (legacy REST API).
+// This is used to manage DHCP reservations, device names, blocking, and user group assignments.
+// The REST endpoint is /rest/user.
+//
+// Note: This is distinct from the read-only Client struct (v2 API /clients/active).
+// Correlate between them using the MAC address field.
+//
+// Field value reference:
+//   - MAC: required, colon-separated format (aa:bb:cc:dd:ee:ff)
+//   - UseFixedIP: true to enable DHCP reservation
+//   - FixedIP: static IP address (requires UseFixedIP=true to take effect)
+//   - NetworkID: network for the fixed IP assignment
+type User struct {
+	ID                    string `json:"_id,omitempty"`
+	SiteID                string `json:"site_id,omitempty"`
+	MAC                   string `json:"mac"`
+	Name                  string `json:"name,omitempty"`
+	Note                  string `json:"note,omitempty"`
+	Noted                 *bool  `json:"noted,omitempty"`
+	UseFixedIP            *bool  `json:"use_fixedip,omitempty"`
+	FixedIP               string `json:"fixed_ip,omitempty"`
+	NetworkID             string `json:"network_id,omitempty"`
+	LocalDnsRecord        string `json:"local_dns_record,omitempty"`
+	LocalDnsRecordEnabled *bool  `json:"local_dns_record_enabled,omitempty"`
+	UsergroupID           string `json:"usergroup_id,omitempty"`
+	Blocked               *bool  `json:"blocked,omitempty"`
+	IP                    string `json:"ip,omitempty"`
+	Hostname              string `json:"hostname,omitempty"`
+	OUI                   string `json:"oui,omitempty"`
+	FirstSeen             *int64 `json:"first_seen,omitempty"`
+	LastSeen              *int64 `json:"last_seen,omitempty"`
+}
+
 // RADIUSProfile represents a UniFi RADIUS profile.
 //
 // Field value reference:
@@ -999,6 +1032,19 @@ type WanSla struct {
 func (u *UserGroup) Validate() error {
 	if u.Name == "" {
 		return fmt.Errorf("usergroup: name is required")
+	}
+	return nil
+}
+
+func (u *User) Validate() error {
+	if u.MAC == "" {
+		return fmt.Errorf("user: mac is required")
+	}
+	if !isValidMAC(u.MAC) {
+		return fmt.Errorf("user: mac must be a valid MAC address")
+	}
+	if u.FixedIP != "" && !isValidIP(u.FixedIP) {
+		return fmt.Errorf("user: fixed_ip must be a valid IP address")
 	}
 	return nil
 }
