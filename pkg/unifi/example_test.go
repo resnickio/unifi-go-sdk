@@ -88,6 +88,51 @@ func ExampleNetworkClient_CreateNetwork() {
 	fmt.Printf("Created network: %s\n", network.ID)
 }
 
+func ExampleNetworkClient_CreateNetwork_ipv6() {
+	client, err := unifi.NewNetworkClient(unifi.NetworkClientConfig{
+		BaseURL:  "https://192.168.1.1",
+		Username: "admin",
+		Password: "password",
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ctx := context.Background()
+
+	if err := client.Login(ctx); err != nil {
+		log.Fatal(err)
+	}
+	defer client.Logout(ctx)
+
+	network, err := client.CreateNetwork(ctx, &unifi.Network{
+		Name:    "IoT IPv6 Network",
+		Purpose: "corporate",
+		Enabled: unifi.BoolPtr(true),
+		NetworkVLAN: unifi.NetworkVLAN{
+			VLAN:        unifi.IntPtr(200),
+			VLANEnabled: unifi.BoolPtr(true),
+			IPSubnet:    "10.0.200.1/24",
+		},
+		NetworkIPv6: unifi.NetworkIPv6{
+			IPV6InterfaceType:         "pd",
+			IPV6PDInterface:           "wan",
+			IPV6PDAutoPrefixidEnabled: unifi.BoolPtr(true),
+			IPV6RaEnabled:             unifi.BoolPtr(true),
+			IPV6RaPriority:            "high",
+			IPV6RaValidLifetime:       unifi.IntPtr(86400),
+			IPV6RaPreferredLifetime:   unifi.IntPtr(14400),
+			DHCPDV6Enabled:            unifi.BoolPtr(true),
+			DHCPDV6DNSAuto:            unifi.BoolPtr(true),
+		},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Created IPv6 network: %s\n", network.ID)
+}
+
 func ExampleNetworkClient_CreateUser() {
 	client, err := unifi.NewNetworkClient(unifi.NetworkClientConfig{
 		BaseURL:  "https://192.168.1.1",

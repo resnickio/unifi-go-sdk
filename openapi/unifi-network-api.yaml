@@ -1764,6 +1764,53 @@ components:
           type: boolean
         ipv6_interface_type:
           type: string
+          enum: [none, static, pd]
+        ipv6_setting_preference:
+          type: string
+        ipv6_wan_delegation_type:
+          type: string
+        ipv6_subnet:
+          type: string
+        ipv6_client_address_assignment:
+          type: string
+        ipv6_pd_interface:
+          type: string
+          enum: [wan, wan2]
+        ipv6_pd_prefixid:
+          type: string
+        ipv6_pd_start:
+          type: string
+        ipv6_pd_stop:
+          type: string
+        ipv6_pd_auto_prefixid_enabled:
+          type: boolean
+        ipv6_ra_enabled:
+          type: boolean
+        ipv6_ra_preferred_lifetime:
+          type: integer
+        ipv6_ra_priority:
+          type: string
+          enum: [high, medium, low]
+        ipv6_ra_valid_lifetime:
+          type: integer
+        dhcpdv6_dns_1:
+          type: string
+        dhcpdv6_dns_2:
+          type: string
+        dhcpdv6_dns_3:
+          type: string
+        dhcpdv6_dns_4:
+          type: string
+        dhcpdv6_dns_auto:
+          type: boolean
+        dhcpdv6_leasetime:
+          type: integer
+        dhcpdv6_start:
+          type: string
+        dhcpdv6_stop:
+          type: string
+        dhcpdv6_allow_slaac:
+          type: boolean
         igmp_snooping:
           type: boolean
         dhcp_relay_enabled:

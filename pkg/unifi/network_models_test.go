@@ -657,6 +657,82 @@ func TestNetworkJSONRoundTrip(t *testing.T) {
 	}
 }
 
+func TestNetworkIPv6JSONRoundTrip(t *testing.T) {
+	original := Network{
+		Name:    "IPv6TestNet",
+		Purpose: "corporate",
+		NetworkIPv6: NetworkIPv6{
+			IPV6InterfaceType:         "pd",
+			IPV6PDInterface:           "wan",
+			IPV6PDPrefixid:            "0",
+			IPV6PDAutoPrefixidEnabled: BoolPtr(true),
+			IPV6RaEnabled:             BoolPtr(true),
+			IPV6RaPriority:            "high",
+			IPV6RaPreferredLifetime:   IntPtr(14400),
+			IPV6RaValidLifetime:       IntPtr(86400),
+			DHCPDV6Enabled:            BoolPtr(true),
+			DHCPDV6DNS1:               "2001:4860:4860::8888",
+			DHCPDV6DNSAuto:            BoolPtr(false),
+			DHCPDV6LeaseTime:          IntPtr(86400),
+			DHCPDV6Start:              "::2",
+			DHCPDV6Stop:               "::7d1",
+			DHCPDV6AllowSlaac:         BoolPtr(true),
+		},
+	}
+
+	data, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("unmarshal to map error: %v", err)
+	}
+
+	ipv6Fields := []string{
+		"ipv6_interface_type", "ipv6_pd_interface", "ipv6_pd_prefixid",
+		"ipv6_pd_auto_prefixid_enabled",
+		"ipv6_ra_enabled", "ipv6_ra_priority",
+		"ipv6_ra_preferred_lifetime", "ipv6_ra_valid_lifetime",
+		"dhcpdv6_enabled", "dhcpdv6_dns_1", "dhcpdv6_dns_auto",
+		"dhcpdv6_leasetime", "dhcpdv6_start", "dhcpdv6_stop",
+		"dhcpdv6_allow_slaac",
+	}
+	for _, field := range ipv6Fields {
+		if _, ok := raw[field]; !ok {
+			t.Errorf("field %q should be at top level in JSON", field)
+		}
+	}
+
+	var decoded Network
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+
+	if decoded.IPV6InterfaceType != "pd" {
+		t.Errorf("IPV6InterfaceType = %q, want %q", decoded.IPV6InterfaceType, "pd")
+	}
+	if decoded.IPV6PDInterface != "wan" {
+		t.Errorf("IPV6PDInterface = %q, want %q", decoded.IPV6PDInterface, "wan")
+	}
+	if decoded.IPV6RaPriority != "high" {
+		t.Errorf("IPV6RaPriority = %q, want %q", decoded.IPV6RaPriority, "high")
+	}
+	if *decoded.IPV6RaPreferredLifetime != 14400 {
+		t.Errorf("IPV6RaPreferredLifetime = %d, want %d", *decoded.IPV6RaPreferredLifetime, 14400)
+	}
+	if *decoded.DHCPDV6Enabled != true {
+		t.Errorf("DHCPDV6Enabled = %v, want true", *decoded.DHCPDV6Enabled)
+	}
+	if decoded.DHCPDV6DNS1 != "2001:4860:4860::8888" {
+		t.Errorf("DHCPDV6DNS1 = %q, want %q", decoded.DHCPDV6DNS1, "2001:4860:4860::8888")
+	}
+	if *decoded.DHCPDV6LeaseTime != 86400 {
+		t.Errorf("DHCPDV6LeaseTime = %d, want %d", *decoded.DHCPDV6LeaseTime, 86400)
+	}
+}
+
 func TestNetworkVLANValidate(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -778,9 +854,59 @@ func TestNetworkDHCPNTPValidate(t *testing.T) {
 }
 
 func TestNetworkIPv6Validate(t *testing.T) {
-	ipv6 := NetworkIPv6{IPv6SettingPreference: "auto"}
-	if err := ipv6.Validate(); err != nil {
-		t.Errorf("Validate() unexpected error: %v", err)
+	tests := []struct {
+		name    string
+		ipv6    NetworkIPv6
+		wantErr bool
+	}{
+		{name: "empty is valid", ipv6: NetworkIPv6{}, wantErr: false},
+		{name: "valid setting preference", ipv6: NetworkIPv6{IPv6SettingPreference: "auto"}, wantErr: false},
+		{name: "valid static config", ipv6: NetworkIPv6{
+			IPV6InterfaceType: "static",
+			IPV6Subnet:        "fd9b:be80:1d5b:5::/64",
+		}, wantErr: false},
+		{name: "valid pd config", ipv6: NetworkIPv6{
+			IPV6InterfaceType:         "pd",
+			IPV6PDInterface:           "wan",
+			IPV6PDAutoPrefixidEnabled: BoolPtr(true),
+		}, wantErr: false},
+		{name: "valid ra config", ipv6: NetworkIPv6{
+			IPV6RaEnabled:           BoolPtr(true),
+			IPV6RaPriority:          "high",
+			IPV6RaPreferredLifetime: IntPtr(14400),
+			IPV6RaValidLifetime:     IntPtr(86400),
+		}, wantErr: false},
+		{name: "valid dhcpv6 config", ipv6: NetworkIPv6{
+			DHCPDV6Enabled:   BoolPtr(true),
+			DHCPDV6DNS1:      "2001:4860:4860::8888",
+			DHCPDV6DNS2:      "2001:4860:4860::8844",
+			DHCPDV6DNSAuto:   BoolPtr(false),
+			DHCPDV6LeaseTime: IntPtr(86400),
+			DHCPDV6Start:     "::2",
+			DHCPDV6Stop:      "::7d1",
+		}, wantErr: false},
+		{name: "invalid interface type", ipv6: NetworkIPv6{IPV6InterfaceType: "invalid"}, wantErr: true},
+		{name: "invalid ipv6 subnet", ipv6: NetworkIPv6{IPV6Subnet: "not-a-cidr"}, wantErr: true},
+		{name: "invalid ra priority", ipv6: NetworkIPv6{IPV6RaPriority: "urgent"}, wantErr: true},
+		{name: "negative ra preferred lifetime", ipv6: NetworkIPv6{IPV6RaPreferredLifetime: IntPtr(-1)}, wantErr: true},
+		{name: "negative ra valid lifetime", ipv6: NetworkIPv6{IPV6RaValidLifetime: IntPtr(-1)}, wantErr: true},
+		{name: "negative dhcpv6 lease time", ipv6: NetworkIPv6{DHCPDV6LeaseTime: IntPtr(-1)}, wantErr: true},
+		{name: "invalid dhcpv6 dns1", ipv6: NetworkIPv6{DHCPDV6DNS1: "not-an-ip"}, wantErr: true},
+		{name: "invalid dhcpv6 dns2", ipv6: NetworkIPv6{DHCPDV6DNS2: "not-an-ip"}, wantErr: true},
+		{name: "invalid dhcpv6 dns3", ipv6: NetworkIPv6{DHCPDV6DNS3: "not-an-ip"}, wantErr: true},
+		{name: "invalid dhcpv6 dns4", ipv6: NetworkIPv6{DHCPDV6DNS4: "not-an-ip"}, wantErr: true},
+		{name: "invalid dhcpv6 start", ipv6: NetworkIPv6{DHCPDV6Start: "not-an-ip"}, wantErr: true},
+		{name: "invalid dhcpv6 stop", ipv6: NetworkIPv6{DHCPDV6Stop: "not-an-ip"}, wantErr: true},
+		{name: "invalid pd start", ipv6: NetworkIPv6{IPV6PDStart: "not-an-ip"}, wantErr: true},
+		{name: "invalid pd stop", ipv6: NetworkIPv6{IPV6PDStop: "not-an-ip"}, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.ipv6.Validate()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
 

@@ -359,6 +359,86 @@ func TestIntegration_Networks_CRUD(t *testing.T) {
 	}
 }
 
+func TestIntegration_Networks_IPv6_CRUD(t *testing.T) {
+	client := skipIfNoEnv(t)
+	ctx := context.Background()
+
+	t.Cleanup(func() {
+		cleanupTestResources(t, client, ctx)
+	})
+
+	name := testName("network-ipv6")
+	vlan := 3998
+
+	network := &Network{
+		Name:    name,
+		Purpose: "corporate",
+		Enabled: BoolPtr(true),
+		NetworkVLAN: NetworkVLAN{
+			VLAN:        &vlan,
+			VLANEnabled: BoolPtr(true),
+			IPSubnet:    "10.199.98.1/24",
+		},
+		NetworkDHCP: NetworkDHCP{
+			DHCPDEnabled: BoolPtr(true),
+			DHCPDStart:   "10.199.98.100",
+			DHCPDStop:    "10.199.98.200",
+		},
+		NetworkIPv6: NetworkIPv6{
+			IPV6InterfaceType:         "pd",
+			IPV6PDInterface:           "wan",
+			IPV6PDAutoPrefixidEnabled: BoolPtr(true),
+			IPV6RaEnabled:             BoolPtr(true),
+			IPV6RaPriority:            "high",
+			DHCPDV6Enabled:            BoolPtr(true),
+			DHCPDV6DNSAuto:            BoolPtr(true),
+		},
+	}
+
+	created, err := client.CreateNetwork(ctx, network)
+	if err != nil {
+		t.Fatalf("CreateNetwork (IPv6) failed: %v", err)
+	}
+	if created.ID == "" {
+		t.Fatal("Created network has no ID")
+	}
+	if created.IPV6InterfaceType != "pd" {
+		t.Errorf("Expected ipv6_interface_type %q, got %q", "pd", created.IPV6InterfaceType)
+	}
+
+	fetched, err := client.GetNetwork(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("GetNetwork failed: %v", err)
+	}
+	if fetched.IPV6PDInterface != "wan" {
+		t.Errorf("Expected ipv6_pd_interface %q, got %q", "wan", fetched.IPV6PDInterface)
+	}
+	if fetched.IPV6RaPriority != "high" {
+		t.Errorf("Expected ipv6_ra_priority %q, got %q", "high", fetched.IPV6RaPriority)
+	}
+	if fetched.DHCPDV6Enabled == nil || !*fetched.DHCPDV6Enabled {
+		t.Error("Expected dhcpdv6_enabled to be true")
+	}
+
+	fetched.IPV6RaPriority = "medium"
+	updated, err := client.UpdateNetwork(ctx, fetched.ID, fetched)
+	if err != nil {
+		t.Fatalf("UpdateNetwork failed: %v", err)
+	}
+	if updated.IPV6RaPriority != "medium" {
+		t.Errorf("Expected ipv6_ra_priority %q after update, got %q", "medium", updated.IPV6RaPriority)
+	}
+
+	if err := client.DeleteNetwork(ctx, created.ID); err != nil {
+		t.Fatalf("DeleteNetwork failed: %v", err)
+	}
+
+	_, err = client.GetNetwork(ctx, created.ID)
+	if err == nil {
+		t.Error("Expected error getting deleted network")
+	}
+}
+
 func TestIntegration_FirewallGroups_CRUD(t *testing.T) {
 	client := skipIfNoEnv(t)
 	ctx := context.Background()

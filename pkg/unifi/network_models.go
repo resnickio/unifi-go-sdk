@@ -134,9 +134,37 @@ type NetworkWAN struct {
 }
 
 // NetworkIPv6 contains IPv6 configuration settings.
+//
+// Field value reference:
+//   - IPV6InterfaceType: "none", "static", "pd"
+//   - IPV6ClientAddressAssignment: "slaac", "dhcpv6", "slaac_dhcpv6", "none"
+//   - IPV6PDInterface: "wan", "wan2"
+//   - IPV6RaPriority: "high", "medium", "low"
 type NetworkIPv6 struct {
-	IPv6SettingPreference string `json:"ipv6_setting_preference,omitempty"`
-	IPv6WANDelegationType string `json:"ipv6_wan_delegation_type,omitempty"`
+	IPv6SettingPreference      string `json:"ipv6_setting_preference,omitempty"`
+	IPv6WANDelegationType      string `json:"ipv6_wan_delegation_type,omitempty"`
+	IPV6InterfaceType          string `json:"ipv6_interface_type,omitempty"`
+	IPV6Subnet                 string `json:"ipv6_subnet,omitempty"`
+	IPV6ClientAddressAssignment string `json:"ipv6_client_address_assignment,omitempty"`
+	IPV6PDInterface            string `json:"ipv6_pd_interface,omitempty"`
+	IPV6PDPrefixid             string `json:"ipv6_pd_prefixid,omitempty"`
+	IPV6PDStart                string `json:"ipv6_pd_start,omitempty"`
+	IPV6PDStop                 string `json:"ipv6_pd_stop,omitempty"`
+	IPV6PDAutoPrefixidEnabled  *bool  `json:"ipv6_pd_auto_prefixid_enabled,omitempty"`
+	IPV6RaEnabled              *bool  `json:"ipv6_ra_enabled,omitempty"`
+	IPV6RaPreferredLifetime    *int   `json:"ipv6_ra_preferred_lifetime,omitempty"`
+	IPV6RaPriority             string `json:"ipv6_ra_priority,omitempty"`
+	IPV6RaValidLifetime        *int   `json:"ipv6_ra_valid_lifetime,omitempty"`
+	DHCPDV6Enabled             *bool  `json:"dhcpdv6_enabled,omitempty"`
+	DHCPDV6DNS1                string `json:"dhcpdv6_dns_1,omitempty"`
+	DHCPDV6DNS2                string `json:"dhcpdv6_dns_2,omitempty"`
+	DHCPDV6DNS3                string `json:"dhcpdv6_dns_3,omitempty"`
+	DHCPDV6DNS4                string `json:"dhcpdv6_dns_4,omitempty"`
+	DHCPDV6DNSAuto             *bool  `json:"dhcpdv6_dns_auto,omitempty"`
+	DHCPDV6LeaseTime           *int   `json:"dhcpdv6_leasetime,omitempty"`
+	DHCPDV6Start               string `json:"dhcpdv6_start,omitempty"`
+	DHCPDV6Stop                string `json:"dhcpdv6_stop,omitempty"`
+	DHCPDV6AllowSlaac          *bool  `json:"dhcpdv6_allow_slaac,omitempty"`
 }
 
 // NetworkMulticast contains multicast and IGMP settings.
@@ -162,6 +190,48 @@ type NetworkAccess struct {
 
 // Validate checks IPv6 configuration.
 func (i *NetworkIPv6) Validate() error {
+	if i.IPV6InterfaceType != "" && !isOneOf(i.IPV6InterfaceType, "none", "static", "pd") {
+		return fmt.Errorf("networkipv6: ipv6_interface_type must be one of: none, static, pd")
+	}
+	if i.IPV6Subnet != "" && !isValidCIDR(i.IPV6Subnet) {
+		return fmt.Errorf("networkipv6: ipv6_subnet must be a valid CIDR")
+	}
+	if i.IPV6RaPriority != "" && !isOneOf(i.IPV6RaPriority, "high", "medium", "low") {
+		return fmt.Errorf("networkipv6: ipv6_ra_priority must be one of: high, medium, low")
+	}
+	if i.IPV6RaPreferredLifetime != nil && *i.IPV6RaPreferredLifetime < 0 {
+		return fmt.Errorf("networkipv6: ipv6_ra_preferred_lifetime must be non-negative")
+	}
+	if i.IPV6RaValidLifetime != nil && *i.IPV6RaValidLifetime < 0 {
+		return fmt.Errorf("networkipv6: ipv6_ra_valid_lifetime must be non-negative")
+	}
+	if i.DHCPDV6LeaseTime != nil && *i.DHCPDV6LeaseTime < 0 {
+		return fmt.Errorf("networkipv6: dhcpdv6_leasetime must be non-negative")
+	}
+	if i.DHCPDV6DNS1 != "" && !isValidIP(i.DHCPDV6DNS1) {
+		return fmt.Errorf("networkipv6: dhcpdv6_dns_1 must be a valid IP address")
+	}
+	if i.DHCPDV6DNS2 != "" && !isValidIP(i.DHCPDV6DNS2) {
+		return fmt.Errorf("networkipv6: dhcpdv6_dns_2 must be a valid IP address")
+	}
+	if i.DHCPDV6DNS3 != "" && !isValidIP(i.DHCPDV6DNS3) {
+		return fmt.Errorf("networkipv6: dhcpdv6_dns_3 must be a valid IP address")
+	}
+	if i.DHCPDV6DNS4 != "" && !isValidIP(i.DHCPDV6DNS4) {
+		return fmt.Errorf("networkipv6: dhcpdv6_dns_4 must be a valid IP address")
+	}
+	if i.DHCPDV6Start != "" && !isValidIP(i.DHCPDV6Start) {
+		return fmt.Errorf("networkipv6: dhcpdv6_start must be a valid IP address")
+	}
+	if i.DHCPDV6Stop != "" && !isValidIP(i.DHCPDV6Stop) {
+		return fmt.Errorf("networkipv6: dhcpdv6_stop must be a valid IP address")
+	}
+	if i.IPV6PDStart != "" && !isValidIP(i.IPV6PDStart) {
+		return fmt.Errorf("networkipv6: ipv6_pd_start must be a valid IP address")
+	}
+	if i.IPV6PDStop != "" && !isValidIP(i.IPV6PDStop) {
+		return fmt.Errorf("networkipv6: ipv6_pd_stop must be a valid IP address")
+	}
 	return nil
 }
 

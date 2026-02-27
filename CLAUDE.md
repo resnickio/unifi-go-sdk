@@ -128,14 +128,9 @@ This SDK is intended to support a Terraform provider. Prioritize type safety wit
   3. For Policy Engine v2 endpoints, reference `unifi-network-api.yaml` schemas like `FirewallPolicy`, `FirewallZone`, `PolicyEndpoint`
   4. For legacy REST endpoints, reference schemas like `Network`, `FirewallGroup`, `Wlan`, `PortForward`
   5. To discover new/undocumented endpoints, use Playwright to capture API responses from the UniFi UI
-- **Context7 MCP**: When generating code that uses external libraries, or when needing up-to-date API documentation, configuration examples, or setup steps for any library/framework, automatically use Context7 MCP tools (`resolve-library-id` then `get-library-docs`) to fetch current documentation. Do not rely solely on training data for library APIs.
-- **Playwright MCP**: Use Playwright MCP tools for browser automation tasks: testing web UIs, scraping dynamic content, filling forms, taking screenshots, or interacting with web applications. Prefer `browser_snapshot` over screenshots for actionable page state. Use `browser_fill_form` for multiple fields, `browser_click`/`browser_type` for interactions, and `browser_evaluate` for custom JavaScript. Always call `browser_close` when finished. Use `browser_evaluate` with `fetch()` to capture API responses from authenticated sessions.
-- **Commits**: Do not include Claude Code citations or co-author tags
-- **Code style**: Minimal comments, no inline comments unless truly necessary
 - **Go idioms**: Prefer exported fields over setter methods for simplicity. Skip helper functions (like `IsNotFound()`) - use standard `errors.Is()` patterns instead
 - **Testing**: Use `httptest` for mocking. Export struct fields to allow test configuration
 - **CI**: Keep simple - build and test only. Avoid paid services (Codecov, etc.) unless explicitly requested
-- **Over-engineering**: Avoid. Don't add abstractions, helpers, or features beyond what's requested
 - **Error handling**: Limit response body reads to prevent memory exhaustion (64KB for errors, 10MB for success responses)
 - **File naming**: Use `{api}_client.go`, `{api}_models.go` pattern (e.g., `sitemanager_client.go`, `network_client.go`)
 
@@ -172,13 +167,6 @@ When adding new model structs:
 
 - **Mutex scope**: Methods that write to struct fields protected by mutex should either be called while holding the lock, or return values for the caller to assign under lock
 - **Timer cleanup**: Use `time.NewTimer` + `defer timer.Stop()` or explicit `Stop()` on context cancellation instead of `time.After` in select statements to prevent memory leaks
-
-## Post-Implementation Summaries
-
-After completing a planned task, provide a concise summary including:
-- **Files Created**: New files with brief descriptions
-- **Files Modified**: Existing files and what changed
-- **Key Details**: Coverage, scope, or other relevant metrics
 
 ## Status
 
