@@ -93,8 +93,24 @@ type NetworkManager interface {
 	DeleteDynamicDNS(ctx context.Context, id string) error
 
 	// Legacy REST API - Device Configuration (port overrides, LED settings, etc.)
+	GetDevice(ctx context.Context, id string) (*DeviceConfig, error)
 	GetDeviceByMAC(ctx context.Context, mac string) (*DeviceConfig, error)
 	UpdateDevice(ctx context.Context, id string, device *DeviceConfig) (*DeviceConfig, error)
+	ForgetDevice(ctx context.Context, mac string) error
+
+	// Legacy REST API - Sites
+	ListSites(ctx context.Context) ([]NetworkSite, error)
+	GetSite(ctx context.Context, id string) (*NetworkSite, error)
+	CreateSite(ctx context.Context, desc string) (*NetworkSite, error)
+	UpdateSite(ctx context.Context, siteName, desc string) error
+	DeleteSite(ctx context.Context, id string) error
+
+	// Legacy REST API - RADIUS Accounts
+	ListRADIUSAccounts(ctx context.Context) ([]RADIUSAccount, error)
+	GetRADIUSAccount(ctx context.Context, id string) (*RADIUSAccount, error)
+	CreateRADIUSAccount(ctx context.Context, account *RADIUSAccount) (*RADIUSAccount, error)
+	UpdateRADIUSAccount(ctx context.Context, id string, account *RADIUSAccount) (*RADIUSAccount, error)
+	DeleteRADIUSAccount(ctx context.Context, id string) error
 
 	// Legacy REST API - Users (client device records, DHCP reservations)
 	ListUsers(ctx context.Context) ([]User, error)
@@ -153,6 +169,14 @@ type NetworkManager interface {
 	CreateNatRule(ctx context.Context, rule *NatRule) (*NatRule, error)
 	UpdateNatRule(ctx context.Context, id string, rule *NatRule) (*NatRule, error)
 	DeleteNatRule(ctx context.Context, id string) error
+
+	// Legacy REST API - Settings (singleton per site)
+	GetSettingMgmt(ctx context.Context) (*SettingMgmt, error)
+	UpdateSettingMgmt(ctx context.Context, setting *SettingMgmt) (*SettingMgmt, error)
+	GetSettingRadius(ctx context.Context) (*SettingRadius, error)
+	UpdateSettingRadius(ctx context.Context, setting *SettingRadius) (*SettingRadius, error)
+	GetSettingUSG(ctx context.Context) (*SettingUSG, error)
+	UpdateSettingUSG(ctx context.Context, setting *SettingUSG) (*SettingUSG, error)
 
 	// v2 API - ACL/QoS/Content Filtering (read-only)
 	ListAclRules(ctx context.Context) ([]AclRule, error)
@@ -1813,4 +1837,272 @@ func (c *NetworkClient) ListWanSlas(ctx context.Context) ([]WanSla, error) {
 		return nil, err
 	}
 	return slas, nil
+}
+
+// GetDevice retrieves a device by its ID using the REST device endpoint.
+func (c *NetworkClient) GetDevice(ctx context.Context, id string) (*DeviceConfig, error) {
+	var devices []DeviceConfig
+	err := c.do(ctx, "GET", c.restPathWithID("device", id), nil, &devices)
+	if err != nil {
+		return nil, err
+	}
+	if len(devices) == 0 {
+		return nil, ErrNotFound
+	}
+	return &devices[0], nil
+}
+
+// ForgetDevice removes a device from the controller using the sitemgr command.
+func (c *NetworkClient) ForgetDevice(ctx context.Context, mac string) error {
+	cmd := map[string]any{
+		"cmd":  "delete-device",
+		"macs": []string{mac},
+	}
+	path := "/proxy/network/api/s/" + url.PathEscape(c.Site) + "/cmd/sitemgr"
+	return c.do(ctx, "POST", path, cmd, nil)
+}
+
+// Site operations
+
+// ListSites returns all sites visible to the current user.
+func (c *NetworkClient) ListSites(ctx context.Context) ([]NetworkSite, error) {
+	var sites []NetworkSite
+	err := c.do(ctx, "GET", "/proxy/network/api/self/sites", nil, &sites)
+	if err != nil {
+		return nil, err
+	}
+	return sites, nil
+}
+
+// GetSite retrieves a site by its MongoDB _id.
+func (c *NetworkClient) GetSite(ctx context.Context, id string) (*NetworkSite, error) {
+	sites, err := c.ListSites(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for i := range sites {
+		if sites[i].ID == id {
+			return &sites[i], nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
+// CreateSite creates a new site with the given description.
+func (c *NetworkClient) CreateSite(ctx context.Context, desc string) (*NetworkSite, error) {
+	cmd := map[string]any{
+		"cmd":  "add-site",
+		"desc": desc,
+	}
+	path := "/proxy/network/api/s/default/cmd/sitemgr"
+	var sites []NetworkSite
+	err := c.do(ctx, "POST", path, cmd, &sites)
+	if err != nil {
+		return nil, err
+	}
+	if len(sites) == 0 {
+		// Some controllers return empty data on create; list and find by desc.
+		// NOTE: Desc is not unique — if multiple sites share the same description,
+		// this returns the first match, which may be incorrect. In practice this is
+		// rare since Terraform configs typically enforce unique names.
+		allSites, listErr := c.ListSites(ctx)
+		if listErr != nil {
+			return nil, &EmptyResponseError{Operation: "create", Resource: "site", Endpoint: path}
+		}
+		for i := range allSites {
+			if allSites[i].Desc == desc {
+				return &allSites[i], nil
+			}
+		}
+		return nil, &EmptyResponseError{Operation: "create", Resource: "site", Endpoint: path}
+	}
+	return &sites[0], nil
+}
+
+// UpdateSite updates the description of a site identified by its short name
+// (e.g., "default"). This is the Name field from NetworkSite, not the _id.
+func (c *NetworkClient) UpdateSite(ctx context.Context, siteName, desc string) error {
+	cmd := map[string]any{
+		"cmd":  "update-site",
+		"desc": desc,
+	}
+	path := "/proxy/network/api/s/" + url.PathEscape(siteName) + "/cmd/sitemgr"
+	return c.do(ctx, "POST", path, cmd, nil)
+}
+
+// DeleteSite removes a site by its MongoDB _id (not the short name).
+func (c *NetworkClient) DeleteSite(ctx context.Context, id string) error {
+	cmd := map[string]any{
+		"cmd":  "delete-site",
+		"site": id,
+	}
+	path := "/proxy/network/api/s/default/cmd/sitemgr"
+	return c.do(ctx, "POST", path, cmd, nil)
+}
+
+// RADIUS Account operations
+
+// ListRADIUSAccounts returns all RADIUS user accounts for the site.
+func (c *NetworkClient) ListRADIUSAccounts(ctx context.Context) ([]RADIUSAccount, error) {
+	var accounts []RADIUSAccount
+	err := c.do(ctx, "GET", c.restPath("account"), nil, &accounts)
+	if err != nil {
+		return nil, err
+	}
+	return accounts, nil
+}
+
+// GetRADIUSAccount retrieves a RADIUS account by its ID.
+func (c *NetworkClient) GetRADIUSAccount(ctx context.Context, id string) (*RADIUSAccount, error) {
+	var accounts []RADIUSAccount
+	err := c.do(ctx, "GET", c.restPathWithID("account", id), nil, &accounts)
+	if err != nil {
+		return nil, err
+	}
+	if len(accounts) == 0 {
+		return nil, ErrNotFound
+	}
+	return &accounts[0], nil
+}
+
+// CreateRADIUSAccount creates a new RADIUS user account.
+func (c *NetworkClient) CreateRADIUSAccount(ctx context.Context, account *RADIUSAccount) (*RADIUSAccount, error) {
+	if err := account.Validate(); err != nil {
+		return nil, err
+	}
+	var accounts []RADIUSAccount
+	err := c.do(ctx, "POST", c.restPath("account"), account, &accounts)
+	if err != nil {
+		return nil, err
+	}
+	if len(accounts) == 0 {
+		return nil, &EmptyResponseError{Operation: "create", Resource: "account", Endpoint: c.restPath("account")}
+	}
+	return &accounts[0], nil
+}
+
+// UpdateRADIUSAccount updates an existing RADIUS account by its ID.
+func (c *NetworkClient) UpdateRADIUSAccount(ctx context.Context, id string, account *RADIUSAccount) (*RADIUSAccount, error) {
+	if err := account.Validate(); err != nil {
+		return nil, err
+	}
+	var accounts []RADIUSAccount
+	err := c.do(ctx, "PUT", c.restPathWithID("account", id), account, &accounts)
+	if err != nil {
+		return nil, err
+	}
+	if len(accounts) == 0 {
+		return nil, &EmptyResponseError{Operation: "update", Resource: "account", Endpoint: c.restPathWithID("account", id)}
+	}
+	return &accounts[0], nil
+}
+
+// DeleteRADIUSAccount removes a RADIUS account by its ID.
+func (c *NetworkClient) DeleteRADIUSAccount(ctx context.Context, id string) error {
+	return c.do(ctx, "DELETE", c.restPathWithID("account", id), nil, nil)
+}
+
+// Settings operations
+//
+// Settings are singleton resources per site, identified by their key (e.g., "mgmt", "radius", "usg").
+
+func (c *NetworkClient) settingGetPath(key string) string {
+	return "/proxy/network/api/s/" + url.PathEscape(c.Site) + "/get/setting/" + key
+}
+
+func (c *NetworkClient) settingSetPath(key string) string {
+	return "/proxy/network/api/s/" + url.PathEscape(c.Site) + "/set/setting/" + key
+}
+
+// GetSettingMgmt retrieves the management settings for the current site.
+func (c *NetworkClient) GetSettingMgmt(ctx context.Context) (*SettingMgmt, error) {
+	var settings []SettingMgmt
+	err := c.do(ctx, "GET", c.settingGetPath("mgmt"), nil, &settings)
+	if err != nil {
+		return nil, err
+	}
+	if len(settings) == 0 {
+		return nil, ErrNotFound
+	}
+	return &settings[0], nil
+}
+
+// UpdateSettingMgmt updates the management settings. The Key field is set automatically.
+func (c *NetworkClient) UpdateSettingMgmt(ctx context.Context, setting *SettingMgmt) (*SettingMgmt, error) {
+	s := *setting
+	s.Key = "mgmt"
+	if err := s.Validate(); err != nil {
+		return nil, err
+	}
+	var settings []SettingMgmt
+	err := c.do(ctx, "PUT", c.settingSetPath("mgmt"), &s, &settings)
+	if err != nil {
+		return nil, err
+	}
+	if len(settings) == 0 {
+		return c.GetSettingMgmt(ctx)
+	}
+	return &settings[0], nil
+}
+
+// GetSettingRadius retrieves the RADIUS server settings for the current site.
+func (c *NetworkClient) GetSettingRadius(ctx context.Context) (*SettingRadius, error) {
+	var settings []SettingRadius
+	err := c.do(ctx, "GET", c.settingGetPath("radius"), nil, &settings)
+	if err != nil {
+		return nil, err
+	}
+	if len(settings) == 0 {
+		return nil, ErrNotFound
+	}
+	return &settings[0], nil
+}
+
+// UpdateSettingRadius updates the RADIUS server settings. The Key field is set automatically.
+func (c *NetworkClient) UpdateSettingRadius(ctx context.Context, setting *SettingRadius) (*SettingRadius, error) {
+	s := *setting
+	s.Key = "radius"
+	if err := s.Validate(); err != nil {
+		return nil, err
+	}
+	var settings []SettingRadius
+	err := c.do(ctx, "PUT", c.settingSetPath("radius"), &s, &settings)
+	if err != nil {
+		return nil, err
+	}
+	if len(settings) == 0 {
+		return c.GetSettingRadius(ctx)
+	}
+	return &settings[0], nil
+}
+
+// GetSettingUSG retrieves the gateway/security settings for the current site.
+func (c *NetworkClient) GetSettingUSG(ctx context.Context) (*SettingUSG, error) {
+	var settings []SettingUSG
+	err := c.do(ctx, "GET", c.settingGetPath("usg"), nil, &settings)
+	if err != nil {
+		return nil, err
+	}
+	if len(settings) == 0 {
+		return nil, ErrNotFound
+	}
+	return &settings[0], nil
+}
+
+// UpdateSettingUSG updates the gateway/security settings. The Key field is set automatically.
+func (c *NetworkClient) UpdateSettingUSG(ctx context.Context, setting *SettingUSG) (*SettingUSG, error) {
+	s := *setting
+	s.Key = "usg"
+	if err := s.Validate(); err != nil {
+		return nil, err
+	}
+	var settings []SettingUSG
+	err := c.do(ctx, "PUT", c.settingSetPath("usg"), &s, &settings)
+	if err != nil {
+		return nil, err
+	}
+	if len(settings) == 0 {
+		return c.GetSettingUSG(ctx)
+	}
+	return &settings[0], nil
 }

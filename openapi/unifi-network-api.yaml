@@ -8,7 +8,7 @@ info:
     - **v2 API**: Newer endpoints at `/proxy/network/v2/api/site/{site}/...`
     - **Legacy REST API**: Older endpoints at `/proxy/network/api/s/{site}/rest/...`
 
-    Authentication is session-based via username/password login.
+    Authentication via API key (`X-API-KEY` header, preferred) or session-based (username/password login).
   version: 9.5.21
   contact:
     name: UniFi Network
@@ -53,6 +53,14 @@ tags:
     description: Client device records and DHCP reservations (Legacy REST)
   - name: Device Configuration
     description: Device settings and port overrides (Legacy REST)
+  - name: Sites
+    description: Site management (Legacy command API)
+  - name: RADIUS Accounts
+    description: RADIUS user accounts (Legacy REST)
+  - name: Settings
+    description: Site settings (Legacy REST)
+  - name: AP Groups
+    description: AP groups (v2 API, read-only)
   - name: Static DNS
     description: Static DNS records (v2 API)
   - name: Clients
@@ -369,6 +377,132 @@ paths:
         '200':
           description: Rule created
 
+  /v2/api/site/{site}/trafficrules/{id}:
+    get:
+      tags: [Policy Engine]
+      summary: Get traffic rule
+      operationId: getTrafficRule
+      parameters:
+        - $ref: '#/components/parameters/site'
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Traffic rule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrafficRule'
+    put:
+      tags: [Policy Engine]
+      summary: Update traffic rule
+      operationId: updateTrafficRule
+      parameters:
+        - $ref: '#/components/parameters/site'
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrafficRule'
+      responses:
+        '200':
+          description: Rule updated
+    delete:
+      tags: [Policy Engine]
+      summary: Delete traffic rule
+      operationId: deleteTrafficRule
+      parameters:
+        - $ref: '#/components/parameters/site'
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Rule deleted
+
+  /v2/api/site/{site}/trafficroutes/{id}:
+    get:
+      tags: [Policy Engine]
+      summary: Get traffic route
+      operationId: getTrafficRoute
+      parameters:
+        - $ref: '#/components/parameters/site'
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Traffic route
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrafficRoute'
+    put:
+      tags: [Policy Engine]
+      summary: Update traffic route
+      operationId: updateTrafficRoute
+      parameters:
+        - $ref: '#/components/parameters/site'
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrafficRoute'
+      responses:
+        '200':
+          description: Route updated
+    delete:
+      tags: [Policy Engine]
+      summary: Delete traffic route
+      operationId: deleteTrafficRoute
+      parameters:
+        - $ref: '#/components/parameters/site'
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Route deleted
+
+  /v2/api/site/{site}/nat/{id}:
+    get:
+      tags: [Policy Engine]
+      summary: Get NAT rule
+      operationId: getNatRule
+      parameters:
+        - $ref: '#/components/parameters/site'
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: NAT rule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NatRule'
+    put:
+      tags: [Policy Engine]
+      summary: Update NAT rule
+      operationId: updateNatRule
+      parameters:
+        - $ref: '#/components/parameters/site'
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NatRule'
+      responses:
+        '200':
+          description: Rule updated
+    delete:
+      tags: [Policy Engine]
+      summary: Delete NAT rule
+      operationId: deleteNatRule
+      parameters:
+        - $ref: '#/components/parameters/site'
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Rule deleted
+
   /v2/api/site/{site}/static-dns:
     get:
       tags: [Static DNS]
@@ -528,6 +662,23 @@ paths:
               schema:
                 $ref: '#/components/schemas/DeviceList'
 
+  /v2/api/site/{site}/apgroups:
+    get:
+      tags: [AP Groups]
+      summary: List AP groups
+      operationId: listApGroups
+      parameters:
+        - $ref: '#/components/parameters/site'
+      responses:
+        '200':
+          description: List of AP groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/APGroup'
+
   /v2/api/site/{site}/vpn/connections:
     get:
       tags: [VPN]
@@ -651,6 +802,59 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RestResponse'
+    post:
+      tags: [Firewall]
+      summary: Create firewall rule (legacy)
+      operationId: createFirewallRuleLegacy
+      parameters:
+        - $ref: '#/components/parameters/siteLegacy'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FirewallRuleCreate'
+      responses:
+        '200':
+          description: Firewall rule created
+
+  /api/s/{site}/rest/firewallrule/{id}:
+    get:
+      tags: [Firewall]
+      summary: Get firewall rule (legacy)
+      operationId: getFirewallRuleLegacy
+      parameters:
+        - $ref: '#/components/parameters/siteLegacy'
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Firewall rule
+    put:
+      tags: [Firewall]
+      summary: Update firewall rule (legacy)
+      operationId: updateFirewallRuleLegacy
+      parameters:
+        - $ref: '#/components/parameters/siteLegacy'
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FirewallRule'
+      responses:
+        '200':
+          description: Firewall rule updated
+    delete:
+      tags: [Firewall]
+      summary: Delete firewall rule (legacy)
+      operationId: deleteFirewallRuleLegacy
+      parameters:
+        - $ref: '#/components/parameters/siteLegacy'
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Firewall rule deleted
 
   /api/s/{site}/rest/firewallgroup:
     get:
@@ -1291,6 +1495,20 @@ paths:
                 $ref: '#/components/schemas/RestResponse'
 
   /api/s/{site}/rest/device/{id}:
+    get:
+      tags: [Device Configuration]
+      summary: Get device by ID
+      operationId: getDevice
+      parameters:
+        - $ref: '#/components/parameters/siteLegacy'
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Device configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestResponse'
     put:
       tags: [Device Configuration]
       summary: Update device configuration
@@ -1310,6 +1528,166 @@ paths:
       responses:
         '200':
           description: Device updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestResponse'
+
+  # ============================================
+  # Sites (command-based API)
+  # ============================================
+
+  /api/self/sites:
+    get:
+      tags: [Sites]
+      summary: List all sites
+      description: |
+        Lists all sites visible to the current user.
+        Uses the controller root URL (not /proxy/network).
+      operationId: listSites
+      servers:
+        - url: https://{controller}
+          variables:
+            controller:
+              default: 192.168.1.1
+      responses:
+        '200':
+          description: List of sites
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestResponse'
+
+  /api/s/{site}/cmd/sitemgr:
+    post:
+      tags: [Sites]
+      summary: Site management commands
+      description: |
+        Executes site management commands: add-site, update-site, delete-site, delete-device.
+      operationId: sitemgrCommand
+      parameters:
+        - $ref: '#/components/parameters/siteLegacy'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SitemgrCommand'
+      responses:
+        '200':
+          description: Command executed
+
+  # ============================================
+  # RADIUS Accounts (Legacy REST)
+  # ============================================
+
+  /api/s/{site}/rest/account:
+    get:
+      tags: [RADIUS Accounts]
+      summary: List RADIUS accounts
+      operationId: listRadiusAccounts
+      parameters:
+        - $ref: '#/components/parameters/siteLegacy'
+      responses:
+        '200':
+          description: List of RADIUS accounts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestResponse'
+    post:
+      tags: [RADIUS Accounts]
+      summary: Create RADIUS account
+      operationId: createRadiusAccount
+      parameters:
+        - $ref: '#/components/parameters/siteLegacy'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RADIUSAccountCreate'
+      responses:
+        '200':
+          description: Account created
+
+  /api/s/{site}/rest/account/{id}:
+    get:
+      tags: [RADIUS Accounts]
+      summary: Get RADIUS account
+      operationId: getRadiusAccount
+      parameters:
+        - $ref: '#/components/parameters/siteLegacy'
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: RADIUS account
+    put:
+      tags: [RADIUS Accounts]
+      summary: Update RADIUS account
+      operationId: updateRadiusAccount
+      parameters:
+        - $ref: '#/components/parameters/siteLegacy'
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RADIUSAccount'
+      responses:
+        '200':
+          description: Account updated
+    delete:
+      tags: [RADIUS Accounts]
+      summary: Delete RADIUS account
+      operationId: deleteRadiusAccount
+      parameters:
+        - $ref: '#/components/parameters/siteLegacy'
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Account deleted
+
+  # ============================================
+  # Settings (Legacy REST)
+  # ============================================
+
+  /api/s/{site}/get/setting/{key}:
+    get:
+      tags: [Settings]
+      summary: Get site setting
+      description: Retrieves a site setting by key (e.g., mgmt, radius, usg).
+      operationId: getSetting
+      parameters:
+        - $ref: '#/components/parameters/siteLegacy'
+        - $ref: '#/components/parameters/settingKey'
+      responses:
+        '200':
+          description: Setting value
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestResponse'
+
+  /api/s/{site}/set/setting/{key}:
+    put:
+      tags: [Settings]
+      summary: Update site setting
+      description: Updates a site setting by key (e.g., mgmt, radius, usg).
+      operationId: updateSetting
+      parameters:
+        - $ref: '#/components/parameters/siteLegacy'
+        - $ref: '#/components/parameters/settingKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Setting updated
           content:
             application/json:
               schema:
@@ -1340,6 +1718,14 @@ components:
       description: Resource ID
       schema:
         type: string
+    settingKey:
+      name: key
+      in: path
+      required: true
+      description: Setting key
+      schema:
+        type: string
+        enum: [mgmt, radius, usg]
 
   schemas:
     RestResponse:
@@ -2350,6 +2736,346 @@ components:
           type: string
 
     # ============================================
+    # Firewall Rule Schema (Legacy)
+    # ============================================
+
+    FirewallRule:
+      type: object
+      properties:
+        _id:
+          type: string
+        site_id:
+          type: string
+        name:
+          type: string
+        enabled:
+          type: boolean
+        action:
+          type: string
+          enum: [accept, drop, reject]
+        ruleset:
+          type: string
+          enum: [WAN_IN, WAN_OUT, WAN_LOCAL, LAN_IN, LAN_OUT, LAN_LOCAL, GUEST_IN, GUEST_OUT, GUEST_LOCAL, WANv6_IN, WANv6_OUT, WANv6_LOCAL, LANv6_IN, LANv6_OUT, LANv6_LOCAL, GUESTv6_IN, GUESTv6_OUT, GUESTv6_LOCAL]
+        rule_index:
+          type: integer
+        protocol:
+          type: string
+          enum: [all, tcp, udp, tcp_udp, icmp, ah, ax.25, dccp, ddp, egp, eigrp, encap, esp, etherip, fc, ggp, gre, hip, hmp, idpr-cmtp, idrp, igmp, igp, ip, ipcomp, ipip, isis, iso-tp4, l2tp, manet, mobility-header, mpls-in-ip, ospf, pim, pup, rdp, rohc, rspf, rsvp, sctp, shim6, skip, st, udplite, vmtp, vrrp, wesp, xns-idp, xtp]
+        protocol_match_excepted:
+          type: boolean
+        src_mac_address:
+          type: string
+        src_address:
+          type: string
+        src_networkconf_id:
+          type: string
+        src_networkconf_type:
+          type: string
+          enum: [NETv4, ADDRv4]
+        src_firewallgroup_ids:
+          type: array
+          items:
+            type: string
+        dst_address:
+          type: string
+        dst_networkconf_id:
+          type: string
+        dst_networkconf_type:
+          type: string
+          enum: [NETv4, ADDRv4]
+        dst_firewallgroup_ids:
+          type: array
+          items:
+            type: string
+        dst_port:
+          type: string
+        src_port:
+          type: string
+        logging:
+          type: boolean
+        state_established:
+          type: boolean
+        state_invalid:
+          type: boolean
+        state_new:
+          type: boolean
+        state_related:
+          type: boolean
+        ipsec:
+          type: string
+          enum: [match-ipsec, match-none, ""]
+        icmp_typename:
+          type: string
+
+    FirewallRuleCreate:
+      type: object
+      required: [name, action, ruleset]
+      properties:
+        name:
+          type: string
+        enabled:
+          type: boolean
+          default: true
+        action:
+          type: string
+          enum: [accept, drop, reject]
+        ruleset:
+          type: string
+        rule_index:
+          type: integer
+        protocol:
+          type: string
+          default: all
+        src_address:
+          type: string
+        src_firewallgroup_ids:
+          type: array
+          items:
+            type: string
+        dst_address:
+          type: string
+        dst_firewallgroup_ids:
+          type: array
+          items:
+            type: string
+        dst_port:
+          type: string
+        src_port:
+          type: string
+        logging:
+          type: boolean
+        state_established:
+          type: boolean
+        state_invalid:
+          type: boolean
+        state_new:
+          type: boolean
+        state_related:
+          type: boolean
+
+    # ============================================
+    # Sites, RADIUS Accounts, Settings, AP Groups
+    # ============================================
+
+    NetworkSite:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+          description: Internal short name (auto-generated)
+        desc:
+          type: string
+          description: Human-readable site description
+
+    SitemgrCommand:
+      type: object
+      required: [cmd]
+      properties:
+        cmd:
+          type: string
+          enum: [add-site, update-site, delete-site, delete-device]
+        desc:
+          type: string
+          description: Site description (for add-site, update-site)
+        site:
+          type: string
+          description: Site ID (for delete-site)
+        macs:
+          type: array
+          items:
+            type: string
+          description: Device MAC addresses (for delete-device)
+
+    RADIUSAccount:
+      type: object
+      properties:
+        _id:
+          type: string
+        site_id:
+          type: string
+        name:
+          type: string
+        x_password:
+          type: string
+          description: Write-only password field
+        tunnel_config_type:
+          type: string
+        tunnel_medium_type:
+          type: integer
+        tunnel_type:
+          type: integer
+        vlan:
+          type: integer
+          minimum: 1
+          maximum: 4094
+        networkconf_id:
+          type: string
+
+    RADIUSAccountCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        x_password:
+          type: string
+        tunnel_config_type:
+          type: string
+        tunnel_medium_type:
+          type: integer
+        tunnel_type:
+          type: integer
+        vlan:
+          type: integer
+        networkconf_id:
+          type: string
+
+    SettingMgmt:
+      type: object
+      properties:
+        _id:
+          type: string
+        site_id:
+          type: string
+        key:
+          type: string
+          enum: [mgmt]
+        advanced_feature_enabled:
+          type: boolean
+        alert_enabled:
+          type: boolean
+        auto_upgrade:
+          type: boolean
+        auto_upgrade_hour:
+          type: integer
+          minimum: 0
+          maximum: 23
+        led_enabled:
+          type: boolean
+        outdoor_mode_enabled:
+          type: boolean
+        x_ssh_enabled:
+          type: boolean
+        x_ssh_auth_password_enabled:
+          type: boolean
+        x_ssh_username:
+          type: string
+        x_ssh_password:
+          type: string
+          description: Write-only SSH password
+        x_ssh_bind_wildcard:
+          type: boolean
+        boot_sound:
+          type: boolean
+        direct_connect_enabled:
+          type: boolean
+        unifi_idp_enabled:
+          type: boolean
+        wifiman_enabled:
+          type: boolean
+
+    SettingRadius:
+      type: object
+      properties:
+        _id:
+          type: string
+        site_id:
+          type: string
+        key:
+          type: string
+          enum: [radius]
+        enabled:
+          type: boolean
+        accounting_enabled:
+          type: boolean
+        auth_port:
+          type: integer
+        acct_port:
+          type: integer
+        x_secret:
+          type: string
+          description: Write-only RADIUS secret
+        configure_whole_network:
+          type: boolean
+        interim_update_interval:
+          type: integer
+        tunneled_reply:
+          type: boolean
+
+    SettingUSG:
+      type: object
+      properties:
+        _id:
+          type: string
+        site_id:
+          type: string
+        key:
+          type: string
+          enum: [usg]
+        broadcast_ping:
+          type: boolean
+        dhcpd_use_dnsmasq:
+          type: boolean
+        ftp_module:
+          type: boolean
+        gre_module:
+          type: boolean
+        h323_module:
+          type: boolean
+        lldp_enable_all:
+          type: boolean
+        mdns_enabled:
+          type: boolean
+        mss_clamp:
+          type: string
+        mss_clamp_mss:
+          type: integer
+        offload_accounting:
+          type: boolean
+        offload_l2_blocking:
+          type: boolean
+        offload_sch:
+          type: boolean
+        pptp_module:
+          type: boolean
+        receive_redirects:
+          type: boolean
+        send_redirects:
+          type: boolean
+        sip_module:
+          type: boolean
+        syn_cookies:
+          type: boolean
+        tftp_module:
+          type: boolean
+        upnp_enabled:
+          type: boolean
+        upnp_nat_pmp_enabled:
+          type: boolean
+        upnp_secure_mode:
+          type: boolean
+
+    APGroup:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        attr_hidden_id:
+          type: string
+        attr_no_delete:
+          type: boolean
+        device_macs:
+          type: array
+          items:
+            type: string
+        for_wlanconf:
+          type: boolean
+
+    # ============================================
     # Client and Device Schemas
     # ============================================
 
@@ -2859,6 +3585,11 @@ components:
       type: apiKey
       in: cookie
       name: unifises
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-KEY
 
 security:
   - cookieAuth: []
+  - apiKeyAuth: []

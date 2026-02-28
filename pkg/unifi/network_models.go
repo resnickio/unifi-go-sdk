@@ -1749,3 +1749,142 @@ func (d *DeviceConfig) Validate() error {
 	}
 	return nil
 }
+
+// NetworkSite represents a UniFi Network controller site (local API).
+// Not to be confused with the Site Manager cloud API's Site type.
+type NetworkSite struct {
+	ID   string `json:"_id"`
+	Name string `json:"name"` // internal short name, auto-generated
+	Desc string `json:"desc"` // human-readable description
+}
+
+// RADIUSAccount represents a RADIUS user account for 802.1X or VPN authentication.
+type RADIUSAccount struct {
+	ID               string `json:"_id,omitempty"`
+	SiteID           string `json:"site_id,omitempty"`
+	Name             string `json:"name"`
+	XPassword        string `json:"x_password,omitempty"`
+	TunnelConfigType string `json:"tunnel_config_type,omitempty"`
+	TunnelMediumType *int   `json:"tunnel_medium_type,omitempty"`
+	TunnelType       *int   `json:"tunnel_type,omitempty"`
+	VLAN             *int   `json:"vlan,omitempty"`
+	NetworkConfID    string `json:"networkconf_id,omitempty"`
+}
+
+// Validate checks that required fields are set and values are valid.
+func (r *RADIUSAccount) Validate() error {
+	if r.Name == "" {
+		return fmt.Errorf("radiusaccount: name is required")
+	}
+	if r.VLAN != nil && (*r.VLAN < 1 || *r.VLAN > 4094) {
+		return fmt.Errorf("radiusaccount: vlan must be between 1 and 4094")
+	}
+	if r.TunnelMediumType != nil && *r.TunnelMediumType < 0 {
+		return fmt.Errorf("radiusaccount: tunnel_medium_type must be non-negative")
+	}
+	if r.TunnelType != nil && *r.TunnelType < 0 {
+		return fmt.Errorf("radiusaccount: tunnel_type must be non-negative")
+	}
+	return nil
+}
+
+// SettingMgmt represents management settings for a UniFi site.
+type SettingMgmt struct {
+	ID                      string `json:"_id,omitempty"`
+	SiteID                  string `json:"site_id,omitempty"`
+	Key                     string `json:"key"`
+	AdvancedFeatureEnabled  *bool  `json:"advanced_feature_enabled,omitempty"`
+	AlertEnabled            *bool  `json:"alert_enabled,omitempty"`
+	AutoUpgrade             *bool  `json:"auto_upgrade,omitempty"`
+	AutoUpgradeHour         *int   `json:"auto_upgrade_hour,omitempty"`
+	LEDEnabled              *bool  `json:"led_enabled,omitempty"`
+	OutdoorModeEnabled      *bool  `json:"outdoor_mode_enabled,omitempty"`
+	XSSHEnabled             *bool  `json:"x_ssh_enabled,omitempty"`
+	XSSHAuthPasswordEnabled *bool  `json:"x_ssh_auth_password_enabled,omitempty"`
+	XSSHUsername            string `json:"x_ssh_username,omitempty"`
+	XSSHPassword            string `json:"x_ssh_password,omitempty"`
+	XSSHBindWildcard        *bool  `json:"x_ssh_bind_wildcard,omitempty"`
+	BootSound               *bool  `json:"boot_sound,omitempty"`
+	DirectConnectEnabled    *bool  `json:"direct_connect_enabled,omitempty"`
+	UnifiIdpEnabled         *bool  `json:"unifi_idp_enabled,omitempty"`
+	WifimanEnabled          *bool  `json:"wifiman_enabled,omitempty"`
+}
+
+// SettingRadius represents RADIUS server settings for a UniFi site.
+type SettingRadius struct {
+	ID                    string `json:"_id,omitempty"`
+	SiteID                string `json:"site_id,omitempty"`
+	Key                   string `json:"key"`
+	Enabled               *bool  `json:"enabled,omitempty"`
+	AccountingEnabled     *bool  `json:"accounting_enabled,omitempty"`
+	AuthPort              *int   `json:"auth_port,omitempty"`
+	AcctPort              *int   `json:"acct_port,omitempty"`
+	XSecret               string `json:"x_secret,omitempty"`
+	ConfigureWholeNetwork *bool  `json:"configure_whole_network,omitempty"`
+	InterimUpdateInterval *int   `json:"interim_update_interval,omitempty"`
+	TunneledReply         *bool  `json:"tunneled_reply,omitempty"`
+}
+
+// SettingUSG represents gateway/security settings for a UniFi site.
+type SettingUSG struct {
+	ID                string `json:"_id,omitempty"`
+	SiteID            string `json:"site_id,omitempty"`
+	Key               string `json:"key"`
+	BroadcastPing     *bool  `json:"broadcast_ping,omitempty"`
+	DHCPDUseDnsmasq   *bool  `json:"dhcpd_use_dnsmasq,omitempty"`
+	FTPModule         *bool  `json:"ftp_module,omitempty"`
+	GREModule         *bool  `json:"gre_module,omitempty"`
+	H323Module        *bool  `json:"h323_module,omitempty"`
+	LLDPEnableAll     *bool  `json:"lldp_enable_all,omitempty"`
+	MDNSEnabled       *bool  `json:"mdns_enabled,omitempty"`
+	MSSClamp          string `json:"mss_clamp,omitempty"`
+	MSSClampMSS       *int   `json:"mss_clamp_mss,omitempty"`
+	OffloadAccounting *bool  `json:"offload_accounting,omitempty"`
+	OffloadL2Blocking *bool  `json:"offload_l2_blocking,omitempty"`
+	OffloadSch        *bool  `json:"offload_sch,omitempty"`
+	PPTPModule        *bool  `json:"pptp_module,omitempty"`
+	ReceiveRedirects  *bool  `json:"receive_redirects,omitempty"`
+	SendRedirects     *bool  `json:"send_redirects,omitempty"`
+	SIPModule         *bool  `json:"sip_module,omitempty"`
+	SynCookies        *bool  `json:"syn_cookies,omitempty"`
+	TFTPModule        *bool  `json:"tftp_module,omitempty"`
+	UPnPEnabled       *bool  `json:"upnp_enabled,omitempty"`
+	UPnPNATPMPEnabled *bool  `json:"upnp_nat_pmp_enabled,omitempty"`
+	UPnPSecureMode    *bool  `json:"upnp_secure_mode,omitempty"`
+}
+
+// Validate checks that required fields are set and values are valid.
+func (s *SettingMgmt) Validate() error {
+	if s.Key == "" {
+		return fmt.Errorf("settingmgmt: key is required")
+	}
+	if s.AutoUpgradeHour != nil && (*s.AutoUpgradeHour < 0 || *s.AutoUpgradeHour > 23) {
+		return fmt.Errorf("settingmgmt: auto_upgrade_hour must be between 0 and 23")
+	}
+	return nil
+}
+
+// Validate checks that required fields are set and values are valid.
+func (s *SettingRadius) Validate() error {
+	if s.Key == "" {
+		return fmt.Errorf("settingradius: key is required")
+	}
+	if s.AuthPort != nil && !isValidPort(*s.AuthPort) {
+		return fmt.Errorf("settingradius: auth_port must be between 1 and 65535")
+	}
+	if s.AcctPort != nil && !isValidPort(*s.AcctPort) {
+		return fmt.Errorf("settingradius: acct_port must be between 1 and 65535")
+	}
+	return nil
+}
+
+// Validate checks that required fields are set and values are valid.
+func (s *SettingUSG) Validate() error {
+	if s.Key == "" {
+		return fmt.Errorf("settingusg: key is required")
+	}
+	if s.MSSClamp != "" && !isOneOf(s.MSSClamp, "custom", "auto", "none") {
+		return fmt.Errorf("settingusg: mss_clamp must be one of: custom, auto, none")
+	}
+	return nil
+}

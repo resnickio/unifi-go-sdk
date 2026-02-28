@@ -1035,3 +1035,84 @@ func TestUserValidate(t *testing.T) {
 		})
 	}
 }
+
+func TestRADIUSAccountValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		account RADIUSAccount
+		wantErr string
+	}{
+		{"valid minimal", RADIUSAccount{Name: "testuser"}, ""},
+		{"valid with vlan", RADIUSAccount{Name: "testuser", VLAN: IntPtr(100)}, ""},
+		{"missing name", RADIUSAccount{}, "name is required"},
+		{"vlan too low", RADIUSAccount{Name: "testuser", VLAN: IntPtr(0)}, "vlan must be between 1 and 4094"},
+		{"vlan too high", RADIUSAccount{Name: "testuser", VLAN: IntPtr(4095)}, "vlan must be between 1 and 4094"},
+		{"negative tunnel_medium_type", RADIUSAccount{Name: "testuser", TunnelMediumType: IntPtr(-1)}, "tunnel_medium_type must be non-negative"},
+		{"negative tunnel_type", RADIUSAccount{Name: "testuser", TunnelType: IntPtr(-1)}, "tunnel_type must be non-negative"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.account.Validate()
+			checkError(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestSettingMgmtValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		setting SettingMgmt
+		wantErr string
+	}{
+		{"valid", SettingMgmt{Key: "mgmt"}, ""},
+		{"valid with hour", SettingMgmt{Key: "mgmt", AutoUpgradeHour: IntPtr(3)}, ""},
+		{"missing key", SettingMgmt{}, "key is required"},
+		{"hour too low", SettingMgmt{Key: "mgmt", AutoUpgradeHour: IntPtr(-1)}, "auto_upgrade_hour must be between 0 and 23"},
+		{"hour too high", SettingMgmt{Key: "mgmt", AutoUpgradeHour: IntPtr(24)}, "auto_upgrade_hour must be between 0 and 23"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.setting.Validate()
+			checkError(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestSettingRadiusValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		setting SettingRadius
+		wantErr string
+	}{
+		{"valid", SettingRadius{Key: "radius"}, ""},
+		{"valid with ports", SettingRadius{Key: "radius", AuthPort: IntPtr(1812), AcctPort: IntPtr(1813)}, ""},
+		{"missing key", SettingRadius{}, "key is required"},
+		{"invalid auth_port", SettingRadius{Key: "radius", AuthPort: IntPtr(0)}, "auth_port must be between 1 and 65535"},
+		{"invalid acct_port", SettingRadius{Key: "radius", AcctPort: IntPtr(70000)}, "acct_port must be between 1 and 65535"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.setting.Validate()
+			checkError(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestSettingUSGValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		setting SettingUSG
+		wantErr string
+	}{
+		{"valid", SettingUSG{Key: "usg"}, ""},
+		{"valid with mss_clamp", SettingUSG{Key: "usg", MSSClamp: "custom"}, ""},
+		{"missing key", SettingUSG{}, "key is required"},
+		{"invalid mss_clamp", SettingUSG{Key: "usg", MSSClamp: "invalid"}, "mss_clamp must be one of"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.setting.Validate()
+			checkError(t, err, tt.wantErr)
+		})
+	}
+}

@@ -167,6 +167,84 @@ func ExampleNetworkClient_CreateUser() {
 	fmt.Printf("Created user: %s (%s -> %s)\n", user.Name, user.MAC, user.FixedIP)
 }
 
+func ExampleNewNetworkClient_apiKey() {
+	client, err := unifi.NewNetworkClient(unifi.NetworkClientConfig{
+		BaseURL: "https://192.168.1.1",
+		APIKey:  "your-api-key",
+		Site:    "default",
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// API key auth requires no Login/Logout
+	networks, err := client.ListNetworks(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Found %d networks\n", len(networks))
+}
+
+func ExampleNetworkClient_ListSites() {
+	client, err := unifi.NewNetworkClient(unifi.NetworkClientConfig{
+		BaseURL: "https://192.168.1.1",
+		APIKey:  "your-api-key",
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	sites, err := client.ListSites(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, site := range sites {
+		fmt.Printf("Site: %s (%s)\n", site.Desc, site.Name)
+	}
+}
+
+func ExampleNetworkClient_GetSettingMgmt() {
+	client, err := unifi.NewNetworkClient(unifi.NetworkClientConfig{
+		BaseURL: "https://192.168.1.1",
+		APIKey:  "your-api-key",
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	mgmt, err := client.GetSettingMgmt(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Auto-upgrade: %v, LED enabled: %v\n",
+		mgmt.AutoUpgrade, mgmt.LEDEnabled)
+}
+
+func ExampleNetworkClient_UpdateSettingMgmt() {
+	client, err := unifi.NewNetworkClient(unifi.NetworkClientConfig{
+		BaseURL: "https://192.168.1.1",
+		APIKey:  "your-api-key",
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Key is set automatically by the SDK
+	updated, err := client.UpdateSettingMgmt(context.Background(), &unifi.SettingMgmt{
+		LEDEnabled: unifi.BoolPtr(false),
+		AutoUpgrade: unifi.BoolPtr(true),
+		AutoUpgradeHour: unifi.IntPtr(3),
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Updated mgmt settings, key: %s\n", updated.Key)
+}
+
 func Example_errorHandling() {
 	client, _ := unifi.NewSiteManagerClient(unifi.SiteManagerClientConfig{
 		APIKey: "your-api-key",

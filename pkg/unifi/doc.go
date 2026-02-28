@@ -18,7 +18,7 @@
 //
 // The Network API connects directly to a UniFi controller (Dream Machine, Cloud Key,
 // or self-hosted) for full CRUD operations on network configuration including
-// networks, firewall rules, WLANs, port forwards, and more.
+// networks, firewall rules and policies, WLANs, port forwards, sites, RADIUS, settings, and more.
 //
 // Use [NewNetworkClient] to create a client:
 //
@@ -26,6 +26,13 @@
 //	    BaseURL:  "https://192.168.1.1",
 //	    Username: "admin",
 //	    Password: "password",
+//	})
+//
+// Or using API key authentication (preferred, no login required):
+//
+//	client, err := unifi.NewNetworkClient(unifi.NetworkClientConfig{
+//	    BaseURL: "https://192.168.1.1",
+//	    APIKey:  "your-api-key",
 //	})
 //
 // # Error Handling
