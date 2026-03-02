@@ -137,6 +137,9 @@ func TestNatRuleValidate(t *testing.T) {
 		{"invalid source_address", NatRule{Type: "MASQUERADE", SourceAddress: "invalid"}, "source_address must be a valid IP or CIDR"},
 		{"invalid source_port", NatRule{Type: "MASQUERADE", SourcePort: "invalid"}, "source_port must be a valid port"},
 		{"invalid translated_ip", NatRule{Type: "DNAT", TranslatedIP: "invalid"}, "translated_ip must be a valid IP"},
+		{"invalid dest_address", NatRule{Type: "DNAT", DestAddress: "invalid"}, "dest_address must be a valid IP or CIDR"},
+		{"invalid dest_port", NatRule{Type: "DNAT", DestPort: "invalid"}, "dest_port must be a valid port"},
+		{"invalid translated_port", NatRule{Type: "DNAT", TranslatedPort: "invalid"}, "translated_port must be a valid port"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -207,6 +210,8 @@ func TestRADIUSProfileValidate(t *testing.T) {
 		{"valid auth_server", RADIUSProfile{Name: "Test", AuthServers: []RADIUSServer{{IP: "192.168.1.1", Port: &validPort}}}, ""},
 		{"invalid auth_server ip", RADIUSProfile{Name: "Test", AuthServers: []RADIUSServer{{IP: "invalid"}}}, "auth_servers[0].ip must be a valid IP"},
 		{"invalid auth_server port", RADIUSProfile{Name: "Test", AuthServers: []RADIUSServer{{IP: "192.168.1.1", Port: &invalidPort}}}, "auth_servers[0].port must be between 1 and 65535"},
+		{"invalid acct_server ip", RADIUSProfile{Name: "Test", AcctServers: []RADIUSServer{{IP: "invalid"}}}, "acct_servers[0].ip must be a valid IP"},
+		{"invalid acct_server port", RADIUSProfile{Name: "Test", AcctServers: []RADIUSServer{{IP: "192.168.1.1", Port: &invalidPort}}}, "acct_servers[0].port must be between 1 and 65535"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -230,6 +235,9 @@ func TestFirewallRuleValidate(t *testing.T) {
 		{"invalid src_address", FirewallRule{Name: "Test", SrcAddress: "invalid"}, "src_address must be a valid IP or CIDR"},
 		{"invalid dst_port", FirewallRule{Name: "Test", DstPort: "invalid"}, "dst_port must be a valid port"},
 		{"invalid src_mac_address", FirewallRule{Name: "Test", SrcMACAddress: "invalid"}, "src_mac_address must be a valid MAC"},
+		{"invalid ipsec", FirewallRule{Name: "Test", IPSec: "invalid"}, "ipsec must be one of"},
+		{"invalid dst_address", FirewallRule{Name: "Test", DstAddress: "invalid"}, "dst_address must be a valid IP or CIDR"},
+		{"invalid src_port", FirewallRule{Name: "Test", SrcPort: "invalid"}, "src_port must be a valid port"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -376,6 +384,9 @@ func TestWLANConfValidate(t *testing.T) {
 		{"invalid wlan_band", WLANConf{Name: "Test", WLANBand: "invalid"}, "wlan_band must be one of"},
 		{"invalid mac_filter_policy", WLANConf{Name: "Test", MacFilterPolicy: "invalid"}, "mac_filter_policy must be one of"},
 		{"invalid mac_filter_list", WLANConf{Name: "Test", MacFilterList: []string{"invalid"}}, "mac_filter_list[0] must be a valid MAC"},
+		{"invalid pmf_mode", WLANConf{Name: "Test", PmfMode: "invalid"}, "pmf_mode must be one of"},
+		{"invalid dtim_mode", WLANConf{Name: "Test", DtimMode: "invalid"}, "dtim_mode must be one of"},
+		{"invalid ap_group_mode", WLANConf{Name: "Test", APGroupMode: "invalid"}, "ap_group_mode must be one of"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -401,6 +412,8 @@ func TestNetworkValidate(t *testing.T) {
 		{"invalid wan_gateway", Network{Name: "Test", NetworkWAN: NetworkWAN{WANGateway: "invalid"}}, "wan_gateway must be a valid IP"},
 		{"valid cidr", Network{Name: "Test", NetworkVLAN: NetworkVLAN{IPSubnet: "192.168.1.0/24"}}, ""},
 		{"valid dhcp", Network{Name: "Test", NetworkDHCP: NetworkDHCP{DHCPDStart: "192.168.1.100", DHCPDStop: "192.168.1.200"}}, ""},
+		{"invalid setting_preference", Network{Name: "Test", SettingPreference: "invalid"}, "setting_preference must be one of"},
+		{"invalid gateway_type", Network{Name: "Test", GatewayType: "invalid"}, "gateway_type must be one of"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1114,5 +1127,150 @@ func TestSettingUSGValidate(t *testing.T) {
 			err := tt.setting.Validate()
 			checkError(t, err, tt.wantErr)
 		})
+	}
+}
+
+func TestSettingSNMPValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		setting SettingSNMP
+		wantErr string
+	}{
+		{"valid", SettingSNMP{Key: "snmp"}, ""},
+		{"valid with fields", SettingSNMP{Key: "snmp", Enabled: BoolPtr(true), Community: "public"}, ""},
+		{"missing key", SettingSNMP{}, "key is required"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.setting.Validate()
+			checkError(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestSettingIPSValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		setting SettingIPS
+		wantErr string
+	}{
+		{"valid", SettingIPS{Key: "ips"}, ""},
+		{"valid with ips_mode", SettingIPS{Key: "ips", IPSMode: "ids"}, ""},
+		{"valid with filtering", SettingIPS{Key: "ips", AdvancedFilteringPreference: "manual"}, ""},
+		{"missing key", SettingIPS{}, "key is required"},
+		{"invalid ips_mode", SettingIPS{Key: "ips", IPSMode: "invalid"}, "ips_mode must be one of"},
+		{"invalid filtering pref", SettingIPS{Key: "ips", AdvancedFilteringPreference: "bad"}, "advanced_filtering_preference must be one of"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.setting.Validate()
+			checkError(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestSettingGuestAccessValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		setting SettingGuestAccess
+		wantErr string
+	}{
+		{"valid", SettingGuestAccess{Key: "guest_access"}, ""},
+		{"valid with auth", SettingGuestAccess{Key: "guest_access", Auth: "hotspot"}, ""},
+		{"valid with subnets", SettingGuestAccess{Key: "guest_access", RestrictedSubnet1: "192.168.0.0/16"}, ""},
+		{"missing key", SettingGuestAccess{}, "key is required"},
+		{"invalid auth", SettingGuestAccess{Key: "guest_access", Auth: "invalid"}, "auth must be one of"},
+		{"invalid subnet1", SettingGuestAccess{Key: "guest_access", RestrictedSubnet1: "bad"}, "restricted_subnet_1 must be a valid CIDR"},
+		{"invalid subnet2", SettingGuestAccess{Key: "guest_access", RestrictedSubnet2: "bad"}, "restricted_subnet_2 must be a valid CIDR"},
+		{"invalid subnet3", SettingGuestAccess{Key: "guest_access", RestrictedSubnet3: "bad"}, "restricted_subnet_3 must be a valid CIDR"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.setting.Validate()
+			checkError(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestRadioOverrideValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		ro      RadioOverride
+		wantErr string
+	}{
+		{"valid ng", RadioOverride{Radio: "ng"}, ""},
+		{"valid na", RadioOverride{Radio: "na"}, ""},
+		{"valid 6e", RadioOverride{Radio: "6e"}, ""},
+		{"valid with tx_power_mode", RadioOverride{Radio: "ng", TxPowerMode: "auto"}, ""},
+		{"missing radio", RadioOverride{}, "radio is required"},
+		{"invalid radio", RadioOverride{Radio: "ac"}, "radio must be one of"},
+		{"invalid tx_power_mode", RadioOverride{Radio: "ng", TxPowerMode: "bad"}, "tx_power_mode must be one of"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.ro.Validate()
+			checkError(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestDeviceConfigRadioOverridesValidate(t *testing.T) {
+	tests := []struct {
+		name   string
+		device DeviceConfig
+		wantErr string
+	}{
+		{"valid with radio overrides", DeviceConfig{RadioOverrides: []RadioOverride{{Radio: "ng"}}}, ""},
+		{"invalid radio override", DeviceConfig{RadioOverrides: []RadioOverride{{Radio: "bad"}}}, "radio_table_overrides[0]"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.device.Validate()
+			checkError(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestSettingTeleportValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		setting SettingTeleport
+		wantErr string
+	}{
+		{"valid", SettingTeleport{Key: "teleport"}, ""},
+		{"valid with cidr", SettingTeleport{Key: "teleport", SubnetCIDR: "192.168.2.0/24"}, ""},
+		{"missing key", SettingTeleport{}, "key is required"},
+		{"invalid cidr", SettingTeleport{Key: "teleport", SubnetCIDR: "bad"}, "subnet_cidr must be a valid CIDR"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.setting.Validate()
+			checkError(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestSettingMagicSiteToSiteVPNValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		setting SettingMagicSiteToSiteVPN
+		wantErr string
+	}{
+		{"valid", SettingMagicSiteToSiteVPN{Key: "magic_site_to_site_vpn"}, ""},
+		{"valid with enabled", SettingMagicSiteToSiteVPN{Key: "magic_site_to_site_vpn", Enabled: BoolPtr(true)}, ""},
+		{"missing key", SettingMagicSiteToSiteVPN{}, "key is required"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.setting.Validate()
+			checkError(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestContentFilteringValidate(t *testing.T) {
+	cf := &ContentFiltering{Enabled: BoolPtr(true)}
+	if err := cf.Validate(); err != nil {
+		t.Errorf("ContentFiltering.Validate() unexpected error: %v", err)
 	}
 }

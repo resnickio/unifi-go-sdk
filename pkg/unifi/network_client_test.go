@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,6 +16,14 @@ import (
 	"testing"
 	"time"
 )
+
+type capturingLogger struct {
+	messages []string
+}
+
+func (l *capturingLogger) Printf(format string, v ...any) {
+	l.messages = append(l.messages, fmt.Sprintf(format, v...))
+}
 
 func TestNewNetworkClient(t *testing.T) {
 	tests := []struct {
@@ -5704,6 +5713,481 @@ func TestNetworkClientSettings(t *testing.T) {
 	})
 }
 
+func TestNetworkClientNewSettings(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/self":
+			w.Header().Set("X-Csrf-Token", "test-csrf-token")
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/get/setting/snmp":
+			response := map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []map[string]any{
+					{"_id": "settingsnmp1", "key": "snmp", "enabled": false, "community": "public"},
+				},
+			}
+			json.NewEncoder(w).Encode(response)
+		case "/proxy/network/api/s/default/set/setting/snmp":
+			if r.Method == "PUT" {
+				var s SettingSNMP
+				json.NewDecoder(r.Body).Decode(&s)
+				if s.Key != "snmp" {
+					t.Errorf("expected key 'snmp', got '%s'", s.Key)
+				}
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{"_id": "settingsnmp1", "key": "snmp", "enabled": true},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			}
+		case "/proxy/network/api/s/default/get/setting/ips":
+			response := map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []map[string]any{
+					{"_id": "settingips1", "key": "ips", "ips_mode": "disabled", "honeypot_enabled": false},
+				},
+			}
+			json.NewEncoder(w).Encode(response)
+		case "/proxy/network/api/s/default/set/setting/ips":
+			if r.Method == "PUT" {
+				var s SettingIPS
+				json.NewDecoder(r.Body).Decode(&s)
+				if s.Key != "ips" {
+					t.Errorf("expected key 'ips', got '%s'", s.Key)
+				}
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{"_id": "settingips1", "key": "ips", "ips_mode": "ids"},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			}
+		case "/proxy/network/api/s/default/get/setting/guest_access":
+			response := map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []map[string]any{
+					{"_id": "settingga1", "key": "guest_access", "portal_enabled": true, "auth": "none"},
+				},
+			}
+			json.NewEncoder(w).Encode(response)
+		case "/proxy/network/api/s/default/set/setting/guest_access":
+			if r.Method == "PUT" {
+				var s SettingGuestAccess
+				json.NewDecoder(r.Body).Decode(&s)
+				if s.Key != "guest_access" {
+					t.Errorf("expected key 'guest_access', got '%s'", s.Key)
+				}
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{"_id": "settingga1", "key": "guest_access", "auth": "hotspot"},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			}
+		case "/proxy/network/api/s/default/get/setting/teleport":
+			response := map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []map[string]any{
+					{"_id": "settingtele1", "key": "teleport", "enabled": true, "subnet_cidr": "192.168.2.1/24"},
+				},
+			}
+			json.NewEncoder(w).Encode(response)
+		case "/proxy/network/api/s/default/set/setting/teleport":
+			if r.Method == "PUT" {
+				var s SettingTeleport
+				json.NewDecoder(r.Body).Decode(&s)
+				if s.Key != "teleport" {
+					t.Errorf("expected key 'teleport', got '%s'", s.Key)
+				}
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{"_id": "settingtele1", "key": "teleport", "enabled": false},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			}
+		case "/proxy/network/api/s/default/get/setting/magic_site_to_site_vpn":
+			response := map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []map[string]any{
+					{"_id": "settingvpn1", "key": "magic_site_to_site_vpn", "enabled": true},
+				},
+			}
+			json.NewEncoder(w).Encode(response)
+		case "/proxy/network/api/s/default/set/setting/magic_site_to_site_vpn":
+			if r.Method == "PUT" {
+				var s SettingMagicSiteToSiteVPN
+				json.NewDecoder(r.Body).Decode(&s)
+				if s.Key != "magic_site_to_site_vpn" {
+					t.Errorf("expected key 'magic_site_to_site_vpn', got '%s'", s.Key)
+				}
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{"_id": "settingvpn1", "key": "magic_site_to_site_vpn", "enabled": false},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			}
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewNetworkClient(NetworkClientConfig{
+		BaseURL:  server.URL,
+		Username: "admin",
+		Password: "password",
+	})
+	if err != nil {
+		t.Fatalf("NewNetworkClient() error = %v", err)
+	}
+	client.Login(context.Background())
+
+	t.Run("GetSettingSNMP", func(t *testing.T) {
+		s, err := client.GetSettingSNMP(context.Background())
+		if err != nil {
+			t.Fatalf("GetSettingSNMP() error = %v", err)
+		}
+		if s.ID != "settingsnmp1" {
+			t.Errorf("expected ID 'settingsnmp1', got '%s'", s.ID)
+		}
+		if s.Community != "public" {
+			t.Errorf("expected community 'public', got '%s'", s.Community)
+		}
+	})
+
+	t.Run("UpdateSettingSNMP", func(t *testing.T) {
+		setting := &SettingSNMP{Enabled: BoolPtr(true)}
+		result, err := client.UpdateSettingSNMP(context.Background(), setting)
+		if err != nil {
+			t.Fatalf("UpdateSettingSNMP() error = %v", err)
+		}
+		if result.ID != "settingsnmp1" {
+			t.Errorf("expected ID 'settingsnmp1', got '%s'", result.ID)
+		}
+		if setting.Key != "" {
+			t.Errorf("UpdateSettingSNMP mutated input: Key = '%s'", setting.Key)
+		}
+	})
+
+	t.Run("GetSettingIPS", func(t *testing.T) {
+		s, err := client.GetSettingIPS(context.Background())
+		if err != nil {
+			t.Fatalf("GetSettingIPS() error = %v", err)
+		}
+		if s.ID != "settingips1" {
+			t.Errorf("expected ID 'settingips1', got '%s'", s.ID)
+		}
+		if s.IPSMode != "disabled" {
+			t.Errorf("expected ips_mode 'disabled', got '%s'", s.IPSMode)
+		}
+	})
+
+	t.Run("UpdateSettingIPS", func(t *testing.T) {
+		setting := &SettingIPS{IPSMode: "ids"}
+		result, err := client.UpdateSettingIPS(context.Background(), setting)
+		if err != nil {
+			t.Fatalf("UpdateSettingIPS() error = %v", err)
+		}
+		if result.ID != "settingips1" {
+			t.Errorf("expected ID 'settingips1', got '%s'", result.ID)
+		}
+		if setting.Key != "" {
+			t.Errorf("UpdateSettingIPS mutated input: Key = '%s'", setting.Key)
+		}
+	})
+
+	t.Run("GetSettingGuestAccess", func(t *testing.T) {
+		s, err := client.GetSettingGuestAccess(context.Background())
+		if err != nil {
+			t.Fatalf("GetSettingGuestAccess() error = %v", err)
+		}
+		if s.ID != "settingga1" {
+			t.Errorf("expected ID 'settingga1', got '%s'", s.ID)
+		}
+		if s.Auth != "none" {
+			t.Errorf("expected auth 'none', got '%s'", s.Auth)
+		}
+	})
+
+	t.Run("UpdateSettingGuestAccess", func(t *testing.T) {
+		setting := &SettingGuestAccess{Auth: "hotspot"}
+		result, err := client.UpdateSettingGuestAccess(context.Background(), setting)
+		if err != nil {
+			t.Fatalf("UpdateSettingGuestAccess() error = %v", err)
+		}
+		if result.ID != "settingga1" {
+			t.Errorf("expected ID 'settingga1', got '%s'", result.ID)
+		}
+		if setting.Key != "" {
+			t.Errorf("UpdateSettingGuestAccess mutated input: Key = '%s'", setting.Key)
+		}
+	})
+
+	t.Run("GetSettingTeleport", func(t *testing.T) {
+		s, err := client.GetSettingTeleport(context.Background())
+		if err != nil {
+			t.Fatalf("GetSettingTeleport() error = %v", err)
+		}
+		if s.ID != "settingtele1" {
+			t.Errorf("expected ID 'settingtele1', got '%s'", s.ID)
+		}
+		if s.SubnetCIDR != "192.168.2.1/24" {
+			t.Errorf("expected subnet_cidr '192.168.2.1/24', got '%s'", s.SubnetCIDR)
+		}
+	})
+
+	t.Run("UpdateSettingTeleport", func(t *testing.T) {
+		setting := &SettingTeleport{Enabled: BoolPtr(false)}
+		result, err := client.UpdateSettingTeleport(context.Background(), setting)
+		if err != nil {
+			t.Fatalf("UpdateSettingTeleport() error = %v", err)
+		}
+		if result.ID != "settingtele1" {
+			t.Errorf("expected ID 'settingtele1', got '%s'", result.ID)
+		}
+		if setting.Key != "" {
+			t.Errorf("UpdateSettingTeleport mutated input: Key = '%s'", setting.Key)
+		}
+	})
+
+	t.Run("GetSettingMagicSiteToSiteVPN", func(t *testing.T) {
+		s, err := client.GetSettingMagicSiteToSiteVPN(context.Background())
+		if err != nil {
+			t.Fatalf("GetSettingMagicSiteToSiteVPN() error = %v", err)
+		}
+		if s.ID != "settingvpn1" {
+			t.Errorf("expected ID 'settingvpn1', got '%s'", s.ID)
+		}
+	})
+
+	t.Run("UpdateSettingMagicSiteToSiteVPN", func(t *testing.T) {
+		setting := &SettingMagicSiteToSiteVPN{Enabled: BoolPtr(false)}
+		result, err := client.UpdateSettingMagicSiteToSiteVPN(context.Background(), setting)
+		if err != nil {
+			t.Fatalf("UpdateSettingMagicSiteToSiteVPN() error = %v", err)
+		}
+		if result.ID != "settingvpn1" {
+			t.Errorf("expected ID 'settingvpn1', got '%s'", result.ID)
+		}
+		if setting.Key != "" {
+			t.Errorf("UpdateSettingMagicSiteToSiteVPN mutated input: Key = '%s'", setting.Key)
+		}
+	})
+}
+
+func TestNetworkClientContentFilteringUpdate(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/v2/api/site/default/content-filtering":
+			if r.Method == "PUT" {
+				var cf ContentFiltering
+				json.NewDecoder(r.Body).Decode(&cf)
+				response := []map[string]any{
+					{"enabled": true, "blocked_categories": []string{"adult"}},
+				}
+				json.NewEncoder(w).Encode(response)
+			} else {
+				response := []map[string]any{
+					{"enabled": true, "blocked_categories": []string{"adult"}},
+				}
+				json.NewEncoder(w).Encode(response)
+			}
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL:  server.URL,
+		Username: "admin",
+		Password: "password",
+	})
+	client.Login(context.Background())
+
+	cf := &ContentFiltering{Enabled: BoolPtr(true), BlockedCategories: []string{"adult"}}
+	result, err := client.UpdateContentFiltering(context.Background(), cf)
+	if err != nil {
+		t.Fatalf("UpdateContentFiltering() error = %v", err)
+	}
+	if result.Enabled == nil || !*result.Enabled {
+		t.Error("expected content filtering to be enabled")
+	}
+}
+
+func TestNetworkClientBackups(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/cmd/backup":
+			var cmd map[string]any
+			json.NewDecoder(r.Body).Decode(&cmd)
+			switch cmd["cmd"] {
+			case "list-backups":
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{"filename": "backup1.unf", "version": "9.3.43", "size": 53328},
+						{"filename": "backup2.unf", "version": "10.0.162", "size": 151632},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			case "backup":
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []any{},
+				}
+				json.NewEncoder(w).Encode(response)
+			case "delete-backup":
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []any{},
+				}
+				json.NewEncoder(w).Encode(response)
+			}
+		case "/proxy/network/dl/autobackup/backup1.unf":
+			w.Write([]byte("fake-backup-data"))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL:  server.URL,
+		Username: "admin",
+		Password: "password",
+	})
+	client.Login(context.Background())
+
+	t.Run("ListBackups", func(t *testing.T) {
+		backups, err := client.ListBackups(context.Background())
+		if err != nil {
+			t.Fatalf("ListBackups() error = %v", err)
+		}
+		if len(backups) != 2 {
+			t.Errorf("expected 2 backups, got %d", len(backups))
+		}
+		if backups[0].Filename != "backup1.unf" {
+			t.Errorf("expected filename 'backup1.unf', got '%s'", backups[0].Filename)
+		}
+	})
+
+	t.Run("CreateBackup", func(t *testing.T) {
+		err := client.CreateBackup(context.Background())
+		if err != nil {
+			t.Fatalf("CreateBackup() error = %v", err)
+		}
+	})
+
+	t.Run("DeleteBackup", func(t *testing.T) {
+		err := client.DeleteBackup(context.Background(), "backup1.unf")
+		if err != nil {
+			t.Fatalf("DeleteBackup() error = %v", err)
+		}
+	})
+
+	t.Run("DownloadBackup", func(t *testing.T) {
+		data, err := client.DownloadBackup(context.Background(), "backup1.unf")
+		if err != nil {
+			t.Fatalf("DownloadBackup() error = %v", err)
+		}
+		if string(data) != "fake-backup-data" {
+			t.Errorf("expected 'fake-backup-data', got '%s'", string(data))
+		}
+	})
+}
+
+func TestDownloadBackupLargeFile(t *testing.T) {
+	const largeSize = 10*1024*1024 + 1 // 10MB + 1 byte, exceeds maxResponseBodySize
+	largeBody := make([]byte, largeSize)
+	for i := range largeBody {
+		largeBody[i] = byte(i % 256)
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/dl/autobackup/large-backup.unf":
+			w.Write(largeBody)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL:  server.URL,
+		Username: "admin",
+		Password: "password",
+	})
+	client.Login(context.Background())
+
+	data, err := client.DownloadBackup(context.Background(), "large-backup.unf")
+	if err != nil {
+		t.Fatalf("DownloadBackup() error = %v", err)
+	}
+	if len(data) != largeSize {
+		t.Errorf("expected %d bytes, got %d (backup was truncated)", largeSize, len(data))
+	}
+}
+
+func TestNetworkClientAdmins(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/cmd/sitemgr":
+			var cmd map[string]string
+			json.NewDecoder(r.Body).Decode(&cmd)
+			if cmd["cmd"] == "get-admins" {
+				response := map[string]any{
+					"meta": map[string]string{"rc": "ok"},
+					"data": []map[string]any{
+						{"_id": "admin1", "name": "admin", "email": "admin@test.com", "is_super": true},
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			}
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL:  server.URL,
+		Username: "admin",
+		Password: "password",
+	})
+	client.Login(context.Background())
+
+	admins, err := client.ListAdmins(context.Background())
+	if err != nil {
+		t.Fatalf("ListAdmins() error = %v", err)
+	}
+	if len(admins) != 1 {
+		t.Errorf("expected 1 admin, got %d", len(admins))
+	}
+	if admins[0].Name != "admin" {
+		t.Errorf("expected name 'admin', got '%s'", admins[0].Name)
+	}
+}
+
 func TestNetworkClientSettingsEmptyResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -5750,5 +6234,731 @@ func TestNetworkClientSettingsEmptyResponse(t *testing.T) {
 	}
 	if result.ID != "settingmgmt1" {
 		t.Errorf("expected fallback to Get, got ID '%s'", result.ID)
+	}
+}
+
+// Gap 1: Empty response branches for Create/Update methods
+
+func TestNetworkClientCreateEmptyResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/proxy/network/api/s/default/rest/") ||
+			strings.HasPrefix(r.URL.Path, "/proxy/network/api/s/default/group/") {
+			json.NewEncoder(w).Encode(map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []any{},
+			})
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL,
+		APIKey:  "test-api-key",
+	})
+
+	ctx := context.Background()
+
+	tests := []struct {
+		name string
+		fn   func() error
+	}{
+		{"CreateNetwork", func() error {
+			_, err := client.CreateNetwork(ctx, &Network{Name: "Test", NetworkVLAN: NetworkVLAN{IPSubnet: "10.0.0.0/24"}})
+			return err
+		}},
+		{"CreateFirewallRule", func() error {
+			_, err := client.CreateFirewallRule(ctx, &FirewallRule{Name: "Test"})
+			return err
+		}},
+		{"CreateFirewallGroup", func() error {
+			_, err := client.CreateFirewallGroup(ctx, &FirewallGroup{Name: "Test"})
+			return err
+		}},
+		{"CreatePortForward", func() error {
+			_, err := client.CreatePortForward(ctx, &PortForward{Name: "Test"})
+			return err
+		}},
+		{"CreateWLAN", func() error {
+			_, err := client.CreateWLAN(ctx, &WLANConf{Name: "Test"})
+			return err
+		}},
+		{"CreatePortConf", func() error {
+			_, err := client.CreatePortConf(ctx, &PortConf{Name: "Test"})
+			return err
+		}},
+		{"CreateRoute", func() error {
+			_, err := client.CreateRoute(ctx, &Routing{Name: "Test"})
+			return err
+		}},
+		{"CreateUserGroup", func() error {
+			_, err := client.CreateUserGroup(ctx, &UserGroup{Name: "Test"})
+			return err
+		}},
+		{"CreateRADIUSProfile", func() error {
+			_, err := client.CreateRADIUSProfile(ctx, &RADIUSProfile{Name: "Test"})
+			return err
+		}},
+		{"CreateDynamicDNS", func() error {
+			_, err := client.CreateDynamicDNS(ctx, &DynamicDNS{Service: "cloudflare", HostName: "test.example.com"})
+			return err
+		}},
+		{"CreateUser", func() error {
+			_, err := client.CreateUser(ctx, &User{MAC: "00:11:22:33:44:55"})
+			return err
+		}},
+		{"CreateRADIUSAccount", func() error {
+			_, err := client.CreateRADIUSAccount(ctx, &RADIUSAccount{Name: "Test", XPassword: "pass123"})
+			return err
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.fn()
+			if !errors.Is(err, ErrEmptyResponse) {
+				t.Errorf("expected ErrEmptyResponse, got %v", err)
+			}
+		})
+	}
+}
+
+func TestNetworkClientUpdateEmptyResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/proxy/network/api/s/default/rest/") {
+			json.NewEncoder(w).Encode(map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []any{},
+			})
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL,
+		APIKey:  "test-api-key",
+	})
+
+	ctx := context.Background()
+
+	tests := []struct {
+		name string
+		fn   func() error
+	}{
+		{"UpdateNetwork", func() error {
+			_, err := client.UpdateNetwork(ctx, "id1", &Network{Name: "Test", NetworkVLAN: NetworkVLAN{IPSubnet: "10.0.0.0/24"}})
+			return err
+		}},
+		{"UpdateFirewallRule", func() error {
+			_, err := client.UpdateFirewallRule(ctx, "id1", &FirewallRule{Name: "Test"})
+			return err
+		}},
+		{"UpdateFirewallGroup", func() error {
+			_, err := client.UpdateFirewallGroup(ctx, "id1", &FirewallGroup{Name: "Test"})
+			return err
+		}},
+		{"UpdatePortForward", func() error {
+			_, err := client.UpdatePortForward(ctx, "id1", &PortForward{Name: "Test"})
+			return err
+		}},
+		{"UpdateWLAN", func() error {
+			_, err := client.UpdateWLAN(ctx, "id1", &WLANConf{Name: "Test"})
+			return err
+		}},
+		{"UpdateRoute", func() error {
+			_, err := client.UpdateRoute(ctx, "id1", &Routing{Name: "Test"})
+			return err
+		}},
+		{"UpdateUserGroup", func() error {
+			_, err := client.UpdateUserGroup(ctx, "id1", &UserGroup{Name: "Test"})
+			return err
+		}},
+		{"UpdateRADIUSProfile", func() error {
+			_, err := client.UpdateRADIUSProfile(ctx, "id1", &RADIUSProfile{Name: "Test"})
+			return err
+		}},
+		{"UpdateDynamicDNS", func() error {
+			_, err := client.UpdateDynamicDNS(ctx, "id1", &DynamicDNS{Service: "cloudflare", HostName: "test.example.com"})
+			return err
+		}},
+		{"UpdateUser", func() error {
+			_, err := client.UpdateUser(ctx, "id1", &User{MAC: "00:11:22:33:44:55"})
+			return err
+		}},
+		{"UpdateRADIUSAccount", func() error {
+			_, err := client.UpdateRADIUSAccount(ctx, "id1", &RADIUSAccount{Name: "Test", XPassword: "pass123"})
+			return err
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.fn()
+			if !errors.Is(err, ErrEmptyResponse) {
+				t.Errorf("expected ErrEmptyResponse, got %v", err)
+			}
+		})
+	}
+}
+
+func TestNetworkClientUpdatePortConfEmptyResponseFallback(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" && strings.Contains(r.URL.Path, "/rest/portconf/id1") {
+			json.NewEncoder(w).Encode(map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []map[string]any{{"_id": "id1", "name": "Fallback"}},
+			})
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/proxy/network/api/s/default/rest/") {
+			json.NewEncoder(w).Encode(map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []any{},
+			})
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL,
+		APIKey:  "test-api-key",
+	})
+
+	result, err := client.UpdatePortConf(context.Background(), "id1", &PortConf{Name: "Test"})
+	if err != nil {
+		t.Fatalf("UpdatePortConf() error = %v", err)
+	}
+	if result.Name != "Fallback" {
+		t.Errorf("expected fallback result with name 'Fallback', got '%s'", result.Name)
+	}
+}
+
+// Gap 2: Settings Get empty response and Update empty response with fallback
+
+func TestNetworkClientSettingsGetEmptyResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/get/setting/") {
+			json.NewEncoder(w).Encode(map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []any{},
+			})
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL,
+		APIKey:  "test-api-key",
+	})
+
+	ctx := context.Background()
+
+	tests := []struct {
+		name string
+		fn   func() error
+	}{
+		{"GetSettingMgmt", func() error { _, err := client.GetSettingMgmt(ctx); return err }},
+		{"GetSettingRadius", func() error { _, err := client.GetSettingRadius(ctx); return err }},
+		{"GetSettingUSG", func() error { _, err := client.GetSettingUSG(ctx); return err }},
+		{"GetSettingSNMP", func() error { _, err := client.GetSettingSNMP(ctx); return err }},
+		{"GetSettingIPS", func() error { _, err := client.GetSettingIPS(ctx); return err }},
+		{"GetSettingGuestAccess", func() error { _, err := client.GetSettingGuestAccess(ctx); return err }},
+		{"GetSettingTeleport", func() error { _, err := client.GetSettingTeleport(ctx); return err }},
+		{"GetSettingMagicSiteToSiteVPN", func() error { _, err := client.GetSettingMagicSiteToSiteVPN(ctx); return err }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.fn()
+			if !errors.Is(err, ErrNotFound) {
+				t.Errorf("expected ErrNotFound, got %v", err)
+			}
+		})
+	}
+}
+
+func TestNetworkClientSettingsUpdateEmptyResponseFallback(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/set/setting/") {
+			json.NewEncoder(w).Encode(map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []any{},
+			})
+			return
+		}
+		if strings.Contains(r.URL.Path, "/get/setting/") {
+			json.NewEncoder(w).Encode(map[string]any{
+				"meta": map[string]string{"rc": "ok"},
+				"data": []map[string]any{{"_id": "setting1", "key": "test"}},
+			})
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL,
+		APIKey:  "test-api-key",
+	})
+
+	ctx := context.Background()
+
+	tests := []struct {
+		name string
+		fn   func() (string, error)
+	}{
+		{"UpdateSettingRadius", func() (string, error) {
+			r, err := client.UpdateSettingRadius(ctx, &SettingRadius{})
+			if r != nil {
+				return r.ID, err
+			}
+			return "", err
+		}},
+		{"UpdateSettingUSG", func() (string, error) {
+			r, err := client.UpdateSettingUSG(ctx, &SettingUSG{})
+			if r != nil {
+				return r.ID, err
+			}
+			return "", err
+		}},
+		{"UpdateSettingSNMP", func() (string, error) {
+			r, err := client.UpdateSettingSNMP(ctx, &SettingSNMP{})
+			if r != nil {
+				return r.ID, err
+			}
+			return "", err
+		}},
+		{"UpdateSettingIPS", func() (string, error) {
+			r, err := client.UpdateSettingIPS(ctx, &SettingIPS{})
+			if r != nil {
+				return r.ID, err
+			}
+			return "", err
+		}},
+		{"UpdateSettingGuestAccess", func() (string, error) {
+			r, err := client.UpdateSettingGuestAccess(ctx, &SettingGuestAccess{})
+			if r != nil {
+				return r.ID, err
+			}
+			return "", err
+		}},
+		{"UpdateSettingTeleport", func() (string, error) {
+			r, err := client.UpdateSettingTeleport(ctx, &SettingTeleport{})
+			if r != nil {
+				return r.ID, err
+			}
+			return "", err
+		}},
+		{"UpdateSettingMagicSiteToSiteVPN", func() (string, error) {
+			r, err := client.UpdateSettingMagicSiteToSiteVPN(ctx, &SettingMagicSiteToSiteVPN{})
+			if r != nil {
+				return r.ID, err
+			}
+			return "", err
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			id, err := tt.fn()
+			if err != nil {
+				t.Fatalf("error = %v", err)
+			}
+			if id != "setting1" {
+				t.Errorf("expected fallback ID 'setting1', got '%s'", id)
+			}
+		})
+	}
+}
+
+func TestNetworkClientUpdateContentFilteringEmptyResponseFallback(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "PUT" {
+			json.NewEncoder(w).Encode([]any{})
+			return
+		}
+		if r.Method == "GET" {
+			json.NewEncoder(w).Encode([]map[string]any{{"_id": "cf1", "enabled": true}})
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL,
+		APIKey:  "test-api-key",
+	})
+
+	result, err := client.UpdateContentFiltering(context.Background(), &ContentFiltering{Enabled: BoolPtr(true)})
+	if err != nil {
+		t.Fatalf("UpdateContentFiltering() error = %v", err)
+	}
+	if result.Enabled == nil || !*result.Enabled {
+		t.Error("expected fallback result with enabled=true")
+	}
+}
+
+// Gap 3: DownloadBackup edge cases
+
+func TestDownloadBackupNotLoggedIn(t *testing.T) {
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL:  "https://192.168.1.1",
+		Username: "admin",
+		Password: "password",
+	})
+
+	_, err := client.DownloadBackup(context.Background(), "backup.unf")
+	if err == nil {
+		t.Fatal("expected error when not logged in")
+	}
+	if !strings.Contains(err.Error(), "not logged in") {
+		t.Errorf("expected 'not logged in' error, got %v", err)
+	}
+}
+
+func TestDownloadBackupAPIKey(t *testing.T) {
+	var receivedAPIKey string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedAPIKey = r.Header.Get("X-API-KEY")
+		w.Write([]byte("backup-data-contents"))
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL,
+		APIKey:  "test-api-key",
+	})
+
+	data, err := client.DownloadBackup(context.Background(), "backup.unf")
+	if err != nil {
+		t.Fatalf("DownloadBackup() error = %v", err)
+	}
+	if string(data) != "backup-data-contents" {
+		t.Errorf("expected 'backup-data-contents', got %q", string(data))
+	}
+	if receivedAPIKey != "test-api-key" {
+		t.Errorf("expected X-API-KEY header 'test-api-key', got %q", receivedAPIKey)
+	}
+}
+
+func TestDownloadBackupHTTPError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"error": "not found"}`))
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL,
+		APIKey:  "test-api-key",
+	})
+
+	_, err := client.DownloadBackup(context.Background(), "missing.unf")
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
+}
+
+// Gap 4: doOnce/doV2Once malformed JSON
+
+func TestDoOnceMalformedJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{invalid json`))
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL,
+		APIKey:  "test-api-key",
+	})
+
+	_, err := client.ListNetworks(context.Background())
+	if err == nil {
+		t.Fatal("expected error for malformed JSON")
+	}
+	if !strings.Contains(err.Error(), "decoding response") {
+		t.Errorf("expected 'decoding response' error, got %v", err)
+	}
+}
+
+func TestDoOnceMalformedData(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"meta": map[string]string{"rc": "ok"},
+			"data": "not-an-array",
+		})
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL,
+		APIKey:  "test-api-key",
+	})
+
+	_, err := client.ListNetworks(context.Background())
+	if err == nil {
+		t.Fatal("expected error for malformed data")
+	}
+	if !strings.Contains(err.Error(), "unmarshaling response data") {
+		t.Errorf("expected 'unmarshaling response data' error, got %v", err)
+	}
+}
+
+func TestDoV2OnceMalformedJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{invalid json`))
+	}))
+	defer server.Close()
+
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL,
+		APIKey:  "test-api-key",
+	})
+
+	_, err := client.ListFirewallPolicies(context.Background())
+	if err == nil {
+		t.Fatal("expected error for malformed JSON")
+	}
+	if !strings.Contains(err.Error(), "decoding response") {
+		t.Errorf("expected 'decoding response' error, got %v", err)
+	}
+}
+
+// Gap 5: Logger paths during auth
+
+func TestLoginWithLogger(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/self":
+			w.Header().Set("X-Csrf-Token", "test-csrf-token")
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer server.Close()
+
+	logger := &capturingLogger{}
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL:  server.URL,
+		Username: "admin",
+		Password: "password",
+		Logger:   logger,
+	})
+
+	if err := client.Login(context.Background()); err != nil {
+		t.Fatalf("Login() error = %v", err)
+	}
+
+	hasPost := false
+	has200 := false
+	hasCSRF := false
+	for _, msg := range logger.messages {
+		if strings.Contains(msg, "-> POST") {
+			hasPost = true
+		}
+		if strings.Contains(msg, "<- 200") {
+			has200 = true
+		}
+		if strings.Contains(msg, "acquired CSRF token") {
+			hasCSRF = true
+		}
+	}
+	if !hasPost {
+		t.Error("expected logger to contain '-> POST' message")
+	}
+	if !has200 {
+		t.Error("expected logger to contain '<- 200' message")
+	}
+	if !hasCSRF {
+		t.Error("expected logger to contain 'acquired CSRF token' message")
+	}
+}
+
+func TestLoginFailureWithLogger(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"error": "invalid"}`))
+	}))
+	defer server.Close()
+
+	logger := &capturingLogger{}
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL:  server.URL,
+		Username: "admin",
+		Password: "wrong",
+		Logger:   logger,
+	})
+
+	_ = client.Login(context.Background())
+
+	hasPost := false
+	has401 := false
+	for _, msg := range logger.messages {
+		if strings.Contains(msg, "-> POST") {
+			hasPost = true
+		}
+		if strings.Contains(msg, "<- 401") {
+			has401 = true
+		}
+	}
+	if !hasPost {
+		t.Error("expected logger to contain '-> POST' message")
+	}
+	if !has401 {
+		t.Error("expected logger to contain '<- 401' message")
+	}
+}
+
+func TestLogoutWithLogger(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/self":
+			w.Header().Set("X-Csrf-Token", "test-csrf-token")
+			w.WriteHeader(http.StatusOK)
+		case "/api/auth/logout":
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer server.Close()
+
+	logger := &capturingLogger{}
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL:  server.URL,
+		Username: "admin",
+		Password: "password",
+		Logger:   logger,
+	})
+
+	client.Login(context.Background())
+	logger.messages = nil // reset
+
+	if err := client.Logout(context.Background()); err != nil {
+		t.Fatalf("Logout() error = %v", err)
+	}
+
+	hasPost := false
+	has200 := false
+	for _, msg := range logger.messages {
+		if strings.Contains(msg, "-> POST") && strings.Contains(msg, "logout") {
+			hasPost = true
+		}
+		if strings.Contains(msg, "<- 200") {
+			has200 = true
+		}
+	}
+	if !hasPost {
+		t.Error("expected logger to contain '-> POST .../logout' message")
+	}
+	if !has200 {
+		t.Error("expected logger to contain '<- 200' message")
+	}
+}
+
+func TestCSRFTokenWithLogger(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth/login":
+			w.WriteHeader(http.StatusOK)
+		case "/proxy/network/api/s/default/self":
+			w.Header().Set("X-Csrf-Token", "my-csrf-token")
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer server.Close()
+
+	logger := &capturingLogger{}
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL:  server.URL,
+		Username: "admin",
+		Password: "password",
+		Logger:   logger,
+	})
+
+	client.Login(context.Background())
+
+	hasCSRF := false
+	for _, msg := range logger.messages {
+		if strings.Contains(msg, "acquired CSRF token") {
+			hasCSRF = true
+		}
+	}
+	if !hasCSRF {
+		t.Error("expected logger to contain 'acquired CSRF token' message")
+	}
+}
+
+func TestDownloadBackupWithLogger(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("backup-data"))
+	}))
+	defer server.Close()
+
+	logger := &capturingLogger{}
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL: server.URL,
+		APIKey:  "test-api-key",
+		Logger:  logger,
+	})
+
+	_, err := client.DownloadBackup(context.Background(), "backup.unf")
+	if err != nil {
+		t.Fatalf("DownloadBackup() error = %v", err)
+	}
+
+	hasGet := false
+	has200 := false
+	for _, msg := range logger.messages {
+		if strings.Contains(msg, "-> GET") {
+			hasGet = true
+		}
+		if strings.Contains(msg, "<- 200") {
+			has200 = true
+		}
+	}
+	if !hasGet {
+		t.Error("expected logger to contain '-> GET' message")
+	}
+	if !has200 {
+		t.Error("expected logger to contain '<- 200' message")
+	}
+}
+
+func TestDownloadBackupTransportErrorWithLogger(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	server.Close() // close immediately to force transport error
+
+	logger := &capturingLogger{}
+	client, _ := NewNetworkClient(NetworkClientConfig{
+		BaseURL:    server.URL,
+		APIKey:     "test-api-key",
+		Logger:     logger,
+		MaxRetries: IntPtr(0),
+	})
+
+	_, err := client.DownloadBackup(context.Background(), "backup.unf")
+	if err == nil {
+		t.Fatal("expected transport error")
+	}
+
+	hasError := false
+	for _, msg := range logger.messages {
+		if strings.Contains(msg, "<- error:") {
+			hasError = true
+		}
+	}
+	if !hasError {
+		t.Error("expected logger to contain '<- error:' message")
 	}
 }
