@@ -68,7 +68,13 @@ tags:
   - name: Devices
     description: Network devices (v2 API)
   - name: VPN
-    description: VPN connections (v2 API)
+    description: VPN connections and settings
+  - name: Content Filtering
+    description: Content filtering configuration (v2 API)
+  - name: Backups
+    description: Backup operations (Legacy REST)
+  - name: Admins
+    description: Admin management (Legacy REST)
 
 paths:
   # Authentication endpoints use the controller root URL, not /proxy/network
@@ -1653,6 +1659,103 @@ paths:
   # Settings (Legacy REST)
   # ============================================
 
+  /v2/api/site/{site}/content-filtering:
+    get:
+      tags: [Content Filtering]
+      summary: Get content filtering configuration
+      operationId: getContentFiltering
+      parameters:
+        - $ref: '#/components/parameters/site'
+      responses:
+        '200':
+          description: Content filtering configuration
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ContentFiltering'
+    put:
+      tags: [Content Filtering]
+      summary: Update content filtering configuration
+      operationId: updateContentFiltering
+      parameters:
+        - $ref: '#/components/parameters/site'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentFiltering'
+      responses:
+        '200':
+          description: Content filtering updated
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ContentFiltering'
+
+  /api/s/{site}/cmd/backup:
+    post:
+      tags: [Backups]
+      summary: Backup operations
+      description: |
+        Commands: list-backups, backup, delete-backup.
+        For delete-backup, include "filename" in the request body.
+      operationId: backupCmd
+      parameters:
+        - $ref: '#/components/parameters/siteLegacy'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cmd]
+              properties:
+                cmd:
+                  type: string
+                  enum: [list-backups, backup, delete-backup]
+                filename:
+                  type: string
+      responses:
+        '200':
+          description: Command result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestResponse'
+
+  /api/s/{site}/cmd/sitemgr:
+    post:
+      tags: [Admins]
+      summary: Site manager commands
+      description: |
+        Commands: get-admins (list admins for the site).
+      operationId: sitemgrCmd
+      parameters:
+        - $ref: '#/components/parameters/siteLegacy'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cmd]
+              properties:
+                cmd:
+                  type: string
+                  enum: [get-admins, delete-device]
+      responses:
+        '200':
+          description: Command result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestResponse'
+
   /api/s/{site}/get/setting/{key}:
     get:
       tags: [Settings]
@@ -1725,7 +1828,7 @@ components:
       description: Setting key
       schema:
         type: string
-        enum: [mgmt, radius, usg]
+        enum: [mgmt, radius, usg, snmp, ips, guest_access, teleport, magic_site_to_site_vpn]
 
   schemas:
     RestResponse:
@@ -3579,6 +3682,259 @@ components:
         snmp_location:
           type: string
           description: SNMP location
+        radio_table_overrides:
+          type: array
+          items:
+            $ref: '#/components/schemas/RadioOverride'
+          description: Per-radio configuration overrides
+
+    RadioOverride:
+      type: object
+      properties:
+        radio:
+          type: string
+          enum: [ng, na, 6e]
+          description: Radio band (ng=2.4GHz, na=5GHz, 6e=6GHz)
+        name:
+          type: string
+          description: Radio interface name (e.g., wifi0, wifi1)
+        channel:
+          type: integer
+          description: Channel number (0 for auto)
+        ht:
+          type: integer
+          description: Channel width (20, 40, 80, 160)
+        tx_power_mode:
+          type: string
+          enum: [auto, low, medium, high, custom]
+        tx_power:
+          type: integer
+          description: Transmit power (when tx_power_mode is custom)
+        min_rssi_enabled:
+          type: boolean
+        min_rssi:
+          type: integer
+          description: Minimum RSSI threshold
+        antenna_gain:
+          type: integer
+        vwire_enabled:
+          type: boolean
+        loadbalance_enabled:
+          type: boolean
+
+    ContentFiltering:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        blocked_categories:
+          type: array
+          items:
+            type: string
+        allowed_domains:
+          type: array
+          items:
+            type: string
+        blocked_domains:
+          type: array
+          items:
+            type: string
+
+    SettingSNMP:
+      type: object
+      properties:
+        _id:
+          type: string
+        site_id:
+          type: string
+        key:
+          type: string
+        enabled:
+          type: boolean
+        community:
+          type: string
+        enabledV3:
+          type: boolean
+        username:
+          type: string
+        x_password:
+          type: string
+
+    SettingIPS:
+      type: object
+      properties:
+        _id:
+          type: string
+        site_id:
+          type: string
+        key:
+          type: string
+        ips_mode:
+          type: string
+          enum: [disabled, ids, ips]
+        dns_filtering:
+          type: boolean
+        dns_filters:
+          type: array
+          items:
+            $ref: '#/components/schemas/DNSFilter'
+        enabled_categories:
+          type: array
+          items:
+            type: string
+        honeypot_enabled:
+          type: boolean
+        endpoint_scanning:
+          type: boolean
+        ad_blocking_enabled:
+          type: boolean
+        advanced_filtering_preference:
+          type: string
+          enum: [disabled, manual, auto]
+        content_filtering_blocking_page_enabled:
+          type: boolean
+        memory_optimized:
+          type: boolean
+
+    DNSFilter:
+      type: object
+      properties:
+        filter:
+          type: string
+        network_id:
+          type: string
+        blocked_tld:
+          type: array
+          items:
+            type: string
+        blocked_sites:
+          type: array
+          items:
+            type: string
+        allowed_sites:
+          type: array
+          items:
+            type: string
+        name:
+          type: string
+        description:
+          type: string
+        version:
+          type: string
+
+    SettingGuestAccess:
+      type: object
+      properties:
+        _id:
+          type: string
+        site_id:
+          type: string
+        key:
+          type: string
+        portal_enabled:
+          type: boolean
+        portal_customized:
+          type: boolean
+        auth:
+          type: string
+          enum: [none, password, hotspot, radius, custom]
+        expire:
+          type: integer
+        expire_number:
+          type: integer
+        expire_unit:
+          type: integer
+        redirect_enabled:
+          type: boolean
+        redirect_https:
+          type: boolean
+        restricted_subnet_1:
+          type: string
+        restricted_subnet_2:
+          type: string
+        restricted_subnet_3:
+          type: string
+        template_engine:
+          type: string
+
+    SettingTeleport:
+      type: object
+      properties:
+        _id:
+          type: string
+        site_id:
+          type: string
+        key:
+          type: string
+        enabled:
+          type: boolean
+        subnet_cidr:
+          type: string
+
+    SettingMagicSiteToSiteVPN:
+      type: object
+      properties:
+        _id:
+          type: string
+        site_id:
+          type: string
+        key:
+          type: string
+        enabled:
+          type: boolean
+        public_key:
+          type: string
+        x_private_key:
+          type: string
+
+    Backup:
+      type: object
+      properties:
+        controller_name:
+          type: string
+        filename:
+          type: string
+        type:
+          type: string
+        version:
+          type: string
+        time:
+          type: integer
+          format: int64
+        datetime:
+          type: string
+        format:
+          type: string
+        days:
+          type: integer
+        keep_forever:
+          type: boolean
+        note:
+          type: string
+        size:
+          type: integer
+          format: int64
+
+    Admin:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        email_alert_enabled:
+          type: boolean
+        role:
+          type: string
+        is_super:
+          type: boolean
+        is_verified:
+          type: boolean
+        time_created:
+          type: integer
+          format: int64
 
   securitySchemes:
     cookieAuth:

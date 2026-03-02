@@ -1056,12 +1056,17 @@ type QosRule struct {
 	Description string `json:"description,omitempty"`
 }
 
-// ContentFiltering represents content filtering configuration (v2 API, read-only).
+// ContentFiltering represents content filtering configuration (v2 API).
 type ContentFiltering struct {
 	Enabled           *bool    `json:"enabled,omitempty"`
 	BlockedCategories []string `json:"blocked_categories,omitempty"`
 	AllowedDomains    []string `json:"allowed_domains,omitempty"`
 	BlockedDomains    []string `json:"blocked_domains,omitempty"`
+}
+
+// Validate checks that ContentFiltering fields have valid values.
+func (c *ContentFiltering) Validate() error {
+	return nil
 }
 
 // VpnConnection represents a VPN tunnel connection status (v2 API, read-only).
@@ -1727,6 +1732,7 @@ type DeviceConfig struct {
 	Version                    string               `json:"version,omitempty"`
 	IP                         string               `json:"ip,omitempty"`
 	PortOverrides              []PortOverride       `json:"port_overrides,omitempty"`
+	RadioOverrides             []RadioOverride      `json:"radio_table_overrides,omitempty"`
 	MgmtNetworkID              string               `json:"mgmt_network_id,omitempty"`
 	ConfigNetwork              *DeviceConfigNetwork `json:"config_network,omitempty"`
 	LedOverride                string               `json:"led_override,omitempty"`
@@ -1745,6 +1751,11 @@ func (d *DeviceConfig) Validate() error {
 	for i, po := range d.PortOverrides {
 		if err := po.Validate(); err != nil {
 			return fmt.Errorf("device: port_overrides[%d]: %w", i, err)
+		}
+	}
+	for i, ro := range d.RadioOverrides {
+		if err := ro.Validate(); err != nil {
+			return fmt.Errorf("device: radio_table_overrides[%d]: %w", i, err)
 		}
 	}
 	return nil
@@ -1887,4 +1898,250 @@ func (s *SettingUSG) Validate() error {
 		return fmt.Errorf("settingusg: mss_clamp must be one of: custom, auto, none")
 	}
 	return nil
+}
+
+// SettingSNMP represents SNMP settings for a UniFi site.
+type SettingSNMP struct {
+	ID        string `json:"_id,omitempty"`
+	SiteID    string `json:"site_id,omitempty"`
+	Key       string `json:"key"`
+	Enabled   *bool  `json:"enabled,omitempty"`
+	Community string `json:"community,omitempty"`
+	EnabledV3 *bool  `json:"enabledV3,omitempty"`
+	Username  string `json:"username,omitempty"`
+	XPassword string `json:"x_password,omitempty"`
+}
+
+// Validate checks that required fields are set and values are valid.
+func (s *SettingSNMP) Validate() error {
+	if s.Key == "" {
+		return fmt.Errorf("settingsnmp: key is required")
+	}
+	return nil
+}
+
+// DNSFilter represents per-network DNS content filtering configuration within the IPS setting.
+type DNSFilter struct {
+	Filter       string   `json:"filter,omitempty"`
+	NetworkID    string   `json:"network_id,omitempty"`
+	BlockedTLD   []string `json:"blocked_tld,omitempty"`
+	BlockedSites []string `json:"blocked_sites,omitempty"`
+	AllowedSites []string `json:"allowed_sites,omitempty"`
+	Name         string   `json:"name,omitempty"`
+	Description  string   `json:"description,omitempty"`
+	Version      string   `json:"version,omitempty"`
+}
+
+// IPSSuppression represents alert/whitelist suppression for the IPS setting.
+type IPSSuppression struct {
+	Alerts    []json.RawMessage `json:"alerts,omitempty"`
+	Whitelist []json.RawMessage `json:"whitelist,omitempty"`
+}
+
+// SettingIPS represents IDS/IPS and threat management settings for a UniFi site.
+//
+// Field value reference:
+//   - IPSMode: "disabled", "ids", "ips"
+//   - AdvancedFilteringPreference: "disabled", "manual", "auto"
+type SettingIPS struct {
+	ID                                 string            `json:"_id,omitempty"`
+	SiteID                             string            `json:"site_id,omitempty"`
+	Key                                string            `json:"key"`
+	IPSMode                            string            `json:"ips_mode,omitempty"`
+	DNSFiltering                       *bool             `json:"dns_filtering,omitempty"`
+	DNSFilters                         []DNSFilter       `json:"dns_filters,omitempty"`
+	EnabledCategories                  []string          `json:"enabled_categories,omitempty"`
+	HoneypotEnabled                    *bool             `json:"honeypot_enabled,omitempty"`
+	EndpointScanning                   *bool             `json:"endpoint_scanning,omitempty"`
+	AdBlockingEnabled                  *bool             `json:"ad_blocking_enabled,omitempty"`
+	AdBlockingConfigurations           []json.RawMessage `json:"ad_blocking_configurations,omitempty"`
+	AdvancedFilteringPreference        string            `json:"advanced_filtering_preference,omitempty"`
+	ContentFilteringBlockingPageEnable *bool             `json:"content_filtering_blocking_page_enabled,omitempty"`
+	MemoryOptimized                    *bool             `json:"memory_optimized,omitempty"`
+	Suppression                        *IPSSuppression   `json:"suppression,omitempty"`
+	UTMToken                           string            `json:"utm_token,omitempty"`
+	LastAlertID                        string            `json:"last_alert_id,omitempty"`
+}
+
+// Validate checks that required fields are set and values are valid.
+func (s *SettingIPS) Validate() error {
+	if s.Key == "" {
+		return fmt.Errorf("settingips: key is required")
+	}
+	if s.IPSMode != "" && !isOneOf(s.IPSMode, "disabled", "ids", "ips") {
+		return fmt.Errorf("settingips: ips_mode must be one of: disabled, ids, ips")
+	}
+	if s.AdvancedFilteringPreference != "" && !isOneOf(s.AdvancedFilteringPreference, "disabled", "manual", "auto") {
+		return fmt.Errorf("settingips: advanced_filtering_preference must be one of: disabled, manual, auto")
+	}
+	return nil
+}
+
+// SettingGuestAccess represents guest portal/hotspot settings for a UniFi site.
+//
+// Field value reference:
+//   - Auth: "none", "password", "hotspot", "radius", "custom"
+//   - TemplateEngine: "angular", "jsp"
+type SettingGuestAccess struct {
+	ID                                 string   `json:"_id,omitempty"`
+	SiteID                             string   `json:"site_id,omitempty"`
+	Key                                string   `json:"key"`
+	PortalEnabled                      *bool    `json:"portal_enabled,omitempty"`
+	PortalCustomized                   *bool    `json:"portal_customized,omitempty"`
+	Auth                               string   `json:"auth,omitempty"`
+	Expire                             *int     `json:"expire,omitempty"`
+	ExpireNumber                       *int     `json:"expire_number,omitempty"`
+	ExpireUnit                         *int     `json:"expire_unit,omitempty"`
+	RedirectEnabled                    *bool    `json:"redirect_enabled,omitempty"`
+	RedirectHTTPS                      *bool    `json:"redirect_https,omitempty"`
+	RedirectToHTTPS                    *bool    `json:"redirect_to_https,omitempty"`
+	RestrictedSubnet1                  string   `json:"restricted_subnet_1,omitempty"`
+	RestrictedSubnet2                  string   `json:"restricted_subnet_2,omitempty"`
+	RestrictedSubnet3                  string   `json:"restricted_subnet_3,omitempty"`
+	PortalCustomizedTitle              string   `json:"portal_customized_title,omitempty"`
+	PortalCustomizedWelcomeText        string   `json:"portal_customized_welcome_text,omitempty"`
+	PortalCustomizedSuccessText        string   `json:"portal_customized_success_text,omitempty"`
+	PortalCustomizedAuthenticationText string   `json:"portal_customized_authentication_text,omitempty"`
+	PortalCustomizedButtonText         string   `json:"portal_customized_button_text,omitempty"`
+	PortalCustomizedButtonColor        string   `json:"portal_customized_button_color,omitempty"`
+	PortalCustomizedButtonTextColor    string   `json:"portal_customized_button_text_color,omitempty"`
+	PortalCustomizedLinkColor          string   `json:"portal_customized_link_color,omitempty"`
+	PortalCustomizedTextColor          string   `json:"portal_customized_text_color,omitempty"`
+	PortalCustomizedBgColor            string   `json:"portal_customized_bg_color,omitempty"`
+	PortalCustomizedBgType             string   `json:"portal_customized_bg_type,omitempty"`
+	PortalCustomizedBgImageEnabled     *bool    `json:"portal_customized_bg_image_enabled,omitempty"`
+	PortalCustomizedBoxColor           string   `json:"portal_customized_box_color,omitempty"`
+	PortalCustomizedBoxTextColor       string   `json:"portal_customized_box_text_color,omitempty"`
+	PortalCustomizedBoxOpacity         *int     `json:"portal_customized_box_opacity,omitempty"`
+	PortalCustomizedBoxRadius          *int     `json:"portal_customized_box_radius,omitempty"`
+	PortalCustomizedLogoPosition       string   `json:"portal_customized_logo_position,omitempty"`
+	PortalCustomizedLogoSize           *int     `json:"portal_customized_logo_size,omitempty"`
+	PortalCustomizedLanguages          []string `json:"portal_customized_languages,omitempty"`
+	PortalUseHostname                  *bool    `json:"portal_use_hostname,omitempty"`
+	ECEnabled                          *bool    `json:"ec_enabled,omitempty"`
+	TemplateEngine                     string   `json:"template_engine,omitempty"`
+}
+
+// Validate checks that required fields are set and values are valid.
+func (s *SettingGuestAccess) Validate() error {
+	if s.Key == "" {
+		return fmt.Errorf("settingguestaccess: key is required")
+	}
+	if s.Auth != "" && !isOneOf(s.Auth, "none", "password", "hotspot", "radius", "custom") {
+		return fmt.Errorf("settingguestaccess: auth must be one of: none, password, hotspot, radius, custom")
+	}
+	if s.RestrictedSubnet1 != "" && !isValidCIDR(s.RestrictedSubnet1) {
+		return fmt.Errorf("settingguestaccess: restricted_subnet_1 must be a valid CIDR")
+	}
+	if s.RestrictedSubnet2 != "" && !isValidCIDR(s.RestrictedSubnet2) {
+		return fmt.Errorf("settingguestaccess: restricted_subnet_2 must be a valid CIDR")
+	}
+	if s.RestrictedSubnet3 != "" && !isValidCIDR(s.RestrictedSubnet3) {
+		return fmt.Errorf("settingguestaccess: restricted_subnet_3 must be a valid CIDR")
+	}
+	return nil
+}
+
+// RadioOverride represents radio configuration overrides for a UniFi access point.
+//
+// Field value reference:
+//   - Radio: "ng" (2.4GHz), "na" (5GHz), "6e" (6GHz)
+//   - TxPowerMode: "auto", "low", "medium", "high", "custom"
+type RadioOverride struct {
+	Radio             string `json:"radio,omitempty"`
+	Name              string `json:"name,omitempty"`
+	Channel           *int   `json:"channel,omitempty"`
+	ChannelWidth      *int   `json:"ht,omitempty"`
+	TxPowerMode       string `json:"tx_power_mode,omitempty"`
+	TxPower           *int   `json:"tx_power,omitempty"`
+	MinRSSIEnabled    *bool  `json:"min_rssi_enabled,omitempty"`
+	MinRSSI           *int   `json:"min_rssi,omitempty"`
+	AntennaGain       *int   `json:"antenna_gain,omitempty"`
+	VWireEnabled      *bool  `json:"vwire_enabled,omitempty"`
+	LoadBalanceEnable *bool  `json:"loadbalance_enabled,omitempty"`
+	HardNoiseFloor    *bool  `json:"hard_noise_floor_enabled,omitempty"`
+	SensLevelEnabled  *bool  `json:"sens_level_enabled,omitempty"`
+}
+
+// Validate checks that RadioOverride fields have valid values.
+func (r *RadioOverride) Validate() error {
+	if r.Radio == "" {
+		return fmt.Errorf("radiooverride: radio is required")
+	}
+	if !isOneOf(r.Radio, "ng", "na", "6e") {
+		return fmt.Errorf("radiooverride: radio must be one of: ng, na, 6e")
+	}
+	if r.TxPowerMode != "" && !isOneOf(r.TxPowerMode, "auto", "low", "medium", "high", "custom") {
+		return fmt.Errorf("radiooverride: tx_power_mode must be one of: auto, low, medium, high, custom")
+	}
+	return nil
+}
+
+// SettingTeleport represents Teleport VPN settings for a UniFi site.
+type SettingTeleport struct {
+	ID         string `json:"_id,omitempty"`
+	SiteID     string `json:"site_id,omitempty"`
+	Key        string `json:"key"`
+	Enabled    *bool  `json:"enabled,omitempty"`
+	SubnetCIDR string `json:"subnet_cidr,omitempty"`
+}
+
+// Validate checks that required fields are set and values are valid.
+func (s *SettingTeleport) Validate() error {
+	if s.Key == "" {
+		return fmt.Errorf("settingteleport: key is required")
+	}
+	if s.SubnetCIDR != "" && !isValidCIDR(s.SubnetCIDR) {
+		return fmt.Errorf("settingteleport: subnet_cidr must be a valid CIDR")
+	}
+	return nil
+}
+
+// SettingMagicSiteToSiteVPN represents site-to-site VPN settings for a UniFi site.
+type SettingMagicSiteToSiteVPN struct {
+	ID          string `json:"_id,omitempty"`
+	SiteID      string `json:"site_id,omitempty"`
+	Key         string `json:"key"`
+	Enabled     *bool  `json:"enabled,omitempty"`
+	PublicKey   string `json:"public_key,omitempty"`
+	XPrivateKey string `json:"x_private_key,omitempty"`
+}
+
+// Validate checks that required fields are set and values are valid.
+func (s *SettingMagicSiteToSiteVPN) Validate() error {
+	if s.Key == "" {
+		return fmt.Errorf("settingmagicsitetositevpn: key is required")
+	}
+	return nil
+}
+
+// Backup represents a backup file entry from the UniFi controller.
+type Backup struct {
+	ControllerName string `json:"controller_name,omitempty"`
+	Filename       string `json:"filename,omitempty"`
+	Type           string `json:"type,omitempty"`
+	Version        string `json:"version,omitempty"`
+	Time           *int64 `json:"time,omitempty"`
+	Datetime       string `json:"datetime,omitempty"`
+	Format         string `json:"format,omitempty"`
+	Days           *int   `json:"days,omitempty"`
+	KeepForever    *bool  `json:"keep_forever,omitempty"`
+	Note           string `json:"note,omitempty"`
+	Size           *int64 `json:"size,omitempty"`
+}
+
+// Admin represents a UniFi controller admin user.
+type Admin struct {
+	ID             string `json:"_id,omitempty"`
+	Name           string `json:"name,omitempty"`
+	Email          string `json:"email,omitempty"`
+	EmailAlertEn   *bool  `json:"email_alert_enabled,omitempty"`
+	Role           string `json:"role,omitempty"`
+	IsSuperAdmin   *bool  `json:"is_super,omitempty"`
+	IsVerified     *bool  `json:"is_verified,omitempty"`
+	DeviceID       string `json:"device_id,omitempty"`
+	TimeCreated    *int64 `json:"time_created,omitempty"`
+	LastSiteID     string `json:"last_site_id,omitempty"`
+	LastSiteName   string `json:"last_site_name,omitempty"`
+	RequiresNewPwd *bool  `json:"requires_new_password,omitempty"`
 }

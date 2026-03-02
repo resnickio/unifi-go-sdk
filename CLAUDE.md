@@ -189,11 +189,13 @@ Both APIs complete:
 - User Groups: `ListUserGroups`, `GetUserGroup`, `CreateUserGroup`, `UpdateUserGroup`, `DeleteUserGroup`
 - RADIUS Profiles: `ListRADIUSProfiles`, `GetRADIUSProfile`, `CreateRADIUSProfile`, `UpdateRADIUSProfile`, `DeleteRADIUSProfile`
 - Dynamic DNS: `ListDynamicDNS`, `GetDynamicDNS`, `CreateDynamicDNS`, `UpdateDynamicDNS`, `DeleteDynamicDNS`
-- Device Configuration: `GetDevice`, `GetDeviceByMAC`, `UpdateDevice`, `ForgetDevice` (port overrides, device settings)
+- Device Configuration: `GetDevice`, `GetDeviceByMAC`, `UpdateDevice`, `ForgetDevice` (port overrides, radio overrides, device settings)
 - Users: `ListUsers`, `GetUser`, `CreateUser`, `UpdateUser`, `DeleteUser` (DHCP reservations, device names, blocking)
 - Sites: `ListSites`, `GetSite`, `CreateSite`, `UpdateSite`, `DeleteSite`
 - RADIUS Accounts: `ListRADIUSAccounts`, `GetRADIUSAccount`, `CreateRADIUSAccount`, `UpdateRADIUSAccount`, `DeleteRADIUSAccount`
-- Settings: `GetSettingMgmt`, `UpdateSettingMgmt`, `GetSettingRadius`, `UpdateSettingRadius`, `GetSettingUSG`, `UpdateSettingUSG`
+- Settings: `GetSettingMgmt`, `UpdateSettingMgmt`, `GetSettingRadius`, `UpdateSettingRadius`, `GetSettingUSG`, `UpdateSettingUSG`, `GetSettingSNMP`, `UpdateSettingSNMP`, `GetSettingIPS`, `UpdateSettingIPS`, `GetSettingGuestAccess`, `UpdateSettingGuestAccess`, `GetSettingTeleport`, `UpdateSettingTeleport`, `GetSettingMagicSiteToSiteVPN`, `UpdateSettingMagicSiteToSiteVPN`
+- Backups: `ListBackups`, `CreateBackup`, `DeleteBackup`, `DownloadBackup`
+- Admins: `ListAdmins`
 
 **Network API (v2)**
 - Firewall Policies: `ListFirewallPolicies`, `GetFirewallPolicy`, `CreateFirewallPolicy`, `UpdateFirewallPolicy`, `DeleteFirewallPolicy`
@@ -207,7 +209,7 @@ Both APIs complete:
 - AP Groups: `ListAPGroups` (read-only)
 - ACL Rules: `ListAclRules` (read-only)
 - QoS Rules: `ListQosRules` (read-only)
-- Content Filtering: `GetContentFiltering` (read-only)
+- Content Filtering: `GetContentFiltering`, `UpdateContentFiltering`
 - VPN Connections: `ListVpnConnections` (read-only)
 - WAN SLAs: `ListWanSlas` (read-only)
 

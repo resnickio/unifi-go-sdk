@@ -177,15 +177,35 @@ type NetworkManager interface {
 	UpdateSettingRadius(ctx context.Context, setting *SettingRadius) (*SettingRadius, error)
 	GetSettingUSG(ctx context.Context) (*SettingUSG, error)
 	UpdateSettingUSG(ctx context.Context, setting *SettingUSG) (*SettingUSG, error)
+	GetSettingSNMP(ctx context.Context) (*SettingSNMP, error)
+	UpdateSettingSNMP(ctx context.Context, setting *SettingSNMP) (*SettingSNMP, error)
+	GetSettingIPS(ctx context.Context) (*SettingIPS, error)
+	UpdateSettingIPS(ctx context.Context, setting *SettingIPS) (*SettingIPS, error)
+	GetSettingGuestAccess(ctx context.Context) (*SettingGuestAccess, error)
+	UpdateSettingGuestAccess(ctx context.Context, setting *SettingGuestAccess) (*SettingGuestAccess, error)
+	GetSettingTeleport(ctx context.Context) (*SettingTeleport, error)
+	UpdateSettingTeleport(ctx context.Context, setting *SettingTeleport) (*SettingTeleport, error)
+	GetSettingMagicSiteToSiteVPN(ctx context.Context) (*SettingMagicSiteToSiteVPN, error)
+	UpdateSettingMagicSiteToSiteVPN(ctx context.Context, setting *SettingMagicSiteToSiteVPN) (*SettingMagicSiteToSiteVPN, error)
 
-	// v2 API - ACL/QoS/Content Filtering (read-only)
+	// v2 API - ACL/QoS/Content Filtering
 	ListAclRules(ctx context.Context) ([]AclRule, error)
 	ListQosRules(ctx context.Context) ([]QosRule, error)
 	GetContentFiltering(ctx context.Context) (*ContentFiltering, error)
+	UpdateContentFiltering(ctx context.Context, config *ContentFiltering) (*ContentFiltering, error)
 
 	// v2 API - VPN/WAN (read-only)
 	ListVpnConnections(ctx context.Context) ([]VpnConnection, error)
 	ListWanSlas(ctx context.Context) ([]WanSla, error)
+
+	// Legacy REST API - Backup Operations
+	ListBackups(ctx context.Context) ([]Backup, error)
+	CreateBackup(ctx context.Context) error
+	DeleteBackup(ctx context.Context, filename string) error
+	DownloadBackup(ctx context.Context, filename string) ([]byte, error)
+
+	// Legacy REST API - Admin Management
+	ListAdmins(ctx context.Context) ([]Admin, error)
 }
 
 var _ NetworkManager = (*NetworkClient)(nil)
@@ -1858,8 +1878,7 @@ func (c *NetworkClient) ForgetDevice(ctx context.Context, mac string) error {
 		"cmd":  "delete-device",
 		"macs": []string{mac},
 	}
-	path := "/proxy/network/api/s/" + url.PathEscape(c.Site) + "/cmd/sitemgr"
-	return c.do(ctx, "POST", path, cmd, nil)
+	return c.do(ctx, "POST", c.cmdPath("sitemgr"), cmd, nil)
 }
 
 // Site operations
@@ -2105,4 +2124,274 @@ func (c *NetworkClient) UpdateSettingUSG(ctx context.Context, setting *SettingUS
 		return c.GetSettingUSG(ctx)
 	}
 	return &settings[0], nil
+}
+
+// GetSettingSNMP retrieves the SNMP settings for the current site.
+func (c *NetworkClient) GetSettingSNMP(ctx context.Context) (*SettingSNMP, error) {
+	var settings []SettingSNMP
+	err := c.do(ctx, "GET", c.settingGetPath("snmp"), nil, &settings)
+	if err != nil {
+		return nil, err
+	}
+	if len(settings) == 0 {
+		return nil, ErrNotFound
+	}
+	return &settings[0], nil
+}
+
+// UpdateSettingSNMP updates the SNMP settings. The Key field is set automatically.
+func (c *NetworkClient) UpdateSettingSNMP(ctx context.Context, setting *SettingSNMP) (*SettingSNMP, error) {
+	s := *setting
+	s.Key = "snmp"
+	if err := s.Validate(); err != nil {
+		return nil, err
+	}
+	var settings []SettingSNMP
+	err := c.do(ctx, "PUT", c.settingSetPath("snmp"), &s, &settings)
+	if err != nil {
+		return nil, err
+	}
+	if len(settings) == 0 {
+		return c.GetSettingSNMP(ctx)
+	}
+	return &settings[0], nil
+}
+
+// GetSettingIPS retrieves the IDS/IPS and threat management settings for the current site.
+func (c *NetworkClient) GetSettingIPS(ctx context.Context) (*SettingIPS, error) {
+	var settings []SettingIPS
+	err := c.do(ctx, "GET", c.settingGetPath("ips"), nil, &settings)
+	if err != nil {
+		return nil, err
+	}
+	if len(settings) == 0 {
+		return nil, ErrNotFound
+	}
+	return &settings[0], nil
+}
+
+// UpdateSettingIPS updates the IDS/IPS and threat management settings. The Key field is set automatically.
+// Note: The input struct is shallow-copied; slice fields (DNSFilters, EnabledCategories) share
+// backing arrays with the caller. Do not mutate the input concurrently with this call.
+func (c *NetworkClient) UpdateSettingIPS(ctx context.Context, setting *SettingIPS) (*SettingIPS, error) {
+	s := *setting
+	s.Key = "ips"
+	if err := s.Validate(); err != nil {
+		return nil, err
+	}
+	var settings []SettingIPS
+	err := c.do(ctx, "PUT", c.settingSetPath("ips"), &s, &settings)
+	if err != nil {
+		return nil, err
+	}
+	if len(settings) == 0 {
+		return c.GetSettingIPS(ctx)
+	}
+	return &settings[0], nil
+}
+
+// GetSettingGuestAccess retrieves the guest portal/hotspot settings for the current site.
+func (c *NetworkClient) GetSettingGuestAccess(ctx context.Context) (*SettingGuestAccess, error) {
+	var settings []SettingGuestAccess
+	err := c.do(ctx, "GET", c.settingGetPath("guest_access"), nil, &settings)
+	if err != nil {
+		return nil, err
+	}
+	if len(settings) == 0 {
+		return nil, ErrNotFound
+	}
+	return &settings[0], nil
+}
+
+// UpdateSettingGuestAccess updates the guest portal/hotspot settings. The Key field is set automatically.
+// Note: The input struct is shallow-copied; the PortalCustomizedLanguages slice shares its
+// backing array with the caller. Do not mutate the input concurrently with this call.
+func (c *NetworkClient) UpdateSettingGuestAccess(ctx context.Context, setting *SettingGuestAccess) (*SettingGuestAccess, error) {
+	s := *setting
+	s.Key = "guest_access"
+	if err := s.Validate(); err != nil {
+		return nil, err
+	}
+	var settings []SettingGuestAccess
+	err := c.do(ctx, "PUT", c.settingSetPath("guest_access"), &s, &settings)
+	if err != nil {
+		return nil, err
+	}
+	if len(settings) == 0 {
+		return c.GetSettingGuestAccess(ctx)
+	}
+	return &settings[0], nil
+}
+
+// GetSettingTeleport retrieves the Teleport VPN settings for the current site.
+func (c *NetworkClient) GetSettingTeleport(ctx context.Context) (*SettingTeleport, error) {
+	var settings []SettingTeleport
+	err := c.do(ctx, "GET", c.settingGetPath("teleport"), nil, &settings)
+	if err != nil {
+		return nil, err
+	}
+	if len(settings) == 0 {
+		return nil, ErrNotFound
+	}
+	return &settings[0], nil
+}
+
+// UpdateSettingTeleport updates the Teleport VPN settings. The Key field is set automatically.
+func (c *NetworkClient) UpdateSettingTeleport(ctx context.Context, setting *SettingTeleport) (*SettingTeleport, error) {
+	s := *setting
+	s.Key = "teleport"
+	if err := s.Validate(); err != nil {
+		return nil, err
+	}
+	var settings []SettingTeleport
+	err := c.do(ctx, "PUT", c.settingSetPath("teleport"), &s, &settings)
+	if err != nil {
+		return nil, err
+	}
+	if len(settings) == 0 {
+		return c.GetSettingTeleport(ctx)
+	}
+	return &settings[0], nil
+}
+
+// GetSettingMagicSiteToSiteVPN retrieves the site-to-site VPN settings for the current site.
+func (c *NetworkClient) GetSettingMagicSiteToSiteVPN(ctx context.Context) (*SettingMagicSiteToSiteVPN, error) {
+	var settings []SettingMagicSiteToSiteVPN
+	err := c.do(ctx, "GET", c.settingGetPath("magic_site_to_site_vpn"), nil, &settings)
+	if err != nil {
+		return nil, err
+	}
+	if len(settings) == 0 {
+		return nil, ErrNotFound
+	}
+	return &settings[0], nil
+}
+
+// UpdateSettingMagicSiteToSiteVPN updates the site-to-site VPN settings. The Key field is set automatically.
+func (c *NetworkClient) UpdateSettingMagicSiteToSiteVPN(ctx context.Context, setting *SettingMagicSiteToSiteVPN) (*SettingMagicSiteToSiteVPN, error) {
+	s := *setting
+	s.Key = "magic_site_to_site_vpn"
+	if err := s.Validate(); err != nil {
+		return nil, err
+	}
+	var settings []SettingMagicSiteToSiteVPN
+	err := c.do(ctx, "PUT", c.settingSetPath("magic_site_to_site_vpn"), &s, &settings)
+	if err != nil {
+		return nil, err
+	}
+	if len(settings) == 0 {
+		return c.GetSettingMagicSiteToSiteVPN(ctx)
+	}
+	return &settings[0], nil
+}
+
+// UpdateContentFiltering updates the content filtering configuration (v2 API).
+func (c *NetworkClient) UpdateContentFiltering(ctx context.Context, config *ContentFiltering) (*ContentFiltering, error) {
+	if err := config.Validate(); err != nil {
+		return nil, err
+	}
+	var configs []ContentFiltering
+	err := c.doV2(ctx, "PUT", c.v2Path("content-filtering"), config, &configs)
+	if err != nil {
+		return nil, err
+	}
+	if len(configs) == 0 {
+		return c.GetContentFiltering(ctx)
+	}
+	return &configs[0], nil
+}
+
+// Backup operations
+
+func (c *NetworkClient) cmdPath(cmd string) string {
+	return "/proxy/network/api/s/" + url.PathEscape(c.Site) + "/cmd/" + cmd
+}
+
+// ListBackups returns all backup files on the controller.
+func (c *NetworkClient) ListBackups(ctx context.Context) ([]Backup, error) {
+	cmd := map[string]string{"cmd": "list-backups"}
+	var backups []Backup
+	err := c.do(ctx, "POST", c.cmdPath("backup"), cmd, &backups)
+	if err != nil {
+		return nil, err
+	}
+	return backups, nil
+}
+
+// CreateBackup triggers a new backup on the controller.
+func (c *NetworkClient) CreateBackup(ctx context.Context) error {
+	cmd := map[string]string{"cmd": "backup"}
+	return c.do(ctx, "POST", c.cmdPath("backup"), cmd, nil)
+}
+
+// DeleteBackup removes a backup file from the controller.
+func (c *NetworkClient) DeleteBackup(ctx context.Context, filename string) error {
+	cmd := map[string]any{"cmd": "delete-backup", "filename": filename}
+	return c.do(ctx, "POST", c.cmdPath("backup"), cmd, nil)
+}
+
+// DownloadBackup downloads a backup file as raw bytes.
+// Unlike other methods, this bypasses the shared 10MB response limit since backup
+// files can be arbitrarily large.
+func (c *NetworkClient) DownloadBackup(ctx context.Context, filename string) ([]byte, error) {
+	if c.apiKey == "" {
+		c.mu.RLock()
+		loggedIn := c.loggedIn
+		c.mu.RUnlock()
+		if !loggedIn {
+			return nil, fmt.Errorf("not logged in: call Login() first")
+		}
+	}
+
+	reqURL := c.BaseURL + "/proxy/network/dl/autobackup/" + url.PathEscape(filename)
+	var data []byte
+	err := executeWithRetry(ctx, c.Logger, c.maxRetries, c.maxRetryWait, func() error {
+		req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
+		if err != nil {
+			return fmt.Errorf("creating request: %w", err)
+		}
+		if c.apiKey != "" {
+			req.Header.Set("X-API-KEY", c.apiKey)
+		}
+		if c.Logger != nil {
+			c.Logger.Printf("-> GET %s", reqURL)
+		}
+		resp, err := c.HTTPClient.Do(req)
+		if err != nil {
+			if c.Logger != nil {
+				c.Logger.Printf("<- error: %v", err)
+			}
+			return fmt.Errorf("executing request: %w", err)
+		}
+		defer resp.Body.Close()
+		if c.Logger != nil {
+			c.Logger.Printf("<- %d %s", resp.StatusCode, resp.Status)
+		}
+		if resp.StatusCode >= 400 {
+			body, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodySize))
+			return c.parseErrorResponse(resp.StatusCode, body, resp.Header.Get("Retry-After"))
+		}
+		data, err = io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("reading backup: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+// Admin operations
+
+// ListAdmins returns all admin users for the current site.
+func (c *NetworkClient) ListAdmins(ctx context.Context) ([]Admin, error) {
+	cmd := map[string]string{"cmd": "get-admins"}
+	var admins []Admin
+	err := c.do(ctx, "POST", c.cmdPath("sitemgr"), cmd, &admins)
+	if err != nil {
+		return nil, err
+	}
+	return admins, nil
 }
