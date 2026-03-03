@@ -152,9 +152,9 @@ type NetworkIPv6 struct {
 	IPV6PDStop                 string `json:"ipv6_pd_stop,omitempty"`
 	IPV6PDAutoPrefixidEnabled  *bool  `json:"ipv6_pd_auto_prefixid_enabled,omitempty"`
 	IPV6RaEnabled              *bool  `json:"ipv6_ra_enabled,omitempty"`
-	IPV6RaPreferredLifetime    *int   `json:"ipv6_ra_preferred_lifetime,omitempty"`
-	IPV6RaPriority             string `json:"ipv6_ra_priority,omitempty"`
-	IPV6RaValidLifetime        *int   `json:"ipv6_ra_valid_lifetime,omitempty"`
+	IPV6RaPreferredLifetime    *FlexInt `json:"ipv6_ra_preferred_lifetime,omitempty"`
+	IPV6RaPriority             string   `json:"ipv6_ra_priority,omitempty"`
+	IPV6RaValidLifetime        *FlexInt `json:"ipv6_ra_valid_lifetime,omitempty"`
 	DHCPDV6Enabled             *bool  `json:"dhcpdv6_enabled,omitempty"`
 	DHCPDV6DNS1                string `json:"dhcpdv6_dns_1,omitempty"`
 	DHCPDV6DNS2                string `json:"dhcpdv6_dns_2,omitempty"`
@@ -199,10 +199,10 @@ func (i *NetworkIPv6) Validate() error {
 	if i.IPV6RaPriority != "" && !isOneOf(i.IPV6RaPriority, "high", "medium", "low") {
 		return fmt.Errorf("networkipv6: ipv6_ra_priority must be one of: high, medium, low")
 	}
-	if i.IPV6RaPreferredLifetime != nil && *i.IPV6RaPreferredLifetime < 0 {
+	if i.IPV6RaPreferredLifetime != nil && int(*i.IPV6RaPreferredLifetime) < 0 {
 		return fmt.Errorf("networkipv6: ipv6_ra_preferred_lifetime must be non-negative")
 	}
-	if i.IPV6RaValidLifetime != nil && *i.IPV6RaValidLifetime < 0 {
+	if i.IPV6RaValidLifetime != nil && int(*i.IPV6RaValidLifetime) < 0 {
 		return fmt.Errorf("networkipv6: ipv6_ra_valid_lifetime must be non-negative")
 	}
 	if i.DHCPDV6LeaseTime != nil && *i.DHCPDV6LeaseTime < 0 {

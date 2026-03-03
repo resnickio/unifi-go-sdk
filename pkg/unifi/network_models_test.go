@@ -681,8 +681,8 @@ func TestNetworkIPv6JSONRoundTrip(t *testing.T) {
 			IPV6PDAutoPrefixidEnabled: BoolPtr(true),
 			IPV6RaEnabled:             BoolPtr(true),
 			IPV6RaPriority:            "high",
-			IPV6RaPreferredLifetime:   IntPtr(14400),
-			IPV6RaValidLifetime:       IntPtr(86400),
+			IPV6RaPreferredLifetime:   FlexIntPtr(14400),
+			IPV6RaValidLifetime:       FlexIntPtr(86400),
 			DHCPDV6Enabled:            BoolPtr(true),
 			DHCPDV6DNS1:               "2001:4860:4860::8888",
 			DHCPDV6DNSAuto:            BoolPtr(false),
@@ -732,8 +732,8 @@ func TestNetworkIPv6JSONRoundTrip(t *testing.T) {
 	if decoded.IPV6RaPriority != "high" {
 		t.Errorf("IPV6RaPriority = %q, want %q", decoded.IPV6RaPriority, "high")
 	}
-	if *decoded.IPV6RaPreferredLifetime != 14400 {
-		t.Errorf("IPV6RaPreferredLifetime = %d, want %d", *decoded.IPV6RaPreferredLifetime, 14400)
+	if int(*decoded.IPV6RaPreferredLifetime) != 14400 {
+		t.Errorf("IPV6RaPreferredLifetime = %d, want %d", int(*decoded.IPV6RaPreferredLifetime), 14400)
 	}
 	if *decoded.DHCPDV6Enabled != true {
 		t.Errorf("DHCPDV6Enabled = %v, want true", *decoded.DHCPDV6Enabled)
@@ -886,8 +886,8 @@ func TestNetworkIPv6Validate(t *testing.T) {
 		{name: "valid ra config", ipv6: NetworkIPv6{
 			IPV6RaEnabled:           BoolPtr(true),
 			IPV6RaPriority:          "high",
-			IPV6RaPreferredLifetime: IntPtr(14400),
-			IPV6RaValidLifetime:     IntPtr(86400),
+			IPV6RaPreferredLifetime: FlexIntPtr(14400),
+			IPV6RaValidLifetime:     FlexIntPtr(86400),
 		}, wantErr: false},
 		{name: "valid dhcpv6 config", ipv6: NetworkIPv6{
 			DHCPDV6Enabled:   BoolPtr(true),
@@ -901,8 +901,8 @@ func TestNetworkIPv6Validate(t *testing.T) {
 		{name: "invalid interface type", ipv6: NetworkIPv6{IPV6InterfaceType: "invalid"}, wantErr: true},
 		{name: "invalid ipv6 subnet", ipv6: NetworkIPv6{IPV6Subnet: "not-a-cidr"}, wantErr: true},
 		{name: "invalid ra priority", ipv6: NetworkIPv6{IPV6RaPriority: "urgent"}, wantErr: true},
-		{name: "negative ra preferred lifetime", ipv6: NetworkIPv6{IPV6RaPreferredLifetime: IntPtr(-1)}, wantErr: true},
-		{name: "negative ra valid lifetime", ipv6: NetworkIPv6{IPV6RaValidLifetime: IntPtr(-1)}, wantErr: true},
+		{name: "negative ra preferred lifetime", ipv6: NetworkIPv6{IPV6RaPreferredLifetime: FlexIntPtr(-1)}, wantErr: true},
+		{name: "negative ra valid lifetime", ipv6: NetworkIPv6{IPV6RaValidLifetime: FlexIntPtr(-1)}, wantErr: true},
 		{name: "negative dhcpv6 lease time", ipv6: NetworkIPv6{DHCPDV6LeaseTime: IntPtr(-1)}, wantErr: true},
 		{name: "invalid dhcpv6 dns1", ipv6: NetworkIPv6{DHCPDV6DNS1: "not-an-ip"}, wantErr: true},
 		{name: "invalid dhcpv6 dns2", ipv6: NetworkIPv6{DHCPDV6DNS2: "not-an-ip"}, wantErr: true},
