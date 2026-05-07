@@ -33,6 +33,7 @@ func main() {
 
 	apiKey := os.Getenv("UNIFI_API_KEY")
 	networkURL := os.Getenv("UNIFI_NETWORK_URL")
+	networkAPIKey := os.Getenv("UNIFI_NETWORK_API_KEY")
 	networkUser := os.Getenv("UNIFI_NETWORK_USER")
 	networkPass := os.Getenv("UNIFI_NETWORK_PASS")
 
@@ -43,13 +44,13 @@ func main() {
 		reports = append(reports, report)
 	}
 
-	if networkURL != "" && networkUser != "" && networkPass != "" {
-		report := validateNetworkAPI(networkURL, networkUser, networkPass)
+	if networkURL != "" && (networkAPIKey != "" || (networkUser != "" && networkPass != "")) {
+		report := validateNetworkAPI(networkURL, networkAPIKey, networkUser, networkPass)
 		reports = append(reports, report)
 	}
 
 	if len(reports) == 0 {
-		log.Fatal("No API credentials provided. Set UNIFI_API_KEY for Site Manager API or UNIFI_NETWORK_URL/USER/PASS for Network API")
+		log.Fatal("No API credentials provided. Set UNIFI_API_KEY for Site Manager API or UNIFI_NETWORK_URL plus either UNIFI_NETWORK_API_KEY or UNIFI_NETWORK_USER/PASS for Network API")
 	}
 
 	output, _ := json.MarshalIndent(reports, "", "  ")
@@ -89,15 +90,21 @@ func validateSiteManagerAPI(apiKey string) Report {
 	return report
 }
 
-func validateNetworkAPI(url, user, pass string) Report {
+func validateNetworkAPI(url, apiKey, user, pass string) Report {
 	report := Report{API: "network"}
 
-	client, err := unifi.NewNetworkClient(unifi.NetworkClientConfig{
+	cfg := unifi.NetworkClientConfig{
 		BaseURL:            url,
-		Username:           user,
-		Password:           pass,
 		InsecureSkipVerify: true,
-	})
+	}
+	if apiKey != "" {
+		cfg.APIKey = apiKey
+		networkAPIKey = apiKey
+	} else {
+		cfg.Username = user
+		cfg.Password = pass
+	}
+	client, err := unifi.NewNetworkClient(cfg)
 	if err != nil {
 		report.Results = append(report.Results, ValidationResult{
 			Endpoint: "login",
@@ -304,20 +311,36 @@ func newAPIRequest(ctx context.Context, client *unifi.SiteManagerClient, path st
 	return req, nil
 }
 
+// getJSONFields walks a struct (and any anonymous embedded struct fields)
+// collecting JSON tag names. Embedded structs flatten their fields into the
+// parent in JSON output, so they must be traversed to match what the
+// controller actually returns.
 func getJSONFields(t reflect.Type) map[string]reflect.Type {
 	fields := make(map[string]reflect.Type)
+	collectJSONFields(t, fields)
+	return fields
+}
 
+func collectJSONFields(t reflect.Type, out map[string]reflect.Type) {
+	if t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if t.Kind() != reflect.Struct {
+		return
+	}
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
+		if field.Anonymous {
+			collectJSONFields(field.Type, out)
+			continue
+		}
 		tag := field.Tag.Get("json")
 		if tag == "" || tag == "-" {
 			continue
 		}
 		jsonName := strings.Split(tag, ",")[0]
-		fields[jsonName] = field.Type
+		out[jsonName] = field.Type
 	}
-
-	return fields
 }
 
 func findMissingFields(data map[string]interface{}, structFields map[string]reflect.Type, prefix string) []string {
@@ -701,6 +724,11 @@ func validateUsers(client *unifi.NetworkClient) ValidationResult {
 	return result
 }
 
+// networkAPIKey is set by validateNetworkAPI when API-key auth is in use, so
+// fetchNetworkRaw can attach the X-API-KEY header. With session auth this
+// stays empty and the cookie jar on client.HTTPClient handles authentication.
+var networkAPIKey string
+
 func fetchNetworkRaw(client *unifi.NetworkClient, endpoint string) (map[string]interface{}, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
@@ -711,6 +739,9 @@ func fetchNetworkRaw(client *unifi.NetworkClient, endpoint string) (map[string]i
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/json")
+	if networkAPIKey != "" {
+		req.Header.Set("X-API-KEY", networkAPIKey)
+	}
 
 	resp, err := client.HTTPClient.Do(req)
 	if err != nil {
