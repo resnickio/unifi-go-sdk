@@ -5,8 +5,11 @@ package unifi
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1355,6 +1358,11 @@ func TestIntegration_V2_TrafficRules_CRUD(t *testing.T) {
 	if created.ID == "" {
 		t.Fatal("Created traffic rule has no ID")
 	}
+	// CreateTrafficRule re-injects name to compensate for the controller
+	// dropping it. Verifies the SDK's paper-over (see TrafficRule godoc).
+	if created.Name != name {
+		t.Errorf("Created.Name = %q; want %q (SDK paper-over for v9 controller bug)", created.Name, name)
+	}
 
 	fetched, err := client.GetTrafficRule(ctx, created.ID)
 	if err != nil {
@@ -1379,7 +1387,12 @@ func TestIntegration_V2_TrafficRules_CRUD(t *testing.T) {
 		t.Error("Created traffic rule not found in list")
 	}
 
-	// API may not return name on GET, preserve from creation
+	// fetched.Name is "" because the controller drops name from LIST
+	// responses (and GET-by-id returns 405 → falls back to LIST). Re-inject
+	// from our test input before mutating-and-PUTting; this mirrors what
+	// downstream consumers must do until the controller is fixed. See
+	// TestIntegration_V2_TrafficRule_NameRoundTrip for the canary that
+	// fires when the bug is fixed and this workaround can be removed.
 	fetched.Name = name
 	fetched.Domains = []TrafficDomain{{Domain: "blocked-domain.example.com"}, {Domain: "another-blocked.example.com"}}
 	updated, err := client.UpdateTrafficRule(ctx, fetched.ID, fetched)
@@ -1388,6 +1401,9 @@ func TestIntegration_V2_TrafficRules_CRUD(t *testing.T) {
 	}
 	if len(updated.Domains) != 2 {
 		t.Errorf("Expected 2 domains, got %d", len(updated.Domains))
+	}
+	if updated.Name != name {
+		t.Errorf("Updated.Name = %q; want %q (SDK paper-over)", updated.Name, name)
 	}
 
 	if err := client.DeleteTrafficRule(ctx, created.ID); err != nil {
@@ -1437,6 +1453,9 @@ func TestIntegration_V2_TrafficRoutes_CRUD(t *testing.T) {
 	if created.ID == "" {
 		t.Fatal("Created traffic route has no ID")
 	}
+	if created.Name != name {
+		t.Errorf("Created.Name = %q; want %q (SDK paper-over for v9 controller bug)", created.Name, name)
+	}
 
 	fetched, err := client.GetTrafficRoute(ctx, created.ID)
 	if err != nil {
@@ -1461,7 +1480,8 @@ func TestIntegration_V2_TrafficRoutes_CRUD(t *testing.T) {
 		t.Error("Created traffic route not found in list")
 	}
 
-	// API may not return name on GET, preserve from creation
+	// See the matching comment in TestIntegration_V2_TrafficRules_CRUD —
+	// re-inject name before PUT because the controller drops it from GET.
 	fetched.Name = name
 	fetched.Domains = []TrafficDomain{{Domain: "route-domain.example.com"}, {Domain: "another-route.example.com"}}
 	updated, err := client.UpdateTrafficRoute(ctx, fetched.ID, fetched)
@@ -1471,9 +1491,110 @@ func TestIntegration_V2_TrafficRoutes_CRUD(t *testing.T) {
 	if len(updated.Domains) != 2 {
 		t.Errorf("Expected 2 domains, got %d", len(updated.Domains))
 	}
+	if updated.Name != name {
+		t.Errorf("Updated.Name = %q; want %q (SDK paper-over)", updated.Name, name)
+	}
 
 	if err := client.DeleteTrafficRoute(ctx, created.ID); err != nil {
 		t.Fatalf("DeleteTrafficRoute failed: %v", err)
+	}
+}
+
+// TestIntegration_V2_TrafficRule_NameRoundTrip is a canary test that
+// pins down the v9 controller bug where `name` is dropped from every
+// traffic-rule response shape (POST, PUT, LIST; GET-by-id returns 405).
+//
+// This test inspects the raw HTTP responses, not the SDK structs, so it
+// distinguishes "controller didn't return name" from "SDK forgot to
+// re-inject it". When the controller is fixed and starts returning name,
+// the assertions below will fail and the SDK's paper-over in
+// CreateTrafficRule / UpdateTrafficRule (and the equivalent godoc warnings
+// on GetTrafficRule / GetTrafficRoute) can be removed.
+//
+// Symmetric coverage for TrafficRoute lives in the same test (one network
+// round-trip, two raw inspections).
+func TestIntegration_V2_TrafficRule_NameRoundTrip(t *testing.T) {
+	client := skipIfNoEnv(t)
+	ctx := context.Background()
+	t.Cleanup(func() { cleanupTestResources(t, client, ctx) })
+
+	site := client.Site
+	rulesURL := client.BaseURL + "/proxy/network/v2/api/site/" + site + "/trafficrules"
+	routesURL := client.BaseURL + "/proxy/network/v2/api/site/" + site + "/trafficroutes"
+
+	postRaw := func(t *testing.T, url, body string) map[string]any {
+		t.Helper()
+		req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(body))
+		if err != nil {
+			t.Fatalf("new request: %v", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		// API-key auth is the only mode the round-trip canary supports;
+		// session auth could be added if needed but the integration suite
+		// already requires one of the two.
+		if k := os.Getenv("UNIFI_NETWORK_API_KEY"); k != "" {
+			req.Header.Set("X-API-KEY", k)
+		}
+		resp, err := client.HTTPClient.Do(req)
+		if err != nil {
+			t.Fatalf("do: %v", err)
+		}
+		defer resp.Body.Close()
+		raw, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode >= 400 {
+			t.Fatalf("status %d: %s", resp.StatusCode, raw)
+		}
+		var out map[string]any
+		if err := json.Unmarshal(raw, &out); err != nil {
+			t.Fatalf("decode: %v (body: %s)", err, raw)
+		}
+		return out
+	}
+
+	// --- TrafficRule ---
+	ruleName := testName("trafficrule_canary")
+	ruleBody := fmt.Sprintf(`{"name":%q,"enabled":true,"action":"BLOCK","matching_target":"DOMAIN","domains":[{"domain":"canary.example.com"}],"target_devices":[{"type":"ALL_CLIENTS"}]}`, ruleName)
+	ruleResp := postRaw(t, rulesURL, ruleBody)
+	ruleID, _ := ruleResp["_id"].(string)
+	if ruleID == "" {
+		t.Fatalf("traffic-rule POST returned no _id: %v", ruleResp)
+	}
+	t.Cleanup(func() { _ = client.DeleteTrafficRule(context.Background(), ruleID) })
+
+	if v, ok := ruleResp["name"]; ok {
+		t.Errorf("CONTROLLER MAY HAVE BEEN FIXED: traffic-rule POST response now includes name=%v. "+
+			"Remove the paper-over in CreateTrafficRule/UpdateTrafficRule and the GetTrafficRule godoc caveat.", v)
+	}
+
+	// --- TrafficRoute (need a WAN network) ---
+	networks, err := client.ListNetworks(ctx)
+	if err != nil {
+		t.Fatalf("list networks: %v", err)
+	}
+	var wanID string
+	for _, n := range networks {
+		if n.Purpose == "wan" {
+			wanID = n.ID
+			break
+		}
+	}
+	if wanID == "" {
+		t.Skip("no WAN network found for traffic-route canary")
+	}
+
+	routeName := testName("trafficroute_canary")
+	routeBody := fmt.Sprintf(`{"name":%q,"enabled":true,"matching_target":"DOMAIN","domains":[{"domain":"canary.example.com"}],"network_id":%q,"target_devices":[{"type":"ALL_CLIENTS"}]}`, routeName, wanID)
+	routeResp := postRaw(t, routesURL, routeBody)
+	routeID, _ := routeResp["_id"].(string)
+	if routeID == "" {
+		t.Fatalf("traffic-route POST returned no _id: %v", routeResp)
+	}
+	t.Cleanup(func() { _ = client.DeleteTrafficRoute(context.Background(), routeID) })
+
+	if v, ok := routeResp["name"]; ok {
+		t.Errorf("CONTROLLER MAY HAVE BEEN FIXED: traffic-route POST response now includes name=%v. "+
+			"Remove the paper-over in CreateTrafficRoute/UpdateTrafficRoute.", v)
 	}
 }
 

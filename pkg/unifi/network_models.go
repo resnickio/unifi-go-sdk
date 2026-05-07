@@ -1000,6 +1000,13 @@ type VapTableEntry struct {
 
 // TrafficRule represents a traffic management rule (v2 API).
 //
+// Name round-trip caveat: on v9 controllers the API drops `name` from
+// every response shape (POST/PUT/LIST; GET-by-id returns 405 and falls
+// back to LIST). CreateTrafficRule and UpdateTrafficRule re-inject the
+// caller's name into the returned struct so most callers don't notice;
+// GetTrafficRule cannot recover it (no input to fall back to) and returns
+// Name="". See GetTrafficRule's godoc for the implications.
+//
 // Field value reference:
 //   - Action: "BLOCK", "ALLOW"
 //   - MatchingTarget: "INTERNET", "IP", "DOMAIN", "REGION", "APP", "APP_CATEGORY", "LOCAL_NETWORK"
@@ -1044,6 +1051,11 @@ type TrafficDomain struct {
 }
 
 // TrafficRoute represents a policy-based routing rule (v2 API).
+//
+// Name round-trip caveat: same v9-controller bug as TrafficRule —
+// `name` is dropped from every response. Create/Update re-inject from the
+// caller's input; GetTrafficRoute returns Name="". See TrafficRule's
+// godoc for details.
 //
 // Field value reference:
 //   - MatchingTarget: "INTERNET", "IP", "DOMAIN", "REGION"

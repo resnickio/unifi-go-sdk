@@ -1624,6 +1624,16 @@ func (c *NetworkClient) ListTrafficRules(ctx context.Context) ([]TrafficRule, er
 // GetTrafficRule retrieves a traffic rule by ID.
 // Some controller versions don't support GET by ID (return 405 Method Not Allowed),
 // so this method falls back to listing all rules and filtering by ID.
+//
+// Caveat: v9 controllers omit the `name` field from every traffic-rule
+// response shape, including LIST. The returned TrafficRule.Name will
+// therefore be empty even though the controller has the name stored.
+// Callers that need the canonical name must source it from somewhere
+// outside the API — typically the value passed to CreateTrafficRule (which
+// the SDK re-injects into Create's return value as a workaround) or the
+// caller's own state cache. See TestIntegration_V2_TrafficRule_NameRoundTrip
+// for the bug's verified extent; when the controller is fixed this caveat
+// can be removed.
 func (c *NetworkClient) GetTrafficRule(ctx context.Context, id string) (*TrafficRule, error) {
 	var rule TrafficRule
 	err := c.doV2(ctx, "GET", c.v2PathWithID("trafficrules", id), nil, &rule)
@@ -1661,6 +1671,16 @@ func (c *NetworkClient) CreateTrafficRule(ctx context.Context, rule *TrafficRule
 	if err != nil {
 		return nil, err
 	}
+	// v9 controller bug: the v2 traffic-rule API drops `name` from every
+	// response shape (POST/PUT/LIST). The controller stores it (the UI shows
+	// it; PUT preserves it across re-fetch) but never returns it. Re-inject
+	// the caller's name so the returned struct round-trips with intent. This
+	// is verified by TestIntegration_V2_TrafficRule_NameRoundTrip; when the
+	// controller is fixed and starts returning name, this branch becomes a
+	// no-op (result.Name will already match rule.Name).
+	if result.Name == "" {
+		result.Name = rule.Name
+	}
 	return &result, nil
 }
 
@@ -1672,6 +1692,10 @@ func (c *NetworkClient) UpdateTrafficRule(ctx context.Context, id string, rule *
 	err := c.doV2(ctx, "PUT", c.v2PathWithID("trafficrules", id), rule, &result)
 	if err != nil {
 		return nil, err
+	}
+	// See CreateTrafficRule for why we paper over name here.
+	if result.Name == "" {
+		result.Name = rule.Name
 	}
 	return &result, nil
 }
@@ -1694,6 +1718,10 @@ func (c *NetworkClient) ListTrafficRoutes(ctx context.Context) ([]TrafficRoute, 
 // GetTrafficRoute retrieves a traffic route by ID.
 // Some controller versions don't support GET by ID (return 405 Method Not Allowed),
 // so this method falls back to listing all routes and filtering by ID.
+//
+// Caveat: v9 controllers omit the `name` field from every traffic-route
+// response shape (same bug as TrafficRule). The returned TrafficRoute.Name
+// will be empty. See GetTrafficRule's godoc for the workaround pattern.
 func (c *NetworkClient) GetTrafficRoute(ctx context.Context, id string) (*TrafficRoute, error) {
 	var route TrafficRoute
 	err := c.doV2(ctx, "GET", c.v2PathWithID("trafficroutes", id), nil, &route)
@@ -1731,6 +1759,11 @@ func (c *NetworkClient) CreateTrafficRoute(ctx context.Context, route *TrafficRo
 	if err != nil {
 		return nil, err
 	}
+	// Same v9 controller bug as CreateTrafficRule: the v2 traffic-route API
+	// drops `name` from every response. Re-inject from the caller's input.
+	if result.Name == "" {
+		result.Name = route.Name
+	}
 	return &result, nil
 }
 
@@ -1742,6 +1775,10 @@ func (c *NetworkClient) UpdateTrafficRoute(ctx context.Context, id string, route
 	err := c.doV2(ctx, "PUT", c.v2PathWithID("trafficroutes", id), route, &result)
 	if err != nil {
 		return nil, err
+	}
+	// See CreateTrafficRoute for why we paper over name here.
+	if result.Name == "" {
+		result.Name = route.Name
 	}
 	return &result, nil
 }
