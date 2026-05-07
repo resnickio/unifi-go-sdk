@@ -1339,16 +1339,53 @@ func TestIntegration_V2_TrafficRules_CRUD(t *testing.T) {
 		cleanupTestResources(t, client, ctx)
 	})
 
+	// Find a WAN network for NetworkIDs round-trip coverage.
+	networks, err := client.ListNetworks(ctx)
+	if err != nil {
+		t.Fatalf("ListNetworks failed: %v", err)
+	}
+	var wanNetworkID string
+	for _, n := range networks {
+		if n.Purpose == "wan" {
+			wanNetworkID = n.ID
+			break
+		}
+	}
+
 	name := testName("trafficrule")
+	port80, port90 := 80, 90
 	rule := &TrafficRule{
 		Name:           name,
 		Enabled:        BoolPtr(true),
 		Action:         "BLOCK",
 		MatchingTarget: "DOMAIN",
-		Domains:        []TrafficDomain{{Domain: "blocked-domain.example.com"}},
+		Domains: []TrafficDomain{
+			{
+				Domain: "blocked-domain.example.com",
+				// PortRanges round-trip guard — controller adds the field;
+				// SDK now preserves it after the v0.13.0 model expansion.
+				PortRanges: []TrafficDomainPortRange{
+					{PortStart: &port80, PortStop: &port90},
+				},
+			},
+		},
 		TargetDevices: []TrafficRuleTarget{
 			{Type: "ALL_CLIENTS"},
 		},
+		// Schedule round-trip guard — uses the corrected EVERY_WEEK shape
+		// (RepeatOnDays lowercase 3-letter, TimeAllDay). Pre-v0.13.0 the
+		// schedule shape had different field names that the controller
+		// silently dropped.
+		Schedule: &PolicySchedule{
+			Mode:         "EVERY_WEEK",
+			RepeatOnDays: []string{"mon", "fri"},
+			TimeAllDay:   BoolPtr(true),
+		},
+	}
+	if wanNetworkID != "" {
+		// NetworkIDs round-trip guard — pre-v0.13.0 the singular
+		// `network_id` was silently dropped on input.
+		rule.NetworkIDs = []string{wanNetworkID}
 	}
 
 	created, err := client.CreateTrafficRule(ctx, rule)
@@ -1370,6 +1407,26 @@ func TestIntegration_V2_TrafficRules_CRUD(t *testing.T) {
 	}
 	if fetched.ID != created.ID {
 		t.Errorf("Expected ID %q, got %q", created.ID, fetched.ID)
+	}
+	// Round-trip guards: assert the renamed/added fields actually survive
+	// the round-trip via LIST (GET-by-id returns 405; SDK falls back to
+	// LIST). If any of these fail, the controller's behavior shifted —
+	// re-probe before changing the SDK.
+	if wanNetworkID != "" && (len(fetched.NetworkIDs) != 1 || fetched.NetworkIDs[0] != wanNetworkID) {
+		t.Errorf("NetworkIDs round-trip lost: sent %v, got %v", []string{wanNetworkID}, fetched.NetworkIDs)
+	}
+	if fetched.Schedule == nil {
+		t.Errorf("Schedule round-trip: nil schedule returned")
+	} else {
+		if fetched.Schedule.Mode != "EVERY_WEEK" {
+			t.Errorf("Schedule.Mode round-trip: got %q, want EVERY_WEEK", fetched.Schedule.Mode)
+		}
+		if len(fetched.Schedule.RepeatOnDays) != 2 {
+			t.Errorf("Schedule.RepeatOnDays round-trip: got %v, want [mon fri]", fetched.Schedule.RepeatOnDays)
+		}
+	}
+	if len(fetched.Domains) > 0 && len(fetched.Domains[0].PortRanges) != 1 {
+		t.Errorf("Domains[0].PortRanges round-trip: got %v, want 1 entry", fetched.Domains[0].PortRanges)
 	}
 
 	list, err := client.ListTrafficRules(ctx)
@@ -1444,6 +1501,10 @@ func TestIntegration_V2_TrafficRoutes_CRUD(t *testing.T) {
 		TargetDevices: []TrafficRuleTarget{
 			{Type: "ALL_CLIENTS"},
 		},
+		// KillSwitchEnabled round-trip guard — pre-v0.13.0 the SDK serialized
+		// this as `kill_switch`, which the controller accepted at parse time
+		// but silently flipped to false in storage.
+		KillSwitchEnabled: BoolPtr(true),
 	}
 
 	created, err := client.CreateTrafficRoute(ctx, route)
@@ -1463,6 +1524,12 @@ func TestIntegration_V2_TrafficRoutes_CRUD(t *testing.T) {
 	}
 	if fetched.ID != created.ID {
 		t.Errorf("Expected ID %q, got %q", created.ID, fetched.ID)
+	}
+	// Round-trip guard: KillSwitchEnabled was the smoking gun for the
+	// rename. If this assertion fails, it means either the SDK reverted
+	// to `kill_switch` or the controller changed the field name.
+	if fetched.KillSwitchEnabled == nil || !*fetched.KillSwitchEnabled {
+		t.Errorf("KillSwitchEnabled round-trip lost: sent true, got %v", fetched.KillSwitchEnabled)
 	}
 
 	list, err := client.ListTrafficRoutes(ctx)

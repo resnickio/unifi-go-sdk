@@ -1998,22 +1998,40 @@ components:
             type: string
 
     Schedule:
+      # Re-probed against v9 controller in v0.13.0. The previous schema's
+      # `days_of_week` field with uppercase full-name values was silently
+      # dropped on the wire — the controller's actual field is
+      # `repeat_on_days` with lowercase 3-letter values. Per-mode required
+      # combinations (e.g., CUSTOM needs date_start/date_end + repeat_on_days)
+      # are enforced by the controller, not the SDK.
       type: object
       properties:
         mode:
-          # Probed against v9 controller; pre-probe spec was missing
-          # EVERY_DAY/EVERY_WEEK/ONE_TIME_ONLY.
           type: string
           enum: [ALWAYS, CUSTOM, EVERY_DAY, EVERY_WEEK, ONE_TIME_ONLY]
-        time_range_start:
-          type: string
-        time_range_end:
-          type: string
-        days_of_week:
+        repeat_on_days:
           type: array
           items:
             type: string
-            enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY]
+            enum: [mon, tue, wed, thu, fri, sat, sun]
+          description: Lowercase 3-letter day codes; case-sensitive on input.
+        time_all_day:
+          type: boolean
+        time_range_start:
+          type: string
+          description: HH:MM (24h)
+        time_range_end:
+          type: string
+          description: HH:MM (24h)
+        date_start:
+          type: string
+          description: YYYY-MM-DD; required for CUSTOM mode
+        date_end:
+          type: string
+          description: YYYY-MM-DD; required for CUSTOM mode
+        date:
+          type: string
+          description: YYYY-MM-DD; required for ONE_TIME_ONLY mode
 
     FirewallZone:
       type: object
@@ -2056,25 +2074,66 @@ components:
             type: string
 
     TrafficRule:
+      # Re-probed against v9 controller in v0.13.0. Notes:
+      #   - `name` is silently dropped from every response shape; the SDK
+      #     re-injects it on Create/Update, but cannot recover it on Get.
+      #   - `network_ids` (plural) is the canonical field; the previous
+      #     singular `network_id` was silently dropped on input.
+      #   - Schedule object: see the Schedule schema above (renamed
+      #     `days_of_week` → `repeat_on_days`, etc).
       type: object
       properties:
         _id:
           type: string
         name:
           type: string
+          description: Required on input; not echoed in any response.
         enabled:
           type: boolean
         action:
           type: string
+          enum: [BLOCK, ALLOW]
         matching_target:
           type: string
+          enum: [INTERNET, IP, DOMAIN, REGION, APP, APP_CATEGORY, LOCAL_NETWORK]
         target_devices:
           type: array
           items:
             type: object
+        schedule:
+          $ref: '#/components/schemas/Schedule'
+        description:
+          type: string
+        network_ids:
+          type: array
+          items:
+            type: string
+        domains:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrafficDomain'
+        ip_addresses:
+          type: array
+          items:
+            type: string
+        ip_ranges:
+          type: array
+          items:
+            type: string
+        regions:
+          type: array
+          items:
+            type: string
+        bandwidth_limit:
+          type: object
+          properties:
+            download_limit_kbps: {type: integer}
+            upload_limit_kbps: {type: integer}
+            enabled: {type: boolean}
 
     TrafficRuleCreate:
       type: object
+      required: [name, action]
       properties:
         name:
           type: string
@@ -2084,22 +2143,76 @@ components:
           type: string
 
     TrafficRoute:
+      # Re-probed against v9 controller in v0.13.0. Notes:
+      #   - `name` is silently dropped from every response shape; the SDK
+      #     re-injects it on Create/Update, but cannot recover it on Get.
+      #   - `kill_switch_enabled` is the canonical field; the previous
+      #     `kill_switch` was silently flipped to false on input.
+      #   - `fallback` was modeled but the controller silently ignores it
+      #     (never echoed); removed from the v0.13.0 SDK.
       type: object
       properties:
         _id:
           type: string
         name:
           type: string
+          description: Required on input; not echoed in any response.
         enabled:
+          type: boolean
+        description:
+          type: string
+        matching_target:
+          type: string
+          enum: [INTERNET, IP, DOMAIN, REGION]
+        target_devices:
+          type: array
+          items:
+            type: object
+        network_id:
+          type: string
+        domains:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrafficDomain'
+        kill_switch_enabled:
           type: boolean
 
     TrafficRouteCreate:
       type: object
+      required: [name, matching_target]
       properties:
         name:
           type: string
         enabled:
           type: boolean
+
+    TrafficDomain:
+      type: object
+      required: [domain]
+      properties:
+        domain:
+          type: string
+        description:
+          type: string
+          description: Write-only — controller accepts on input but never echoes.
+        ports:
+          type: array
+          items:
+            type: integer
+        port_ranges:
+          type: array
+          items:
+            type: object
+            required: [port_start, port_stop]
+            properties:
+              port_start:
+                type: integer
+                minimum: 1
+                maximum: 65535
+              port_stop:
+                type: integer
+                minimum: 1
+                maximum: 65535
 
     NatRule:
       # Probed against v9 controller. The previous schema (name + enum

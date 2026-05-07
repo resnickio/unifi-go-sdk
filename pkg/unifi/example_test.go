@@ -301,7 +301,7 @@ func Example_firewallPolicyBuilder() {
 		).
 		ScheduleFrom(
 			unifi.NewPolicyScheduleBuilder().
-				Custom("09:00", "17:00", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"),
+				EveryWeek("09:00", "17:00", "mon", "tue", "wed", "thu", "fri"),
 		).
 		Build()
 

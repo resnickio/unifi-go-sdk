@@ -633,9 +633,24 @@ func TestPolicyScheduleValidate(t *testing.T) {
 		{"valid time range end", PolicySchedule{TimeRangeEnd: "17:00"}, ""},
 		{"invalid time range start", PolicySchedule{TimeRangeStart: "invalid"}, "time_range_start must be in HH:MM format"},
 		{"invalid time range end", PolicySchedule{TimeRangeEnd: "25:00"}, "time_range_end must be in HH:MM format"},
-		{"valid days", PolicySchedule{DaysOfWeek: []string{"MONDAY", "FRIDAY"}}, ""},
-		{"valid all days", PolicySchedule{DaysOfWeek: []string{"MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"}}, ""},
-		{"invalid day", PolicySchedule{DaysOfWeek: []string{"INVALID"}}, "day \"INVALID\" must be one of"},
+		// Probe-confirmed: controller's repeat_on_days enum is lowercase
+		// 3-letter ("mon", "tue", ..., "sun"). The earlier validator's
+		// uppercase full-name list ("MONDAY", ...) was silently dropped on
+		// the wire — see PolicySchedule godoc + commit message for the
+		// v0.13.0 release.
+		{"valid days lowercase short", PolicySchedule{RepeatOnDays: []string{"mon", "fri"}}, ""},
+		{"valid all days", PolicySchedule{RepeatOnDays: []string{"mon", "tue", "wed", "thu", "fri", "sat", "sun"}}, ""},
+		{"invalid day", PolicySchedule{RepeatOnDays: []string{"INVALID"}}, "must be one of: mon, tue, wed, thu, fri, sat, sun"},
+		{"rejected legacy MONDAY", PolicySchedule{RepeatOnDays: []string{"MONDAY"}}, "must be one of"},
+		{"rejected legacy uppercase MON", PolicySchedule{RepeatOnDays: []string{"MON"}}, "must be one of"},
+		// New fields.
+		{"valid time_all_day", PolicySchedule{TimeAllDay: BoolPtr(true)}, ""},
+		{"valid date_start", PolicySchedule{DateStart: "2026-01-01"}, ""},
+		{"invalid date_start", PolicySchedule{DateStart: "2026/01/01"}, "date_start must be in YYYY-MM-DD format"},
+		{"valid date_end", PolicySchedule{DateEnd: "2026-01-31"}, ""},
+		{"invalid date_end", PolicySchedule{DateEnd: "31-01-2026"}, "date_end must be in YYYY-MM-DD format"},
+		{"valid date", PolicySchedule{Date: "2026-06-15"}, ""},
+		{"invalid date", PolicySchedule{Date: "06/15/2026"}, "date must be in YYYY-MM-DD format"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

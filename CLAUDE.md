@@ -130,6 +130,8 @@ This SDK is intended to support a Terraform provider. Prioritize type safety wit
 
   `pkg/unifi/enum_probe_test.go` (`TestEnumProbe`, `//go:build integration`) enforces this hierarchy on every integration run by re-probing every `isOneOf` validator and failing on any drift in either direction. When adding a new enum validator, add a matching entry to its probe table.
 
+- **Round-trip field preservation**: Enum drift isn't the only failure mode. The v9 controller silently drops some fields on input (Jackson accepts the JSON but the Java DTO doesn't have a setter for that name, so the value is lost) and renames others on output (e.g. `kill_switch` → `kill_switch_enabled`, `network_id` → `network_ids`). When a field's value disappears between Create input and Get response, **probe the wire format directly** (raw POST + raw LIST diff) rather than trusting the Go field name; the JSON tag is what matters. The integration tests for `TrafficRule`/`TrafficRoute` carry round-trip assertions for the renamed fields as guards. Document write-only fields explicitly on the struct (e.g., `TrafficDomain.Description` is accepted on input but never echoed).
+
 - **OpenAPI-first scaffolding**: When implementing new API endpoints, read the relevant OpenAPI spec (`openapi/*.yaml`) for the endpoint shape and field names, then verify enums against the live controller via `TestEnumProbe`. The spec is good for structure; the controller is the only authority for enum values.
 - **Go idioms**: Prefer exported fields over setter methods for simplicity. Skip helper functions (like `IsNotFound()`) - use standard `errors.Is()` patterns instead
 - **Testing**: Use `httptest` for mocking. Export struct fields to allow test configuration

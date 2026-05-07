@@ -740,19 +740,41 @@ func (p *PolicyEndpoint) Validate() error {
 	return nil
 }
 
-// PolicySchedule defines when a firewall policy is active.
+// PolicySchedule defines when a policy is active. Used by FirewallPolicy
+// and TrafficRule (same shape on both endpoints, verified via probe).
+//
+// Per-mode required fields (controller-enforced; SDK only field-format
+// validates):
+//   - ALWAYS:        no other fields
+//   - EVERY_DAY:     time_all_day OR time_range_start + time_range_end
+//   - EVERY_WEEK:    repeat_on_days, plus time_all_day or time_range_*
+//   - CUSTOM:        repeat_on_days, date_start, date_end, plus time fields
+//   - ONE_TIME_ONLY: date, plus time_all_day or time_range_*
 //
 // Field value reference:
 //   - Mode: "ALWAYS", "CUSTOM", "EVERY_DAY", "EVERY_WEEK", "ONE_TIME_ONLY"
-//   - DaysOfWeek: "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"
+//   - RepeatOnDays: lowercase 3-letter — "mon", "tue", "wed", "thu", "fri",
+//     "sat", "sun" (verified via Jackson enum probe; case-sensitive)
+//   - DateStart, DateEnd, Date: YYYY-MM-DD
+//   - TimeRangeStart, TimeRangeEnd: HH:MM (24h)
 type PolicySchedule struct {
 	Mode           string   `json:"mode,omitempty"`
+	RepeatOnDays   []string `json:"repeat_on_days,omitempty"`
+	TimeAllDay     *bool    `json:"time_all_day,omitempty"`
 	TimeRangeStart string   `json:"time_range_start,omitempty"`
 	TimeRangeEnd   string   `json:"time_range_end,omitempty"`
-	DaysOfWeek     []string `json:"days_of_week,omitempty"`
+	DateStart      string   `json:"date_start,omitempty"`
+	DateEnd        string   `json:"date_end,omitempty"`
+	Date           string   `json:"date,omitempty"`
 }
 
-// Validate checks that PolicySchedule fields have valid values.
+// validScheduleDays are the lowercase 3-letter day codes the controller
+// accepts in repeat_on_days. Sending any other casing or full-day name
+// silently empties the list (controller's Jackson enum is case-sensitive).
+var validScheduleDays = []string{"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
+
+// Validate checks that PolicySchedule fields have valid format. Per-mode
+// required-field combinations are enforced by the controller, not here.
 func (s *PolicySchedule) Validate() error {
 	if s.Mode != "" && !isOneOf(s.Mode, "ALWAYS", "CUSTOM", "EVERY_DAY", "EVERY_WEEK", "ONE_TIME_ONLY") {
 		return fmt.Errorf("policyschedule: mode must be one of: ALWAYS, CUSTOM, EVERY_DAY, EVERY_WEEK, ONE_TIME_ONLY")
@@ -763,11 +785,19 @@ func (s *PolicySchedule) Validate() error {
 	if s.TimeRangeEnd != "" && !isValidTimeHHMM(s.TimeRangeEnd) {
 		return fmt.Errorf("policyschedule: time_range_end must be in HH:MM format")
 	}
-	validDays := []string{"MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"}
-	for _, day := range s.DaysOfWeek {
-		if !isOneOf(day, validDays...) {
-			return fmt.Errorf("policyschedule: day %q must be one of: MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY", day)
+	for _, day := range s.RepeatOnDays {
+		if !isOneOf(day, validScheduleDays...) {
+			return fmt.Errorf("policyschedule: day %q must be one of: mon, tue, wed, thu, fri, sat, sun", day)
 		}
+	}
+	if s.DateStart != "" && !isValidDateYYYYMMDD(s.DateStart) {
+		return fmt.Errorf("policyschedule: date_start must be in YYYY-MM-DD format")
+	}
+	if s.DateEnd != "" && !isValidDateYYYYMMDD(s.DateEnd) {
+		return fmt.Errorf("policyschedule: date_end must be in YYYY-MM-DD format")
+	}
+	if s.Date != "" && !isValidDateYYYYMMDD(s.Date) {
+		return fmt.Errorf("policyschedule: date must be in YYYY-MM-DD format")
 	}
 	return nil
 }
@@ -1025,8 +1055,12 @@ type TrafficRule struct {
 	IPAddresses    []string            `json:"ip_addresses,omitempty"`
 	IPRanges       []string            `json:"ip_ranges,omitempty"`
 	Regions        []string            `json:"regions,omitempty"`
-	NetworkID      string              `json:"network_id,omitempty"`
-	BandwidthLimit *TrafficBandwidth   `json:"bandwidth_limit,omitempty"`
+	// NetworkIDs is plural (controller field is `network_ids`). Earlier SDK
+	// versions had a singular `NetworkID string` field that serialized to
+	// `network_id`; the controller silently dropped it (sent value never
+	// stored). Use NetworkIDs to associate one or more networks with the rule.
+	NetworkIDs     []string          `json:"network_ids,omitempty"`
+	BandwidthLimit *TrafficBandwidth `json:"bandwidth_limit,omitempty"`
 }
 
 // TrafficRuleTarget specifies a device target for a traffic rule.
@@ -1044,10 +1078,45 @@ type TrafficBandwidth struct {
 }
 
 // TrafficDomain represents a domain entry for traffic rules and routes.
+//
+// Description round-trip caveat: the v9 controller accepts `description`
+// on input (presumably for UI display) but does not echo it in any response
+// shape. Treat as write-only — set it for human readability, but don't
+// expect it to be readable via GET/LIST.
 type TrafficDomain struct {
-	Domain      string `json:"domain"`
-	Description string `json:"description,omitempty"`
-	Ports       []int  `json:"ports,omitempty"`
+	Domain      string                   `json:"domain"`
+	Description string                   `json:"description,omitempty"`
+	Ports       []int                    `json:"ports,omitempty"`
+	PortRanges  []TrafficDomainPortRange `json:"port_ranges,omitempty"`
+}
+
+// TrafficDomainPortRange is an inclusive port range entry within a
+// TrafficDomain. Both ports are required and must be in [1, 65535] with
+// PortStart <= PortStop.
+type TrafficDomainPortRange struct {
+	PortStart *int `json:"port_start,omitempty"`
+	PortStop  *int `json:"port_stop,omitempty"`
+}
+
+// Validate checks that PortStart and PortStop are valid ports with
+// PortStart <= PortStop.
+func (p *TrafficDomainPortRange) Validate() error {
+	if p.PortStart == nil {
+		return fmt.Errorf("trafficdomainportrange: port_start is required")
+	}
+	if p.PortStop == nil {
+		return fmt.Errorf("trafficdomainportrange: port_stop is required")
+	}
+	if !isValidPort(*p.PortStart) {
+		return fmt.Errorf("trafficdomainportrange: port_start must be between 1 and 65535")
+	}
+	if !isValidPort(*p.PortStop) {
+		return fmt.Errorf("trafficdomainportrange: port_stop must be between 1 and 65535")
+	}
+	if *p.PortStart > *p.PortStop {
+		return fmt.Errorf("trafficdomainportrange: port_start must be <= port_stop")
+	}
+	return nil
 }
 
 // TrafficRoute represents a policy-based routing rule (v2 API).
@@ -1072,8 +1141,12 @@ type TrafficRoute struct {
 	IPAddresses    []string            `json:"ip_addresses,omitempty"`
 	IPRanges       []string            `json:"ip_ranges,omitempty"`
 	Regions        []string            `json:"regions,omitempty"`
-	Fallback       *bool               `json:"fallback,omitempty"`
-	KillSwitch     *bool               `json:"kill_switch,omitempty"`
+	// KillSwitchEnabled corresponds to the controller's
+	// `kill_switch_enabled` field. Earlier SDK versions had `KillSwitch
+	// *bool` serializing to `kill_switch`, which the controller accepted
+	// at parse time but never persisted (Jackson silently dropped the
+	// value).
+	KillSwitchEnabled *bool `json:"kill_switch_enabled,omitempty"`
 }
 
 // NatRule represents a NAT rule (v2 API).

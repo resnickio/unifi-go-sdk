@@ -90,21 +90,21 @@ func TestFirewallPolicyBuilder(t *testing.T) {
 			Action("DROP").
 			ScheduleFrom(
 				NewPolicyScheduleBuilder().
-					Custom("08:00", "17:00", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"),
+					EveryWeek("08:00", "17:00", "mon", "tue", "wed", "thu", "fri"),
 			).
 			Build()
 
 		if policy.Schedule == nil {
 			t.Fatal("expected schedule to be set")
 		}
-		if policy.Schedule.Mode != "CUSTOM" {
-			t.Errorf("expected mode 'CUSTOM', got %q", policy.Schedule.Mode)
+		if policy.Schedule.Mode != "EVERY_WEEK" {
+			t.Errorf("expected mode 'EVERY_WEEK', got %q", policy.Schedule.Mode)
 		}
 		if policy.Schedule.TimeRangeStart != "08:00" {
 			t.Errorf("expected start time '08:00', got %q", policy.Schedule.TimeRangeStart)
 		}
-		if len(policy.Schedule.DaysOfWeek) != 5 {
-			t.Errorf("expected 5 days, got %d", len(policy.Schedule.DaysOfWeek))
+		if len(policy.Schedule.RepeatOnDays) != 5 {
+			t.Errorf("expected 5 days, got %d", len(policy.Schedule.RepeatOnDays))
 		}
 	})
 
@@ -167,10 +167,10 @@ func TestFirewallPolicyBuilder(t *testing.T) {
 
 	t.Run("schedule_direct_assignment", func(t *testing.T) {
 		schedule := &PolicySchedule{
-			Mode:           "CUSTOM",
+			Mode:           "EVERY_WEEK",
 			TimeRangeStart: "10:00",
 			TimeRangeEnd:   "14:00",
-			DaysOfWeek:     []string{"MONDAY", "WEDNESDAY", "FRIDAY"},
+			RepeatOnDays:   []string{"mon", "wed", "fri"},
 		}
 
 		policy := NewFirewallPolicyBuilder().
@@ -182,8 +182,8 @@ func TestFirewallPolicyBuilder(t *testing.T) {
 		if policy.Schedule == nil {
 			t.Fatal("expected schedule to be set")
 		}
-		if policy.Schedule.Mode != "CUSTOM" {
-			t.Errorf("expected mode 'CUSTOM', got %q", policy.Schedule.Mode)
+		if policy.Schedule.Mode != "EVERY_WEEK" {
+			t.Errorf("expected mode 'EVERY_WEEK', got %q", policy.Schedule.Mode)
 		}
 		if policy.Schedule.TimeRangeStart != "10:00" {
 			t.Errorf("expected start time '10:00', got %q", policy.Schedule.TimeRangeStart)
@@ -191,8 +191,8 @@ func TestFirewallPolicyBuilder(t *testing.T) {
 		if policy.Schedule.TimeRangeEnd != "14:00" {
 			t.Errorf("expected end time '14:00', got %q", policy.Schedule.TimeRangeEnd)
 		}
-		if len(policy.Schedule.DaysOfWeek) != 3 {
-			t.Errorf("expected 3 days, got %d", len(policy.Schedule.DaysOfWeek))
+		if len(policy.Schedule.RepeatOnDays) != 3 {
+			t.Errorf("expected 3 days, got %d", len(policy.Schedule.RepeatOnDays))
 		}
 	})
 }
@@ -338,11 +338,11 @@ func TestPolicyScheduleBuilder(t *testing.T) {
 
 	t.Run("custom mode with helper", func(t *testing.T) {
 		schedule := NewPolicyScheduleBuilder().
-			Custom("09:00", "18:00", "MONDAY", "FRIDAY").
+			EveryWeek("09:00", "18:00", "mon", "fri").
 			Build()
 
-		if schedule.Mode != "CUSTOM" {
-			t.Errorf("expected mode 'CUSTOM', got %q", schedule.Mode)
+		if schedule.Mode != "EVERY_WEEK" {
+			t.Errorf("expected mode 'EVERY_WEEK', got %q", schedule.Mode)
 		}
 		if schedule.TimeRangeStart != "09:00" {
 			t.Errorf("expected start '09:00', got %q", schedule.TimeRangeStart)
@@ -350,20 +350,20 @@ func TestPolicyScheduleBuilder(t *testing.T) {
 		if schedule.TimeRangeEnd != "18:00" {
 			t.Errorf("expected end '18:00', got %q", schedule.TimeRangeEnd)
 		}
-		if len(schedule.DaysOfWeek) != 2 {
-			t.Errorf("expected 2 days, got %d", len(schedule.DaysOfWeek))
+		if len(schedule.RepeatOnDays) != 2 {
+			t.Errorf("expected 2 days, got %d", len(schedule.RepeatOnDays))
 		}
 	})
 
-	t.Run("custom mode with individual methods", func(t *testing.T) {
+	t.Run("every-week mode with individual methods", func(t *testing.T) {
 		schedule := NewPolicyScheduleBuilder().
-			Mode("CUSTOM").
+			Mode("EVERY_WEEK").
 			TimeRange("00:00", "06:00").
-			DaysOfWeek("SATURDAY", "SUNDAY").
+			RepeatOnDays("sat", "sun").
 			Build()
 
-		if schedule.Mode != "CUSTOM" {
-			t.Errorf("expected mode 'CUSTOM', got %q", schedule.Mode)
+		if schedule.Mode != "EVERY_WEEK" {
+			t.Errorf("expected mode 'EVERY_WEEK', got %q", schedule.Mode)
 		}
 		if schedule.TimeRangeStart != "00:00" {
 			t.Errorf("expected start '00:00', got %q", schedule.TimeRangeStart)
@@ -394,7 +394,7 @@ func TestBuilderChaining(t *testing.T) {
 		).
 		ScheduleFrom(
 			NewPolicyScheduleBuilder().
-				Custom("22:00", "06:00", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"),
+				EveryWeek("22:00", "06:00", "mon", "tue", "wed", "thu", "fri", "sat", "sun"),
 		).
 		Build()
 
@@ -407,7 +407,7 @@ func TestBuilderChaining(t *testing.T) {
 	if policy.Destination == nil || policy.Destination.Port != "22" {
 		t.Error("destination not set correctly")
 	}
-	if policy.Schedule == nil || policy.Schedule.Mode != "CUSTOM" {
+	if policy.Schedule == nil || policy.Schedule.Mode != "EVERY_WEEK" {
 		t.Error("schedule not set correctly")
 	}
 }

@@ -253,12 +253,18 @@ func (b *PolicyScheduleBuilder) Always() *PolicyScheduleBuilder {
 	return b
 }
 
-// Custom sets the schedule to custom mode with specified time range and days.
-func (b *PolicyScheduleBuilder) Custom(startTime, endTime string, days ...string) *PolicyScheduleBuilder {
-	b.schedule.Mode = "CUSTOM"
+// EveryWeek sets the schedule to EVERY_WEEK mode with the given time range
+// and weekly days. Days use the lowercase 3-letter form ("mon", "tue", ...,
+// "sun"); the controller silently empties any other casing or full-day name.
+//
+// Replaces the earlier Custom() builder, whose semantics didn't match
+// what the controller actually accepts (the mode name "CUSTOM" requires a
+// date range, not just a time range — see PolicySchedule godoc).
+func (b *PolicyScheduleBuilder) EveryWeek(startTime, endTime string, days ...string) *PolicyScheduleBuilder {
+	b.schedule.Mode = "EVERY_WEEK"
 	b.schedule.TimeRangeStart = startTime
 	b.schedule.TimeRangeEnd = endTime
-	b.schedule.DaysOfWeek = days
+	b.schedule.RepeatOnDays = days
 	return b
 }
 
@@ -269,9 +275,17 @@ func (b *PolicyScheduleBuilder) TimeRange(start, end string) *PolicyScheduleBuil
 	return b
 }
 
-// DaysOfWeek sets the days when the schedule is active.
-func (b *PolicyScheduleBuilder) DaysOfWeek(days ...string) *PolicyScheduleBuilder {
-	b.schedule.DaysOfWeek = days
+// RepeatOnDays sets the days when the schedule is active. Days use the
+// lowercase 3-letter form ("mon", "tue", ..., "sun").
+func (b *PolicyScheduleBuilder) RepeatOnDays(days ...string) *PolicyScheduleBuilder {
+	b.schedule.RepeatOnDays = days
+	return b
+}
+
+// TimeAllDay sets whether the schedule covers the full 24-hour period
+// (i.e., no time_range_start/end).
+func (b *PolicyScheduleBuilder) TimeAllDay(enabled bool) *PolicyScheduleBuilder {
+	b.schedule.TimeAllDay = BoolPtr(enabled)
 	return b
 }
 

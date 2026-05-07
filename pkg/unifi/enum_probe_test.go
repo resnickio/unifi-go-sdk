@@ -365,9 +365,10 @@ func TestEnumProbe(t *testing.T) {
 // buildProbes constructs the per-validator probe table.
 //
 // Skipped (and why):
-//   - PolicySchedule.DaysOfWeek — string-list validator, not a single-value
-//     enum; the v2 API rejects unknown days similarly but with the same enum
-//     class so it would duplicate PolicyEndpoint coverage.
+//   - PolicySchedule.RepeatOnDays — string-list validator. Probed inline
+//     via PolicySchedule.RepeatOnDays below using a dedicated probe entry
+//     against the trafficrules endpoint (Jackson exposes the enum class on
+//     parse failure).
 //   - RadioOverride.Radio and RadioOverride.TxPowerMode — when probed against
 //     PUT /rest/device/{id}, the controller silently returns rc:ok with no
 //     validation error (different validation path for radio_table_overrides
@@ -479,6 +480,16 @@ func buildProbes(netID, zoneID, devicePath string, v2, rest, settingSet func(str
 			parser:          jx,
 			validatorValues: []string{"ALWAYS", "CUSTOM", "EVERY_DAY", "EVERY_WEEK", "ONE_TIME_ONLY"},
 		},
+		// PolicySchedule.RepeatOnDays — un-probeable here: the controller's
+		// Jackson config emits "No enum constant ... <value>" rather than the
+		// "not one of the values accepted for Enum class: [...]" format our
+		// parser can extract a list from. The validator values
+		// {mon, tue, wed, thu, fri, sat, sun} were determined by manual
+		// elimination probing (lowercase 3-letter accepted; full names like
+		// MONDAY and uppercase short MON both rejected). When the controller
+		// changes the days enum, the unit test TestPolicyScheduleValidate
+		// "rejected legacy" cases still guard against rolling back to
+		// uppercase, but the SDK can't auto-detect drift here.
 
 		// ---- v2 API: TrafficRule / TrafficRoute ----
 		{

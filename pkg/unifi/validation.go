@@ -75,3 +75,15 @@ func isValidTimeHHMM(s string) bool {
 	}
 	return timeHHMMRegex.MatchString(s)
 }
+
+var dateYYYYMMDDRegex = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
+
+// isValidDateYYYYMMDD checks that s is a date in ISO YYYY-MM-DD format.
+// Field-level format only — does not validate calendar correctness; the
+// controller enforces that.
+func isValidDateYYYYMMDD(s string) bool {
+	if s == "" {
+		return false
+	}
+	return dateYYYYMMDDRegex.MatchString(s)
+}
