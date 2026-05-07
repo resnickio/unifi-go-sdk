@@ -159,7 +159,8 @@ func (b *PolicyEndpointBuilder) ZoneID(id string) *PolicyEndpointBuilder {
 	return b
 }
 
-// MatchingTarget sets the matching target type (ANY, IP, NETWORK, DOMAIN, REGION, PORT_GROUP, ADDRESS_GROUP).
+// MatchingTarget sets the matching target (ANY, APP, APP_CATEGORY, IP, IID, NETWORK, REGION, WEB).
+// For the SPECIFIC vs OBJECT companion, see MatchingTargetType.
 func (b *PolicyEndpointBuilder) MatchingTarget(target string) *PolicyEndpointBuilder {
 	b.endpoint.MatchingTarget = target
 	return b
