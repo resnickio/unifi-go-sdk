@@ -89,7 +89,11 @@ func TestRoutingValidate(t *testing.T) {
 	}{
 		{"valid", Routing{Name: "Test", Type: "static-route", StaticRouteNetwork: "10.0.0.0/8", StaticRouteNexthop: "192.168.1.1"}, ""},
 		{"missing name", Routing{}, "name is required"},
-		{"invalid type", Routing{Name: "Test", Type: "invalid"}, "type must be one of"},
+		{"invalid type", Routing{Name: "Test", Type: "invalid"}, "type must be"},
+		// "interface-route" was wrongly accepted by an earlier validator; the
+		// controller only accepts "static-route" for the top-level Type field.
+		// (interface-route is still valid for StaticRouteType — different field.)
+		{"rejected legacy interface-route", Routing{Name: "Test", Type: "interface-route"}, "type must be"},
 		{"invalid static-route_type", Routing{Name: "Test", StaticRouteType: "invalid"}, "static-route_type must be one of"},
 		{"invalid static-route_network", Routing{Name: "Test", StaticRouteNetwork: "invalid"}, "must be a valid CIDR"},
 		{"invalid static-route_nexthop", Routing{Name: "Test", StaticRouteNexthop: "invalid"}, "must be a valid IP"},
@@ -110,7 +114,7 @@ func TestDynamicDNSValidate(t *testing.T) {
 	}{
 		{"valid", DynamicDNS{Service: "cloudflare", HostName: "example.com"}, ""},
 		{"missing service", DynamicDNS{HostName: "example.com"}, "service is required"},
-		{"invalid service", DynamicDNS{Service: "invalid", HostName: "example.com"}, "service must be one of"},
+		{"invalid service", DynamicDNS{Service: "invalid", HostName: "example.com"}, "service is not a recognized provider"},
 		{"missing hostname", DynamicDNS{Service: "cloudflare"}, "host_name is required"},
 		{"invalid interface", DynamicDNS{Service: "cloudflare", HostName: "example.com", Interface: "invalid"}, "interface must be one of"},
 	}
@@ -129,17 +133,14 @@ func TestNatRuleValidate(t *testing.T) {
 		wantErr string
 	}{
 		{"valid MASQUERADE", NatRule{Type: "MASQUERADE"}, ""},
-		{"valid DNAT", NatRule{Type: "DNAT", TranslatedIP: "192.168.1.1"}, ""},
-		{"valid SNAT", NatRule{Type: "SNAT", TranslatedIP: "192.168.1.1"}, ""},
+		{"valid DNAT", NatRule{Type: "DNAT"}, ""},
+		{"valid SNAT", NatRule{Type: "SNAT"}, ""},
 		{"missing type", NatRule{}, "type is required"},
 		{"invalid type", NatRule{Type: "invalid"}, "type must be one of"},
 		{"invalid protocol", NatRule{Type: "MASQUERADE", Protocol: "invalid"}, "protocol must be one of"},
-		{"invalid source_address", NatRule{Type: "MASQUERADE", SourceAddress: "invalid"}, "source_address must be a valid IP or CIDR"},
-		{"invalid source_port", NatRule{Type: "MASQUERADE", SourcePort: "invalid"}, "source_port must be a valid port"},
-		{"invalid translated_ip", NatRule{Type: "DNAT", TranslatedIP: "invalid"}, "translated_ip must be a valid IP"},
-		{"invalid dest_address", NatRule{Type: "DNAT", DestAddress: "invalid"}, "dest_address must be a valid IP or CIDR"},
-		{"invalid dest_port", NatRule{Type: "DNAT", DestPort: "invalid"}, "dest_port must be a valid port"},
-		{"invalid translated_port", NatRule{Type: "DNAT", TranslatedPort: "invalid"}, "translated_port must be a valid port"},
+		// source_address/source_port/dest_address/dest_port/translated_ip/
+		// translated_port were removed from the struct after the v9 controller
+		// rejected each one as "Unrecognized field" — see NatRule doc comment.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -232,6 +233,20 @@ func TestFirewallRuleValidate(t *testing.T) {
 		{"invalid action", FirewallRule{Name: "Test", Action: "invalid"}, "action must be one of"},
 		{"invalid ruleset", FirewallRule{Name: "Test", Ruleset: "invalid"}, "ruleset must be a valid ruleset"},
 		{"invalid protocol", FirewallRule{Name: "Test", Protocol: "invalid_proto"}, "protocol must be a valid protocol"},
+		// "icmpv6" was wrongly accepted by an earlier validator; controller
+		// rejects (the v6 form is "ipv6-icmp"). Probe-confirmed.
+		{"rejected legacy icmpv6", FirewallRule{Name: "Test", Protocol: "icmpv6"}, "protocol must be a valid protocol"},
+		// IANA numeric protocol codes 0–255 pass through. The SDK delegates
+		// range enforcement to the controller (consistent with the rest of
+		// the validators' "trust the controller" stance). If the SDK ever
+		// enforces 0–255 server-side, flip these two boundary cases to
+		// expect rejection.
+		{"valid numeric protocol 0", FirewallRule{Name: "Test", Protocol: "0"}, ""},
+		{"valid numeric protocol 100", FirewallRule{Name: "Test", Protocol: "100"}, ""},
+		{"valid numeric protocol 255", FirewallRule{Name: "Test", Protocol: "255"}, ""},
+		{"out-of-range numeric -1 (delegated to controller)", FirewallRule{Name: "Test", Protocol: "-1"}, ""},
+		{"out-of-range numeric 256 (delegated to controller)", FirewallRule{Name: "Test", Protocol: "256"}, ""},
+		{"non-numeric non-name rejected", FirewallRule{Name: "Test", Protocol: "abc100"}, "protocol must be a valid protocol"},
 		{"invalid src_address", FirewallRule{Name: "Test", SrcAddress: "invalid"}, "src_address must be a valid IP or CIDR"},
 		{"invalid dst_port", FirewallRule{Name: "Test", DstPort: "invalid"}, "dst_port must be a valid port"},
 		{"invalid src_mac_address", FirewallRule{Name: "Test", SrcMACAddress: "invalid"}, "src_mac_address must be a valid MAC"},
@@ -318,6 +333,11 @@ func TestTrafficRuleValidate(t *testing.T) {
 		{"missing name", TrafficRule{Action: "BLOCK"}, "name is required"},
 		{"invalid action", TrafficRule{Name: "Test", Action: "invalid"}, "action must be one of"},
 		{"invalid matching_target", TrafficRule{Name: "Test", MatchingTarget: "invalid"}, "matching_target must be one of"},
+		// Probe-confirmed values from v9 controller. LOCAL_NETWORK and
+		// APP_CATEGORY were missing from the earlier validator and would have
+		// been rejected at plan-time despite being accepted by the controller.
+		{"valid matching_target LOCAL_NETWORK", TrafficRule{Name: "Test", MatchingTarget: "LOCAL_NETWORK"}, ""},
+		{"valid matching_target APP_CATEGORY", TrafficRule{Name: "Test", MatchingTarget: "APP_CATEGORY"}, ""},
 		{"invalid ip_addresses", TrafficRule{Name: "Test", IPAddresses: []string{"invalid"}}, "ip_addresses[0] must be a valid IP or CIDR"},
 		{"valid ip_addresses", TrafficRule{Name: "Test", IPAddresses: []string{"192.168.1.0/24"}}, ""},
 	}
@@ -338,6 +358,9 @@ func TestTrafficRouteValidate(t *testing.T) {
 		{"valid", TrafficRoute{Name: "Test"}, ""},
 		{"missing name", TrafficRoute{}, "name is required"},
 		{"invalid matching_target", TrafficRoute{Name: "Test", MatchingTarget: "invalid"}, "matching_target must be one of"},
+		// Probe-confirmed: TrafficRoute does NOT accept APP (TrafficRule does).
+		// The earlier validator wrongly accepted it.
+		{"rejected legacy APP", TrafficRoute{Name: "Test", MatchingTarget: "APP"}, "matching_target must be one of"},
 		{"invalid ip_addresses", TrafficRoute{Name: "Test", IPAddresses: []string{"invalid"}}, "ip_addresses[0] must be a valid IP or CIDR"},
 	}
 	for _, tt := range tests {
@@ -358,8 +381,15 @@ func TestPortConfValidate(t *testing.T) {
 		{"missing name", PortConf{}, "name is required"},
 		{"invalid forward", PortConf{Name: "Test", Forward: "invalid"}, "forward must be one of"},
 		{"invalid dot1x_ctrl", PortConf{Name: "Test", Dot1xCtrl: "invalid"}, "dot1x_ctrl must be one of"},
-		{"invalid op_mode", PortConf{Name: "Test", OpMode: "invalid"}, "op_mode must be one of"},
+		{"invalid op_mode", PortConf{Name: "Test", OpMode: "invalid"}, "op_mode must be"},
+		// PortConf is a port profile — only "switch" op_mode allowed; mirror/
+		// aggregate are PortOverride-only (per-port on a device).
+		{"rejected legacy op_mode mirror", PortConf{Name: "Test", OpMode: "mirror"}, "op_mode must be"},
+		{"rejected legacy op_mode aggregate", PortConf{Name: "Test", OpMode: "aggregate"}, "op_mode must be"},
 		{"invalid poe_mode", PortConf{Name: "Test", PoeMode: "invalid"}, "poe_mode must be one of"},
+		// pasv24/passthrough are PortOverride-only at the device level.
+		{"rejected legacy poe_mode pasv24", PortConf{Name: "Test", PoeMode: "pasv24"}, "poe_mode must be one of"},
+		{"rejected legacy poe_mode passthrough", PortConf{Name: "Test", PoeMode: "passthrough"}, "poe_mode must be one of"},
 		{"invalid mac", PortConf{Name: "Test", PortSecurityMacAddress: []string{"invalid"}}, "port_security_mac_address[0] must be a valid MAC"},
 	}
 	for _, tt := range tests {
@@ -387,6 +417,14 @@ func TestWLANConfValidate(t *testing.T) {
 		{"invalid pmf_mode", WLANConf{Name: "Test", PmfMode: "invalid"}, "pmf_mode must be one of"},
 		{"invalid dtim_mode", WLANConf{Name: "Test", DtimMode: "invalid"}, "dtim_mode must be one of"},
 		{"invalid ap_group_mode", WLANConf{Name: "Test", APGroupMode: "invalid"}, "ap_group_mode must be one of"},
+		// Probe-confirmed enums from v9 controller.
+		{"valid wpa_mode auto", WLANConf{Name: "Test", WPAMode: "auto"}, ""},
+		{"valid wpa_mode wpa1", WLANConf{Name: "Test", WPAMode: "wpa1"}, ""},
+		{"valid wpa_mode wpa2", WLANConf{Name: "Test", WPAMode: "wpa2"}, ""},
+		{"rejected legacy wpa3 in wpa_mode", WLANConf{Name: "Test", WPAMode: "wpa3"}, "wpa_mode must be one of"},
+		{"valid wpa_enc ccmp-256", WLANConf{Name: "Test", WPAEnc: "ccmp-256"}, ""},
+		{"valid wpa_enc gcmp-256", WLANConf{Name: "Test", WPAEnc: "gcmp-256"}, ""},
+		{"valid ap_group_mode devices", WLANConf{Name: "Test", APGroupMode: "devices"}, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -473,7 +511,10 @@ func TestNetworkWANIPv6Validate(t *testing.T) {
 		{"valid disabled", NetworkWANIPv6{WANTypeV6: "disabled"}, ""},
 		{"valid dhcpv6", NetworkWANIPv6{WANTypeV6: "dhcpv6"}, ""},
 		{"valid static", NetworkWANIPv6{WANTypeV6: "static"}, ""},
-		{"valid autoconf", NetworkWANIPv6{WANTypeV6: "autoconf"}, ""},
+		{"valid slaac", NetworkWANIPv6{WANTypeV6: "slaac"}, ""},
+		// "autoconf" was wrongly accepted by an earlier validator; controller
+		// rejects it. Probe-confirmed canonical: [disabled, dhcpv6, static, slaac].
+		{"rejected legacy autoconf", NetworkWANIPv6{WANTypeV6: "autoconf"}, "wan_type_v6 must be one of"},
 		{"invalid type", NetworkWANIPv6{WANTypeV6: "invalid"}, "wan_type_v6 must be one of"},
 	}
 	for _, tt := range tests {
@@ -528,19 +569,29 @@ func TestPolicyEndpointValidate(t *testing.T) {
 		{"valid matching target IP", PolicyEndpoint{MatchingTarget: "IP"}, ""},
 		{"valid matching target NETWORK", PolicyEndpoint{MatchingTarget: "NETWORK"}, ""},
 		{"valid matching target REGION", PolicyEndpoint{MatchingTarget: "REGION"}, ""},
-		{"valid matching target APP", PolicyEndpoint{MatchingTarget: "APP"}, ""},
-		{"valid matching target APP_CATEGORY", PolicyEndpoint{MatchingTarget: "APP_CATEGORY"}, ""},
 		{"valid matching target IID", PolicyEndpoint{MatchingTarget: "IID"}, ""},
-		{"valid matching target WEB", PolicyEndpoint{MatchingTarget: "WEB"}, ""},
 		{"invalid matching target", PolicyEndpoint{MatchingTarget: "INVALID"}, "matching_target must be one of"},
 		// The following values were once accepted by an earlier version of this
-		// SDK's validator, but were never accepted by the v9 controller's actual
-		// enum. A direct probe returned the canonical list:
-		// [APP, WEB, IP, APP_CATEGORY, NETWORK, IID, ANY, REGION]. These cases
-		// guard against re-introducing the wrong enum values in a future change.
+		// SDK's validator, but the v9 controller actually rejects them. The
+		// canonical list (probed live) is:
+		//   [ANY, CLIENT, EXTERNAL_SOURCE, IID, IP, MAC, NETWORK, REGION,
+		//    USER_IDENTITY, USER_IDENTITY_ONE_CLICK_VPN,
+		//    USER_IDENTITY_ONE_CLICK_WIFI, VPN_USER]
+		// These cases guard against re-introducing the wrong enum values in a
+		// future change. Earlier wrong values were [DOMAIN, PORT_GROUP,
+		// ADDRESS_GROUP] (pre-0cb1870) and [APP, APP_CATEGORY, WEB] (pre-this
+		// session's probe pass).
 		{"rejected legacy DOMAIN", PolicyEndpoint{MatchingTarget: "DOMAIN"}, "matching_target must be one of"},
 		{"rejected legacy PORT_GROUP", PolicyEndpoint{MatchingTarget: "PORT_GROUP"}, "matching_target must be one of"},
 		{"rejected legacy ADDRESS_GROUP", PolicyEndpoint{MatchingTarget: "ADDRESS_GROUP"}, "matching_target must be one of"},
+		{"rejected legacy APP", PolicyEndpoint{MatchingTarget: "APP"}, "matching_target must be one of"},
+		{"rejected legacy APP_CATEGORY", PolicyEndpoint{MatchingTarget: "APP_CATEGORY"}, "matching_target must be one of"},
+		{"rejected legacy WEB", PolicyEndpoint{MatchingTarget: "WEB"}, "matching_target must be one of"},
+		// Newly accepted values from this session's probe — positive guards.
+		{"valid matching target CLIENT", PolicyEndpoint{MatchingTarget: "CLIENT"}, ""},
+		{"valid matching target MAC", PolicyEndpoint{MatchingTarget: "MAC"}, ""},
+		{"valid matching target VPN_USER", PolicyEndpoint{MatchingTarget: "VPN_USER"}, ""},
+		{"valid port_matching_type OBJECT", PolicyEndpoint{PortMatchingType: "OBJECT"}, ""},
 		{"valid matching target type SPECIFIC", PolicyEndpoint{MatchingTargetType: "SPECIFIC"}, ""},
 		{"valid matching target type OBJECT", PolicyEndpoint{MatchingTargetType: "OBJECT"}, ""},
 		{"invalid matching target type", PolicyEndpoint{MatchingTargetType: "INVALID"}, "matching_target_type must be one of"},
@@ -574,6 +625,9 @@ func TestPolicyScheduleValidate(t *testing.T) {
 		{"valid empty", PolicySchedule{}, ""},
 		{"valid mode ALWAYS", PolicySchedule{Mode: "ALWAYS"}, ""},
 		{"valid mode CUSTOM", PolicySchedule{Mode: "CUSTOM"}, ""},
+		{"valid mode EVERY_DAY", PolicySchedule{Mode: "EVERY_DAY"}, ""},
+		{"valid mode EVERY_WEEK", PolicySchedule{Mode: "EVERY_WEEK"}, ""},
+		{"valid mode ONE_TIME_ONLY", PolicySchedule{Mode: "ONE_TIME_ONLY"}, ""},
 		{"invalid mode", PolicySchedule{Mode: "INVALID"}, "mode must be one of"},
 		{"valid time range start", PolicySchedule{TimeRangeStart: "08:00"}, ""},
 		{"valid time range end", PolicySchedule{TimeRangeEnd: "17:00"}, ""},
@@ -1010,6 +1064,8 @@ func TestDeviceConfigValidate(t *testing.T) {
 	}{
 		{"valid empty", DeviceConfig{}, ""},
 		{"valid with name", DeviceConfig{Name: "My Switch"}, ""},
+		{"valid mac", DeviceConfig{MAC: "aa:bb:cc:dd:ee:ff"}, ""},
+		{"invalid mac", DeviceConfig{MAC: "not-a-mac"}, "mac must be a valid MAC address"},
 		{"invalid led_override", DeviceConfig{LedOverride: "invalid"}, "led_override must be one of"},
 		{"valid led_override default", DeviceConfig{LedOverride: "default"}, ""},
 		{"valid led_override on", DeviceConfig{LedOverride: "on"}, ""},
@@ -1132,8 +1188,11 @@ func TestSettingUSGValidate(t *testing.T) {
 	}{
 		{"valid", SettingUSG{Key: "usg"}, ""},
 		{"valid with mss_clamp", SettingUSG{Key: "usg", MSSClamp: "custom"}, ""},
+		{"valid mss_clamp disabled", SettingUSG{Key: "usg", MSSClamp: "disabled"}, ""},
 		{"missing key", SettingUSG{}, "key is required"},
 		{"invalid mss_clamp", SettingUSG{Key: "usg", MSSClamp: "invalid"}, "mss_clamp must be one of"},
+		// "none" was wrongly accepted; controller uses "disabled" instead.
+		{"rejected legacy mss_clamp none", SettingUSG{Key: "usg", MSSClamp: "none"}, "mss_clamp must be one of"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1169,10 +1228,13 @@ func TestSettingIPSValidate(t *testing.T) {
 	}{
 		{"valid", SettingIPS{Key: "ips"}, ""},
 		{"valid with ips_mode", SettingIPS{Key: "ips", IPSMode: "ids"}, ""},
+		{"valid ips_mode ipsInline", SettingIPS{Key: "ips", IPSMode: "ipsInline"}, ""},
 		{"valid with filtering", SettingIPS{Key: "ips", AdvancedFilteringPreference: "manual"}, ""},
 		{"missing key", SettingIPS{}, "key is required"},
 		{"invalid ips_mode", SettingIPS{Key: "ips", IPSMode: "invalid"}, "ips_mode must be one of"},
 		{"invalid filtering pref", SettingIPS{Key: "ips", AdvancedFilteringPreference: "bad"}, "advanced_filtering_preference must be one of"},
+		// "auto" was wrongly accepted; controller only allows disabled/manual.
+		{"rejected legacy filtering pref auto", SettingIPS{Key: "ips", AdvancedFilteringPreference: "auto"}, "advanced_filtering_preference must be one of"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1190,9 +1252,13 @@ func TestSettingGuestAccessValidate(t *testing.T) {
 	}{
 		{"valid", SettingGuestAccess{Key: "guest_access"}, ""},
 		{"valid with auth", SettingGuestAccess{Key: "guest_access", Auth: "hotspot"}, ""},
+		{"valid auth facebook_wifi", SettingGuestAccess{Key: "guest_access", Auth: "facebook_wifi"}, ""},
 		{"valid with subnets", SettingGuestAccess{Key: "guest_access", RestrictedSubnet1: "192.168.0.0/16"}, ""},
 		{"missing key", SettingGuestAccess{}, "key is required"},
 		{"invalid auth", SettingGuestAccess{Key: "guest_access", Auth: "invalid"}, "auth must be one of"},
+		// "password" and "radius" were wrongly accepted; controller rejects.
+		{"rejected legacy auth password", SettingGuestAccess{Key: "guest_access", Auth: "password"}, "auth must be one of"},
+		{"rejected legacy auth radius", SettingGuestAccess{Key: "guest_access", Auth: "radius"}, "auth must be one of"},
 		{"invalid subnet1", SettingGuestAccess{Key: "guest_access", RestrictedSubnet1: "bad"}, "restricted_subnet_1 must be a valid CIDR"},
 		{"invalid subnet2", SettingGuestAccess{Key: "guest_access", RestrictedSubnet2: "bad"}, "restricted_subnet_2 must be a valid CIDR"},
 		{"invalid subnet3", SettingGuestAccess{Key: "guest_access", RestrictedSubnet3: "bad"}, "restricted_subnet_3 must be a valid CIDR"},

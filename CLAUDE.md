@@ -122,12 +122,15 @@ This SDK is intended to support a Terraform provider. Prioritize type safety wit
 
 ## Preferences
 
-- **OpenAPI-first development**: When implementing new API endpoints:
-  1. Read the relevant OpenAPI spec (`openapi/*.yaml`) to understand the endpoint contract
-  2. Use schema definitions to generate Go struct fields with correct types and JSON tags
-  3. For Policy Engine v2 endpoints, reference `unifi-network-api.yaml` schemas like `FirewallPolicy`, `FirewallZone`, `PolicyEndpoint`
-  4. For legacy REST endpoints, reference schemas like `Network`, `FirewallGroup`, `Wlan`, `PortForward`
-  5. To discover new/undocumented endpoints, use Playwright to capture API responses from the UniFi UI
+- **Source-of-truth hierarchy when sources disagree**: Empirical drift between OpenAPI spec, Go validators, and external Ubiquiti docs is the norm, not the exception. When they conflict, trust:
+  1. **Live-controller probe** (Jackson `not one of the values accepted for Enum class: [...]` for v2 API; legacy REST `validationError.pattern`) — authoritative.
+  2. **Go validators** in `pkg/unifi/network_models.go` — second; updated immediately after a probe.
+  3. **`openapi/*.yaml` specs** — third; updated to match the Go code with a `# Probed against v9 controller…` provenance comment.
+  4. **External Ubiquiti docs** — last; treat as a starting point only.
+
+  `pkg/unifi/enum_probe_test.go` (`TestEnumProbe`, `//go:build integration`) enforces this hierarchy on every integration run by re-probing every `isOneOf` validator and failing on any drift in either direction. When adding a new enum validator, add a matching entry to its probe table.
+
+- **OpenAPI-first scaffolding**: When implementing new API endpoints, read the relevant OpenAPI spec (`openapi/*.yaml`) for the endpoint shape and field names, then verify enums against the live controller via `TestEnumProbe`. The spec is good for structure; the controller is the only authority for enum values.
 - **Go idioms**: Prefer exported fields over setter methods for simplicity. Skip helper functions (like `IsNotFound()`) - use standard `errors.Is()` patterns instead
 - **Testing**: Use `httptest` for mocking. Export struct fields to allow test configuration
 - **CI**: Keep simple - build and test only. Avoid paid services (Codecov, etc.) unless explicitly requested

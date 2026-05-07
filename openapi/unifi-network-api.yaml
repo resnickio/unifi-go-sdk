@@ -1948,7 +1948,25 @@ components:
           type: string
         matching_target:
           type: string
-          enum: [ANY, IP, NETWORK, DOMAIN, REGION, PORT_GROUP, ADDRESS_GROUP]
+          # Enum re-probed against v9 controller. The pre-probe list
+          # [APP, APP_CATEGORY, WEB] from external docs was rejected; the
+          # controller now returns identity-aware values instead. Source of
+          # truth: TestEnumProbe in pkg/unifi/enum_probe_test.go.
+          enum:
+            [
+              ANY,
+              CLIENT,
+              EXTERNAL_SOURCE,
+              IID,
+              IP,
+              MAC,
+              NETWORK,
+              REGION,
+              USER_IDENTITY,
+              USER_IDENTITY_ONE_CLICK_VPN,
+              USER_IDENTITY_ONE_CLICK_WIFI,
+              VPN_USER,
+            ]
         matching_target_type:
           type: string
           enum: [SPECIFIC, OBJECT]
@@ -1967,8 +1985,9 @@ components:
           type: string
           description: Port or port range (e.g., "80" or "8000-9000")
         port_matching_type:
+          # Probed against v9 controller; OBJECT was missing from pre-probe spec.
           type: string
-          enum: [ANY, SPECIFIC]
+          enum: [ANY, OBJECT, SPECIFIC]
         match_opposite_ports:
           type: boolean
         network_id:
@@ -1982,8 +2001,10 @@ components:
       type: object
       properties:
         mode:
+          # Probed against v9 controller; pre-probe spec was missing
+          # EVERY_DAY/EVERY_WEEK/ONE_TIME_ONLY.
           type: string
-          enum: [ALWAYS, CUSTOM]
+          enum: [ALWAYS, CUSTOM, EVERY_DAY, EVERY_WEEK, ONE_TIME_ONLY]
         time_range_start:
           type: string
         time_range_end:
@@ -2081,27 +2102,46 @@ components:
           type: boolean
 
     NatRule:
+      # Probed against v9 controller. The previous schema (name + enum
+      # [SOURCE, DESTINATION, MASQUERADE]) was wrong on multiple fronts:
+      # the controller returns Jackson "Unrecognized field 'name'", and the
+      # type enum is actually [MASQUERADE, DNAT, SNAT].
+      #
+      # Even with the corrected fields, every POST attempt returns HTTP 500
+      # on the v9 controller — the v2 NAT API appears to be incomplete on
+      # this version. The Go SDK keeps a minimal struct (see NatRule in
+      # pkg/unifi/network_models.go) until the controller stabilizes.
       type: object
       properties:
         _id:
           type: string
-        name:
-          type: string
         enabled:
           type: boolean
         type:
           type: string
-          enum: [SOURCE, DESTINATION, MASQUERADE]
+          enum: [MASQUERADE, DNAT, SNAT]
+        description:
+          type: string
+        protocol:
+          type: string
+          enum: [all, tcp, udp, tcp_udp]
+        logging:
+          type: boolean
 
     NatRuleCreate:
       type: object
       properties:
-        name:
-          type: string
         enabled:
           type: boolean
         type:
           type: string
+          enum: [MASQUERADE, DNAT, SNAT]
+        description:
+          type: string
+        protocol:
+          type: string
+        logging:
+          type: boolean
 
     AclRule:
       type: object
@@ -2196,16 +2236,19 @@ components:
         name:
           type: string
         purpose:
+          # Probed against v9 controller; "guest" and "vpn-client" were missing.
           type: string
-          enum: [wan, corporate, vlan-only, remote-user-vpn, site-vpn]
+          enum: [wan, corporate, guest, vlan-only, remote-user-vpn, site-vpn, vpn-client]
         site_id:
           type: string
         setting_preference:
           type: string
           enum: [manual, auto]
         wan_type:
+          # Probed against v9 controller; pre-probe spec was missing
+          # disabled, dslite, dslite-over-pppoe, map-e variants.
           type: string
-          enum: [dhcp, static, pppoe]
+          enum: [dhcp, static, pppoe, disabled, dslite, dslite-over-pppoe, "map-e,hubspoke", "map-e,jpix", "map-e,ntt"]
         wan_ip:
           type: string
         wan_netmask:
@@ -2213,8 +2256,11 @@ components:
         wan_gateway:
           type: string
         wan_networkgroup:
+          # Probed against v9 controller. The networkgroup is purpose-dependent:
+          # corporate-purpose accepts LAN..LAN8; wan-purpose accepts WAN/WAN2.
+          # Listed here as the union; controller rejects mismatched combinations.
           type: string
-          enum: [WAN, WAN2]
+          enum: [LAN, LAN2, LAN3, LAN4, LAN5, LAN6, LAN7, LAN8, WAN, WAN2]
         wan_ip_aliases:
           type: array
           items:
@@ -2252,8 +2298,9 @@ components:
         dhcpdv6_enabled:
           type: boolean
         ipv6_interface_type:
+          # Probed against v9 controller; "single_network" was missing.
           type: string
-          enum: [none, static, pd]
+          enum: [none, static, pd, single_network]
         ipv6_setting_preference:
           type: string
         ipv6_wan_delegation_type:
@@ -2368,11 +2415,14 @@ components:
           type: string
           enum: [wpapsk, open, wpaeap, wep]
         wpa_mode:
+          # Probed against v9 controller. WPA3 is selected via the separate
+          # wpa3_support / wpa3_transition booleans, not this enum.
           type: string
-          enum: [wpa2, wpa3]
+          enum: [auto, wpa1, wpa2]
         wpa_enc:
+          # Probed against v9 controller.
           type: string
-          enum: [ccmp, auto]
+          enum: [auto, ccmp, gcmp, ccmp-256, gcmp-256]
         wpa3_support:
           type: boolean
         wpa3_transition:
@@ -2388,8 +2438,9 @@ components:
           items:
             type: string
         ap_group_mode:
+          # Probed against v9 controller. Earlier value "specific" was wrong.
           type: string
-          enum: [all, specific]
+          enum: [all, groups, devices]
         wlan_bands:
           type: array
           items:
@@ -2452,8 +2503,10 @@ components:
         enabled:
           type: boolean
         pfwd_interface:
+          # Probed against v9 controller; pre-probe spec was missing "all"
+          # and the wan3..wan9 expansion of the controller's wan[2-9]? regex.
           type: string
-          enum: [wan, wan2, both]
+          enum: [all, both, wan, wan2, wan3, wan4, wan5, wan6, wan7, wan8, wan9]
         proto:
           type: string
           enum: [tcp_udp, tcp, udp]

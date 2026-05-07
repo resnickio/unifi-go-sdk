@@ -3,6 +3,7 @@ package unifi
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 )
 
 // WANProviderCapabilities describes ISP bandwidth capabilities for a WAN network.
@@ -74,12 +75,14 @@ type NetworkDHCP struct {
 
 // NetworkWANIPv6 contains WAN IPv6-specific settings.
 type NetworkWANIPv6 struct {
-	WANTypeV6            string `json:"wan_type_v6,omitempty"`
-	WANIPv6DNS1          string `json:"wan_ipv6_dns1,omitempty"`
-	WANIPv6DNS2          string `json:"wan_ipv6_dns2,omitempty"`
-	WANIPv6DNSPreference string `json:"wan_ipv6_dns_preference,omitempty"`
-	WANDHCPv6Cos         *int   `json:"wan_dhcpv6_cos,omitempty"`
-	WANDHCPv6PDSizeAuto  *bool  `json:"wan_dhcpv6_pd_size_auto,omitempty"`
+	WANTypeV6            string            `json:"wan_type_v6,omitempty"`
+	WANIPv6DNS1          string            `json:"wan_ipv6_dns1,omitempty"`
+	WANIPv6DNS2          string            `json:"wan_ipv6_dns2,omitempty"`
+	WANIPv6DNSPreference string            `json:"wan_ipv6_dns_preference,omitempty"`
+	WANDHCPv6Cos         *int              `json:"wan_dhcpv6_cos,omitempty"`
+	WANDHCPv6Options     []json.RawMessage `json:"wan_dhcpv6_options,omitempty"`
+	WANDHCPv6PDSize      *int              `json:"wan_dhcpv6_pd_size,omitempty"`
+	WANDHCPv6PDSizeAuto  *bool             `json:"wan_dhcpv6_pd_size_auto,omitempty"`
 }
 
 // NetworkWANQoS contains WAN Quality of Service settings.
@@ -136,7 +139,7 @@ type NetworkWAN struct {
 // NetworkIPv6 contains IPv6 configuration settings.
 //
 // Field value reference:
-//   - IPV6InterfaceType: "none", "static", "pd"
+//   - IPV6InterfaceType: "none", "static", "pd", "single_network"
 //   - IPV6ClientAddressAssignment: "slaac", "dhcpv6", "slaac_dhcpv6", "none"
 //   - IPV6PDInterface: "wan", "wan2"
 //   - IPV6RaPriority: "high", "medium", "low"
@@ -190,8 +193,8 @@ type NetworkAccess struct {
 
 // Validate checks IPv6 configuration.
 func (i *NetworkIPv6) Validate() error {
-	if i.IPV6InterfaceType != "" && !isOneOf(i.IPV6InterfaceType, "none", "static", "pd") {
-		return fmt.Errorf("networkipv6: ipv6_interface_type must be one of: none, static, pd")
+	if i.IPV6InterfaceType != "" && !isOneOf(i.IPV6InterfaceType, "none", "static", "pd", "single_network") {
+		return fmt.Errorf("networkipv6: ipv6_interface_type must be one of: none, static, pd, single_network")
 	}
 	if i.IPV6Subnet != "" && !isValidCIDR(i.IPV6Subnet) {
 		return fmt.Errorf("networkipv6: ipv6_subnet must be a valid CIDR")
@@ -262,16 +265,17 @@ type NetworkRouting struct {
 // This corresponds to the networkconf REST endpoint.
 //
 // Field value reference:
-//   - Purpose: "wan", "corporate", "vlan-only", "remote-user-vpn", "site-vpn"
-//   - NetworkGroup: "LAN", "WAN", "WAN2"
-//   - WANType: "dhcp", "static", "pppoe", "disabled"
-//   - WANTypeV6: "disabled", "dhcpv6", "static", "autoconf"
+//   - Purpose: "wan", "corporate", "guest", "vlan-only", "remote-user-vpn", "site-vpn", "vpn-client"
+//   - NetworkGroup: "LAN", "LAN2".."LAN8" (LAN-purpose); "WAN", "WAN2" (WAN-purpose)
+//   - WANType: "dhcp", "static", "pppoe", "disabled", "dslite", "dslite-over-pppoe", "map-e,hubspoke", "map-e,jpix", "map-e,ntt"
+//   - WANTypeV6: "disabled", "dhcpv6", "static", "slaac"
 //   - SettingPreference: "auto", "manual"
 //   - GatewayType: "default", "switch"
 //   - WANLoadBalanceType: "failover-only", "weighted"
 type Network struct {
 	ID                string `json:"_id,omitempty"`
 	SiteID            string `json:"site_id,omitempty"`
+	ExternalID        string `json:"external_id,omitempty"`
 	Name              string `json:"name"`
 	Purpose           string `json:"purpose,omitempty"`
 	Enabled           *bool  `json:"enabled,omitempty"`
@@ -309,6 +313,7 @@ type Network struct {
 type FirewallRule struct {
 	ID                    string   `json:"_id,omitempty"`
 	SiteID                string   `json:"site_id,omitempty"`
+	SettingPreference     string   `json:"setting_preference,omitempty"`
 	Name                  string   `json:"name"`
 	Enabled               *bool    `json:"enabled,omitempty"`
 	RuleIndex             *int     `json:"rule_index,omitempty"`
@@ -345,6 +350,7 @@ type FirewallRule struct {
 type FirewallGroup struct {
 	ID           string   `json:"_id,omitempty"`
 	SiteID       string   `json:"site_id,omitempty"`
+	ExternalID   string   `json:"external_id,omitempty"`
 	Name         string   `json:"name"`
 	GroupType    string   `json:"group_type,omitempty"`
 	GroupMembers []string `json:"group_members,omitempty"`
@@ -354,7 +360,7 @@ type FirewallGroup struct {
 //
 // Field value reference:
 //   - Proto: "tcp", "udp", "tcp_udp"
-//   - PfwdInterface: "wan", "wan2", "both"
+//   - PfwdInterface: "all", "both", "wan", "wan2".."wan9"
 type PortForward struct {
 	ID                 string   `json:"_id,omitempty"`
 	SiteID             string   `json:"site_id,omitempty"`
@@ -385,17 +391,18 @@ type APGroup struct {
 // WLANConf represents a UniFi wireless network (SSID) configuration.
 //
 // Field value reference:
-//   - Security: "open", "wep", "wpapsk", "wpaeap"
-//   - WPAMode: "wpa1", "wpa2", "wpa3"
-//   - WPAEnc: "ccmp", "gcmp", "auto"
+//   - Security: "open", "wep", "wpapsk", "wpaeap", "osen"
+//   - WPAMode: "auto", "wpa1", "wpa2" (WPA3 is enabled separately via WPA3Support / WPA3Transition)
+//   - WPAEnc: "auto", "ccmp", "gcmp", "ccmp-256", "gcmp-256"
 //   - WLANBand: "2g", "5g", "both"
 //   - MacFilterPolicy: "allow", "deny"
 //   - Pmf (PMF mode): "disabled", "optional", "required"
 //   - DtimMode: "default", "custom"
-//   - APGroupMode: "all", "groups"
+//   - APGroupMode: "all", "groups", "devices"
 type WLANConf struct {
 	ID                          string            `json:"_id,omitempty"`
 	SiteID                      string            `json:"site_id,omitempty"`
+	ExternalID                  string            `json:"external_id,omitempty"`
 	Name                        string            `json:"name"`
 	Enabled                     *bool             `json:"enabled,omitempty"`
 	Security                    string            `json:"security,omitempty"`
@@ -462,8 +469,8 @@ type WLANConf struct {
 // Field value reference:
 //   - Forward: "all", "native", "customize", "disabled"
 //   - Dot1xCtrl: "force_authorized", "force_unauthorized", "auto", "mac_based", "multi_host"
-//   - OpMode: "switch", "mirror", "aggregate"
-//   - PoeMode: "auto", "pasv24", "passthrough", "off"
+//   - OpMode: "switch" (mirror/aggregate are PortOverride-only, not profile-level)
+//   - PoeMode: "auto", "off" (pasv24/passthrough are PortOverride-only)
 //   - SettingPreference: "auto", "manual"
 type PortConf struct {
 	ID                            string      `json:"_id,omitempty"`
@@ -505,7 +512,7 @@ type PortConf struct {
 // Routing represents a UniFi static route.
 //
 // Field value reference:
-//   - Type: "static-route", "interface-route"
+//   - Type: "static-route" (interface-route is rejected by the controller)
 //   - StaticRouteType: "nexthop-route", "interface-route", "blackhole"
 //   - GatewayType: "default", "switch"
 type Routing struct {
@@ -547,24 +554,53 @@ type UserGroup struct {
 //   - FixedIP: static IP address (requires UseFixedIP=true to take effect)
 //   - NetworkID: network for the fixed IP assignment
 type User struct {
-	ID                    string `json:"_id,omitempty"`
-	SiteID                string `json:"site_id,omitempty"`
-	MAC                   string `json:"mac"`
-	Name                  string `json:"name,omitempty"`
-	Note                  string `json:"note,omitempty"`
-	Noted                 *bool  `json:"noted,omitempty"`
-	UseFixedIP            *bool  `json:"use_fixedip,omitempty"`
-	FixedIP               string `json:"fixed_ip,omitempty"`
-	NetworkID             string `json:"network_id,omitempty"`
-	LocalDnsRecord        string `json:"local_dns_record,omitempty"`
-	LocalDnsRecordEnabled *bool  `json:"local_dns_record_enabled,omitempty"`
-	UsergroupID           string `json:"usergroup_id,omitempty"`
-	Blocked               *bool  `json:"blocked,omitempty"`
-	IP                    string `json:"ip,omitempty"`
-	Hostname              string `json:"hostname,omitempty"`
-	OUI                   string `json:"oui,omitempty"`
-	FirstSeen             *int64 `json:"first_seen,omitempty"`
-	LastSeen              *int64 `json:"last_seen,omitempty"`
+	// --- Configuration (writable) ---
+	ID                            string   `json:"_id,omitempty"`
+	SiteID                        string   `json:"site_id,omitempty"`
+	MAC                           string   `json:"mac"`
+	Name                          string   `json:"name,omitempty"`
+	Note                          string   `json:"note,omitempty"`
+	Noted                         *bool    `json:"noted,omitempty"`
+	UseFixedIP                    *bool    `json:"use_fixedip,omitempty"`
+	FixedIP                       string   `json:"fixed_ip,omitempty"`
+	NetworkID                     string   `json:"network_id,omitempty"`
+	LocalDnsRecord                string   `json:"local_dns_record,omitempty"`
+	LocalDnsRecordEnabled         *bool    `json:"local_dns_record_enabled,omitempty"`
+	UsergroupID                   string   `json:"usergroup_id,omitempty"`
+	Blocked                       *bool    `json:"blocked,omitempty"`
+	NetworkMembersGroupIDs        []string `json:"network_members_group_ids,omitempty"`
+	VirtualNetworkOverrideEnabled *bool    `json:"virtual_network_override_enabled,omitempty"`
+	VirtualNetworkOverrideID      string   `json:"virtual_network_override_id,omitempty"`
+
+	// --- Observed state (read-only; populated by controller) ---
+	IP                        string `json:"ip,omitempty"`
+	LastIP                    string   `json:"last_ip,omitempty"`
+	LastIPv6                  []string `json:"last_ipv6,omitempty"`
+	Hostname                  string `json:"hostname,omitempty"`
+	OUI                       string `json:"oui,omitempty"`
+	OSName                    *int   `json:"os_name,omitempty"`
+	IsGuest                   *bool  `json:"is_guest,omitempty"`
+	IsWired                   *bool  `json:"is_wired,omitempty"`
+	FirstSeen                 *int64 `json:"first_seen,omitempty"`
+	LastSeen                  *int64 `json:"last_seen,omitempty"`
+	DisconnectTimestamp       *int64 `json:"disconnect_timestamp,omitempty"`
+	Last1xIdentity            string `json:"last_1x_identity,omitempty"`
+	LastConnectionNetworkID   string `json:"last_connection_network_id,omitempty"`
+	LastConnectionNetworkName string `json:"last_connection_network_name,omitempty"`
+	LastUplinkMAC             string `json:"last_uplink_mac,omitempty"`
+	LastUplinkName            string `json:"last_uplink_name,omitempty"`
+	LastUplinkRemotePort      *int   `json:"last_uplink_remote_port,omitempty"`
+
+	// --- Device fingerprinting (read-only) ---
+	Confidence               *int   `json:"confidence,omitempty"`
+	DevCat                   *int   `json:"dev_cat,omitempty"`
+	DevFamily                *int   `json:"dev_family,omitempty"`
+	DevID                    *int   `json:"dev_id,omitempty"`
+	DevIDOverride            *int   `json:"dev_id_override,omitempty"`
+	DevVendor                *int   `json:"dev_vendor,omitempty"`
+	FingerprintEngineVersion string `json:"fingerprint_engine_version,omitempty"`
+	FingerprintOverride      *bool  `json:"fingerprint_override,omitempty"`
+	FingerprintSource        *int   `json:"fingerprint_source,omitempty"`
 }
 
 // RADIUSProfile represents a UniFi RADIUS profile.
@@ -574,6 +610,7 @@ type User struct {
 type RADIUSProfile struct {
 	ID                    string         `json:"_id,omitempty"`
 	SiteID                string         `json:"site_id,omitempty"`
+	ExternalID            string         `json:"external_id,omitempty"`
 	Name                  string         `json:"name"`
 	UseUsgAcctServer      *bool          `json:"use_usg_acct_server,omitempty"`
 	UseUsgAuthServer      *bool          `json:"use_usg_auth_server,omitempty"`
@@ -598,9 +635,13 @@ type RADIUSServer struct {
 // DynamicDNS represents a UniFi dynamic DNS configuration.
 //
 // Field value reference:
-//   - Service: "afraid", "changeip", "cloudflare", "dnspark", "dslreports", "dyndns",
-//     "easydns", "namecheap", "noip", "sitelutions", "zoneedit", "custom"
-//   - Interface: "wan", "wan2"
+//   - Service: 31 providers — "afraid", "changeip", "cloudflare", "cloudxns",
+//     "custom", "ddnss", "dhis", "dnsexit", "dnsomatic", "dnspark", "dnspod",
+//     "dslreports", "dtdns", "duckdns", "duiadns", "dyn", "dyndns", "dynv6",
+//     "easydns", "freemyip", "googledomains", "loopia", "namecheap", "noip",
+//     "nsupdate", "ovh", "sitelutions", "spdyn", "strato", "tunnelbroker",
+//     "zoneedit"
+//   - Interface: "wan", "wan2".."wan9"
 type DynamicDNS struct {
 	ID        string `json:"_id,omitempty"`
 	SiteID    string `json:"site_id,omitempty"`
@@ -648,9 +689,9 @@ type FirewallPolicy struct {
 // PolicyEndpoint defines source or destination matching criteria for a firewall policy.
 //
 // Field value reference:
-//   - MatchingTarget: "ANY", "APP", "APP_CATEGORY", "IP", "IID", "NETWORK", "REGION", "WEB"
+//   - MatchingTarget: "ANY", "CLIENT", "EXTERNAL_SOURCE", "IID", "IP", "MAC", "NETWORK", "REGION", "USER_IDENTITY", "USER_IDENTITY_ONE_CLICK_VPN", "USER_IDENTITY_ONE_CLICK_WIFI", "VPN_USER"
 //   - MatchingTargetType: "SPECIFIC", "OBJECT"
-//   - PortMatchingType: "ANY", "SPECIFIC"
+//   - PortMatchingType: "ANY", "OBJECT", "SPECIFIC"
 type PolicyEndpoint struct {
 	ZoneID             string   `json:"zone_id,omitempty"`
 	MatchingTarget     string   `json:"matching_target,omitempty"`
@@ -668,14 +709,17 @@ type PolicyEndpoint struct {
 
 // Validate checks that PolicyEndpoint fields have valid values.
 func (p *PolicyEndpoint) Validate() error {
-	if p.MatchingTarget != "" && !isOneOf(p.MatchingTarget, "ANY", "APP", "APP_CATEGORY", "IP", "IID", "NETWORK", "REGION", "WEB") {
-		return fmt.Errorf("policyendpoint: matching_target must be one of: ANY, APP, APP_CATEGORY, IP, IID, NETWORK, REGION, WEB")
+	if p.MatchingTarget != "" && !isOneOf(p.MatchingTarget,
+		"ANY", "CLIENT", "EXTERNAL_SOURCE", "IID", "IP", "MAC", "NETWORK", "REGION",
+		"USER_IDENTITY", "USER_IDENTITY_ONE_CLICK_VPN", "USER_IDENTITY_ONE_CLICK_WIFI", "VPN_USER",
+	) {
+		return fmt.Errorf("policyendpoint: matching_target must be one of: ANY, CLIENT, EXTERNAL_SOURCE, IID, IP, MAC, NETWORK, REGION, USER_IDENTITY, USER_IDENTITY_ONE_CLICK_VPN, USER_IDENTITY_ONE_CLICK_WIFI, VPN_USER")
 	}
 	if p.MatchingTargetType != "" && !isOneOf(p.MatchingTargetType, "SPECIFIC", "OBJECT") {
 		return fmt.Errorf("policyendpoint: matching_target_type must be one of: SPECIFIC, OBJECT")
 	}
-	if p.PortMatchingType != "" && !isOneOf(p.PortMatchingType, "ANY", "SPECIFIC") {
-		return fmt.Errorf("policyendpoint: port_matching_type must be one of: ANY, SPECIFIC")
+	if p.PortMatchingType != "" && !isOneOf(p.PortMatchingType, "ANY", "OBJECT", "SPECIFIC") {
+		return fmt.Errorf("policyendpoint: port_matching_type must be one of: ANY, OBJECT, SPECIFIC")
 	}
 	for _, ip := range p.IPs {
 		if !isValidIP(ip) && !isValidCIDR(ip) {
@@ -699,7 +743,7 @@ func (p *PolicyEndpoint) Validate() error {
 // PolicySchedule defines when a firewall policy is active.
 //
 // Field value reference:
-//   - Mode: "ALWAYS", "CUSTOM"
+//   - Mode: "ALWAYS", "CUSTOM", "EVERY_DAY", "EVERY_WEEK", "ONE_TIME_ONLY"
 //   - DaysOfWeek: "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"
 type PolicySchedule struct {
 	Mode           string   `json:"mode,omitempty"`
@@ -710,8 +754,8 @@ type PolicySchedule struct {
 
 // Validate checks that PolicySchedule fields have valid values.
 func (s *PolicySchedule) Validate() error {
-	if s.Mode != "" && !isOneOf(s.Mode, "ALWAYS", "CUSTOM") {
-		return fmt.Errorf("policyschedule: mode must be one of: ALWAYS, CUSTOM")
+	if s.Mode != "" && !isOneOf(s.Mode, "ALWAYS", "CUSTOM", "EVERY_DAY", "EVERY_WEEK", "ONE_TIME_ONLY") {
+		return fmt.Errorf("policyschedule: mode must be one of: ALWAYS, CUSTOM, EVERY_DAY, EVERY_WEEK, ONE_TIME_ONLY")
 	}
 	if s.TimeRangeStart != "" && !isValidTimeHHMM(s.TimeRangeStart) {
 		return fmt.Errorf("policyschedule: time_range_start must be in HH:MM format")
@@ -958,7 +1002,7 @@ type VapTableEntry struct {
 //
 // Field value reference:
 //   - Action: "BLOCK", "ALLOW"
-//   - MatchingTarget: "INTERNET", "IP", "DOMAIN", "REGION", "APP"
+//   - MatchingTarget: "INTERNET", "IP", "DOMAIN", "REGION", "APP", "APP_CATEGORY", "LOCAL_NETWORK"
 type TrafficRule struct {
 	ID             string              `json:"_id,omitempty"`
 	Name           string              `json:"name"`
@@ -1002,7 +1046,7 @@ type TrafficDomain struct {
 // TrafficRoute represents a policy-based routing rule (v2 API).
 //
 // Field value reference:
-//   - MatchingTarget: "INTERNET", "IP", "DOMAIN", "REGION", "APP"
+//   - MatchingTarget: "INTERNET", "IP", "DOMAIN", "REGION"
 //   - TargetDevice: "ALL_CLIENTS", "SPECIFIC_CLIENTS"
 type TrafficRoute struct {
 	ID             string              `json:"_id,omitempty"`
@@ -1022,22 +1066,29 @@ type TrafficRoute struct {
 
 // NatRule represents a NAT rule (v2 API).
 //
+// API maturity warning: the v2 NAT API was probed against a v9 controller and
+// found to be partially functional — every POST attempt with a non-trivial
+// payload returns HTTP 500, and the following six previously-modeled fields
+// are explicitly rejected by Jackson as "Unrecognized field": source_address,
+// source_port, dest_address, dest_port, translated_ip, translated_port. They
+// were removed from this struct rather than mislead callers. The
+// integration test (`TestIntegration_V2_NatRules_CRUD`) skips on this
+// controller for the same reason.
+//
+// When the controller's v2 NAT surface stabilizes, re-probe with
+// `TestEnumProbe`; add fields back as the controller acknowledges them.
+//
 // Field value reference:
-//   - Type: "MASQUERADE", "DNAT", "SNAT"
-//   - Protocol: "all", "tcp", "udp", "tcp_udp"
+//   - Type: "MASQUERADE", "DNAT", "SNAT" (probed)
+//   - Protocol: "all", "tcp", "udp", "tcp_udp" (un-probed; controller returns
+//     500 before reaching the protocol enum check)
 type NatRule struct {
-	ID             string `json:"_id,omitempty"`
-	Enabled        *bool  `json:"enabled,omitempty"`
-	Type           string `json:"type,omitempty"`
-	Description    string `json:"description,omitempty"`
-	Protocol       string `json:"protocol,omitempty"`
-	SourceAddress  string `json:"source_address,omitempty"`
-	SourcePort     string `json:"source_port,omitempty"`
-	DestAddress    string `json:"dest_address,omitempty"`
-	DestPort       string `json:"dest_port,omitempty"`
-	TranslatedIP   string `json:"translated_ip,omitempty"`
-	TranslatedPort string `json:"translated_port,omitempty"`
-	Logging        *bool  `json:"logging,omitempty"`
+	ID          string `json:"_id,omitempty"`
+	Enabled     *bool  `json:"enabled,omitempty"`
+	Type        string `json:"type,omitempty"`
+	Description string `json:"description,omitempty"`
+	Protocol    string `json:"protocol,omitempty"`
+	Logging     *bool  `json:"logging,omitempty"`
 }
 
 // AclRule represents an access control list rule (v2 API, read-only).
@@ -1143,8 +1194,8 @@ func (r *Routing) Validate() error {
 	if r.Name == "" {
 		return fmt.Errorf("routing: name is required")
 	}
-	if r.Type != "" && !isOneOf(r.Type, "static-route", "interface-route") {
-		return fmt.Errorf("routing: type must be one of: static-route, interface-route")
+	if r.Type != "" && !isOneOf(r.Type, "static-route") {
+		return fmt.Errorf("routing: type must be: static-route")
 	}
 	if r.StaticRouteType != "" && !isOneOf(r.StaticRouteType, "nexthop-route", "interface-route", "blackhole") {
 		return fmt.Errorf("routing: static-route_type must be one of: nexthop-route, interface-route, blackhole")
@@ -1163,14 +1214,22 @@ func (d *DynamicDNS) Validate() error {
 	if d.Service == "" {
 		return fmt.Errorf("dynamicdns: service is required")
 	}
-	if !isOneOf(d.Service, "afraid", "changeip", "cloudflare", "dnspark", "dslreports", "dyndns", "easydns", "namecheap", "noip", "sitelutions", "zoneedit", "custom") {
-		return fmt.Errorf("dynamicdns: service must be one of: afraid, changeip, cloudflare, dnspark, dslreports, dyndns, easydns, namecheap, noip, sitelutions, zoneedit, custom")
+	if !isOneOf(d.Service,
+		"afraid", "changeip", "cloudflare", "cloudxns", "custom", "ddnss", "dhis",
+		"dnsexit", "dnsomatic", "dnspark", "dnspod", "dslreports", "dtdns", "duckdns",
+		"duiadns", "dyn", "dyndns", "dynv6", "easydns", "freemyip", "googledomains",
+		"loopia", "namecheap", "noip", "nsupdate", "ovh", "sitelutions", "spdyn",
+		"strato", "tunnelbroker", "zoneedit",
+	) {
+		return fmt.Errorf("dynamicdns: service is not a recognized provider name")
 	}
 	if d.HostName == "" {
 		return fmt.Errorf("dynamicdns: host_name is required")
 	}
-	if d.Interface != "" && !isOneOf(d.Interface, "wan", "wan2") {
-		return fmt.Errorf("dynamicdns: interface must be one of: wan, wan2")
+	if d.Interface != "" && !isOneOf(d.Interface,
+		"wan", "wan2", "wan3", "wan4", "wan5", "wan6", "wan7", "wan8", "wan9",
+	) {
+		return fmt.Errorf("dynamicdns: interface must be one of: wan, wan2..wan9")
 	}
 	return nil
 }
@@ -1186,24 +1245,6 @@ func (n *NatRule) Validate() error {
 	if n.Protocol != "" && !isOneOf(n.Protocol, "all", "tcp", "udp", "tcp_udp") {
 		return fmt.Errorf("natrule: protocol must be one of: all, tcp, udp, tcp_udp")
 	}
-	if n.SourceAddress != "" && !isValidIP(n.SourceAddress) && !isValidCIDR(n.SourceAddress) {
-		return fmt.Errorf("natrule: source_address must be a valid IP or CIDR")
-	}
-	if n.SourcePort != "" && !isValidPortRange(n.SourcePort) {
-		return fmt.Errorf("natrule: source_port must be a valid port or port range")
-	}
-	if n.DestAddress != "" && !isValidIP(n.DestAddress) && !isValidCIDR(n.DestAddress) {
-		return fmt.Errorf("natrule: dest_address must be a valid IP or CIDR")
-	}
-	if n.DestPort != "" && !isValidPortRange(n.DestPort) {
-		return fmt.Errorf("natrule: dest_port must be a valid port or port range")
-	}
-	if n.TranslatedIP != "" && !isValidIP(n.TranslatedIP) {
-		return fmt.Errorf("natrule: translated_ip must be a valid IP address")
-	}
-	if n.TranslatedPort != "" && !isValidPortRange(n.TranslatedPort) {
-		return fmt.Errorf("natrule: translated_port must be a valid port or port range")
-	}
 	return nil
 }
 
@@ -1215,8 +1256,11 @@ func (p *PortForward) Validate() error {
 	if p.Proto != "" && !isOneOf(p.Proto, "tcp", "udp", "tcp_udp") {
 		return fmt.Errorf("portforward: proto must be one of: tcp, udp, tcp_udp")
 	}
-	if p.PfwdInterface != "" && !isOneOf(p.PfwdInterface, "wan", "wan2", "both") {
-		return fmt.Errorf("portforward: pfwd_interface must be one of: wan, wan2, both")
+	if p.PfwdInterface != "" && !isOneOf(p.PfwdInterface,
+		"all", "both",
+		"wan", "wan2", "wan3", "wan4", "wan5", "wan6", "wan7", "wan8", "wan9",
+	) {
+		return fmt.Errorf("portforward: pfwd_interface must be one of: all, both, wan, wan2..wan9")
 	}
 	if p.DstPort != "" && !isValidPortRange(p.DstPort) {
 		return fmt.Errorf("portforward: dst_port must be a valid port or port range")
@@ -1296,15 +1340,22 @@ func (f *FirewallRule) Validate() error {
 		"GUESTv6_IN", "GUESTv6_OUT", "GUESTv6_LOCAL") {
 		return fmt.Errorf("firewallrule: ruleset must be a valid ruleset name")
 	}
+	// FirewallRule.Protocol is name-or-number on the controller (regex pattern
+	// also accepts IANA numeric protocol codes 0-255). Only the protocol
+	// names are enumerated here; numeric strings pass through to the
+	// controller without SDK-side validation.
 	if f.Protocol != "" && !isOneOf(f.Protocol,
 		"all", "tcp", "udp", "tcp_udp", "icmp", "ah", "ax.25", "dccp", "ddp",
 		"egp", "eigrp", "encap", "esp", "etherip", "fc", "ggp", "gre", "hip", "hmp",
-		"icmpv6", "idpr-cmtp", "idrp", "igmp", "igp", "ip", "ipcomp", "ipencap", "ipip",
+		"idpr-cmtp", "idrp", "igmp", "igp", "ip", "ipcomp", "ipencap", "ipip",
 		"ipv6", "ipv6-frag", "ipv6-icmp", "ipv6-nonxt", "ipv6-opts", "ipv6-route",
 		"isis", "iso-tp4", "l2tp", "manet", "mobility-header", "mpls-in-ip", "ospf",
 		"pim", "pup", "rdp", "rohc", "rspf", "rsvp", "sctp", "shim6", "skip", "st",
 		"udplite", "vmtp", "vrrp", "wesp", "xns-idp", "xtp") {
-		return fmt.Errorf("firewallrule: protocol must be a valid protocol name")
+		// Allow numeric protocol codes (0-255) without enumerating them.
+		if _, err := strconv.Atoi(f.Protocol); err != nil {
+			return fmt.Errorf("firewallrule: protocol must be a valid protocol name or numeric code")
+		}
 	}
 	if f.IPSec != "" && !isOneOf(f.IPSec, "match-ipsec", "match-none") {
 		return fmt.Errorf("firewallrule: ipsec must be one of: match-ipsec, match-none")
@@ -1370,8 +1421,8 @@ func (t *TrafficRule) Validate() error {
 	if t.Action != "" && !isOneOf(t.Action, "BLOCK", "ALLOW") {
 		return fmt.Errorf("trafficrule: action must be one of: BLOCK, ALLOW")
 	}
-	if t.MatchingTarget != "" && !isOneOf(t.MatchingTarget, "INTERNET", "IP", "DOMAIN", "REGION", "APP") {
-		return fmt.Errorf("trafficrule: matching_target must be one of: INTERNET, IP, DOMAIN, REGION, APP")
+	if t.MatchingTarget != "" && !isOneOf(t.MatchingTarget, "INTERNET", "IP", "DOMAIN", "REGION", "APP", "APP_CATEGORY", "LOCAL_NETWORK") {
+		return fmt.Errorf("trafficrule: matching_target must be one of: INTERNET, IP, DOMAIN, REGION, APP, APP_CATEGORY, LOCAL_NETWORK")
 	}
 	for i, ip := range t.IPAddresses {
 		if !isValidIP(ip) && !isValidCIDR(ip) {
@@ -1386,8 +1437,8 @@ func (t *TrafficRoute) Validate() error {
 	if t.Name == "" {
 		return fmt.Errorf("trafficroute: name is required")
 	}
-	if t.MatchingTarget != "" && !isOneOf(t.MatchingTarget, "INTERNET", "IP", "DOMAIN", "REGION", "APP") {
-		return fmt.Errorf("trafficroute: matching_target must be one of: INTERNET, IP, DOMAIN, REGION, APP")
+	if t.MatchingTarget != "" && !isOneOf(t.MatchingTarget, "INTERNET", "IP", "DOMAIN", "REGION") {
+		return fmt.Errorf("trafficroute: matching_target must be one of: INTERNET, IP, DOMAIN, REGION")
 	}
 	for i, ip := range t.IPAddresses {
 		if !isValidIP(ip) && !isValidCIDR(ip) {
@@ -1408,11 +1459,15 @@ func (p *PortConf) Validate() error {
 	if p.Dot1xCtrl != "" && !isOneOf(p.Dot1xCtrl, "force_authorized", "force_unauthorized", "auto", "mac_based", "multi_host") {
 		return fmt.Errorf("portconf: dot1x_ctrl must be one of: force_authorized, force_unauthorized, auto, mac_based, multi_host")
 	}
-	if p.OpMode != "" && !isOneOf(p.OpMode, "switch", "mirror", "aggregate") {
-		return fmt.Errorf("portconf: op_mode must be one of: switch, mirror, aggregate")
+	// PortConf is a port profile, which only supports switch op_mode. The
+	// mirror/aggregate modes belong to PortOverride (per-port on a device).
+	if p.OpMode != "" && !isOneOf(p.OpMode, "switch") {
+		return fmt.Errorf("portconf: op_mode must be: switch")
 	}
-	if p.PoeMode != "" && !isOneOf(p.PoeMode, "auto", "pasv24", "passthrough", "off") {
-		return fmt.Errorf("portconf: poe_mode must be one of: auto, pasv24, passthrough, off")
+	// Same scope split for poe_mode — pasv24/passthrough belong to
+	// PortOverride, not the profile.
+	if p.PoeMode != "" && !isOneOf(p.PoeMode, "auto", "off") {
+		return fmt.Errorf("portconf: poe_mode must be one of: auto, off")
 	}
 	for i, mac := range p.PortSecurityMacAddress {
 		if !isValidMAC(mac) {
@@ -1427,14 +1482,14 @@ func (w *WLANConf) Validate() error {
 	if w.Name == "" {
 		return fmt.Errorf("wlanconf: name is required")
 	}
-	if w.Security != "" && !isOneOf(w.Security, "open", "wep", "wpapsk", "wpaeap") {
-		return fmt.Errorf("wlanconf: security must be one of: open, wep, wpapsk, wpaeap")
+	if w.Security != "" && !isOneOf(w.Security, "open", "wep", "wpapsk", "wpaeap", "osen") {
+		return fmt.Errorf("wlanconf: security must be one of: open, wep, wpapsk, wpaeap, osen")
 	}
-	if w.WPAMode != "" && !isOneOf(w.WPAMode, "wpa1", "wpa2", "wpa3") {
-		return fmt.Errorf("wlanconf: wpa_mode must be one of: wpa1, wpa2, wpa3")
+	if w.WPAMode != "" && !isOneOf(w.WPAMode, "auto", "wpa1", "wpa2") {
+		return fmt.Errorf("wlanconf: wpa_mode must be one of: auto, wpa1, wpa2")
 	}
-	if w.WPAEnc != "" && !isOneOf(w.WPAEnc, "ccmp", "gcmp", "auto") {
-		return fmt.Errorf("wlanconf: wpa_enc must be one of: ccmp, gcmp, auto")
+	if w.WPAEnc != "" && !isOneOf(w.WPAEnc, "auto", "ccmp", "gcmp", "ccmp-256", "gcmp-256") {
+		return fmt.Errorf("wlanconf: wpa_enc must be one of: auto, ccmp, gcmp, ccmp-256, gcmp-256")
 	}
 	if w.WLANBand != "" && !isOneOf(w.WLANBand, "2g", "5g", "both") {
 		return fmt.Errorf("wlanconf: wlan_band must be one of: 2g, 5g, both")
@@ -1448,8 +1503,8 @@ func (w *WLANConf) Validate() error {
 	if w.DtimMode != "" && !isOneOf(w.DtimMode, "default", "custom") {
 		return fmt.Errorf("wlanconf: dtim_mode must be one of: default, custom")
 	}
-	if w.APGroupMode != "" && !isOneOf(w.APGroupMode, "all", "groups") {
-		return fmt.Errorf("wlanconf: ap_group_mode must be one of: all, groups")
+	if w.APGroupMode != "" && !isOneOf(w.APGroupMode, "all", "groups", "devices") {
+		return fmt.Errorf("wlanconf: ap_group_mode must be one of: all, groups, devices")
 	}
 	for i, mac := range w.MacFilterList {
 		if !isValidMAC(mac) {
@@ -1539,8 +1594,8 @@ func (d *NetworkDHCP) Validate() error {
 
 // Validate checks WAN IPv6 configuration.
 func (w *NetworkWANIPv6) Validate() error {
-	if w.WANTypeV6 != "" && !isOneOf(w.WANTypeV6, "disabled", "dhcpv6", "static", "autoconf") {
-		return fmt.Errorf("network: wan_type_v6 must be one of: disabled, dhcpv6, static, autoconf")
+	if w.WANTypeV6 != "" && !isOneOf(w.WANTypeV6, "disabled", "dhcpv6", "static", "slaac") {
+		return fmt.Errorf("network: wan_type_v6 must be one of: disabled, dhcpv6, static, slaac")
 	}
 	return nil
 }
@@ -1555,8 +1610,12 @@ func (w *NetworkWANLoadBalance) Validate() error {
 
 // Validate checks WAN configuration.
 func (w *NetworkWAN) Validate() error {
-	if w.WANType != "" && !isOneOf(w.WANType, "dhcp", "static", "pppoe", "disabled") {
-		return fmt.Errorf("network: wan_type must be one of: dhcp, static, pppoe, disabled")
+	if w.WANType != "" && !isOneOf(w.WANType,
+		"dhcp", "static", "pppoe", "disabled",
+		"dslite", "dslite-over-pppoe",
+		"map-e,hubspoke", "map-e,jpix", "map-e,ntt",
+	) {
+		return fmt.Errorf("network: wan_type must be one of: dhcp, static, pppoe, disabled, dslite, dslite-over-pppoe, map-e,hubspoke, map-e,jpix, map-e,ntt")
 	}
 	if w.WANGateway != "" && !isValidIP(w.WANGateway) {
 		return fmt.Errorf("network: wan_gateway must be a valid IP address")
@@ -1584,8 +1643,15 @@ func (w *NetworkWAN) Validate() error {
 
 // Validate checks routing configuration.
 func (r *NetworkRouting) Validate() error {
-	if r.NetworkGroup != "" && !isOneOf(r.NetworkGroup, "LAN", "WAN", "WAN2") {
-		return fmt.Errorf("network: networkgroup must be one of: LAN, WAN, WAN2")
+	// NetworkGroup is purpose-dependent on the controller side: LAN-style
+	// networks accept "LAN" through "LAN8" (probed); WAN-style networks
+	// accept "WAN"/"WAN2". The validator here is the permissive union — the
+	// controller rejects mismatched combinations.
+	if r.NetworkGroup != "" && !isOneOf(r.NetworkGroup,
+		"LAN", "LAN2", "LAN3", "LAN4", "LAN5", "LAN6", "LAN7", "LAN8",
+		"WAN", "WAN2",
+	) {
+		return fmt.Errorf("network: networkgroup must be one of: LAN, LAN2..LAN8, WAN, WAN2")
 	}
 	return nil
 }
@@ -1595,8 +1661,8 @@ func (n *Network) Validate() error {
 	if n.Name == "" {
 		return fmt.Errorf("network: name is required")
 	}
-	if n.Purpose != "" && !isOneOf(n.Purpose, "wan", "corporate", "vlan-only", "remote-user-vpn", "site-vpn", "guest") {
-		return fmt.Errorf("network: purpose must be one of: wan, corporate, vlan-only, remote-user-vpn, site-vpn, guest")
+	if n.Purpose != "" && !isOneOf(n.Purpose, "wan", "corporate", "vlan-only", "remote-user-vpn", "site-vpn", "guest", "vpn-client") {
+		return fmt.Errorf("network: purpose must be one of: wan, corporate, vlan-only, remote-user-vpn, site-vpn, guest, vpn-client")
 	}
 	if n.SettingPreference != "" && !isOneOf(n.SettingPreference, "auto", "manual") {
 		return fmt.Errorf("network: setting_preference must be one of: auto, manual")
@@ -1637,7 +1703,7 @@ func (n *Network) Validate() error {
 //   - PoeMode: "auto", "off", "pasv24", "passthrough"
 //   - OpMode: "switch", "mirror", "aggregate"
 //   - Forward: "all", "native", "customize", "disabled"
-//   - TaggedVlanMgmt: "auto", "block_all"
+//   - TaggedVlanMgmt: "auto", "block_all", "custom"
 type PortOverride struct {
 	PortIdx                       *int     `json:"port_idx,omitempty"`
 	Name                          string   `json:"name,omitempty"`
@@ -1690,8 +1756,8 @@ func (p *PortOverride) Validate() error {
 	if p.Forward != "" && !isOneOf(p.Forward, "all", "native", "customize", "disabled") {
 		return fmt.Errorf("portoverride: forward must be one of: all, native, customize, disabled")
 	}
-	if p.TaggedVlanMgmt != "" && !isOneOf(p.TaggedVlanMgmt, "auto", "block_all") {
-		return fmt.Errorf("portoverride: tagged_vlan_mgmt must be one of: auto, block_all")
+	if p.TaggedVlanMgmt != "" && !isOneOf(p.TaggedVlanMgmt, "auto", "block_all", "custom") {
+		return fmt.Errorf("portoverride: tagged_vlan_mgmt must be one of: auto, block_all, custom")
 	}
 	for i, mac := range p.PortSecurityMacAddress {
 		if !isValidMAC(mac) {
@@ -1745,6 +1811,9 @@ type DeviceConfig struct {
 
 // Validate checks that DeviceConfig fields have valid values.
 func (d *DeviceConfig) Validate() error {
+	if d.MAC != "" && !isValidMAC(d.MAC) {
+		return fmt.Errorf("device: mac must be a valid MAC address")
+	}
 	if d.LedOverride != "" && !isOneOf(d.LedOverride, "default", "on", "off") {
 		return fmt.Errorf("device: led_override must be one of: default, on, off")
 	}
@@ -1894,8 +1963,8 @@ func (s *SettingUSG) Validate() error {
 	if s.Key == "" {
 		return fmt.Errorf("settingusg: key is required")
 	}
-	if s.MSSClamp != "" && !isOneOf(s.MSSClamp, "custom", "auto", "none") {
-		return fmt.Errorf("settingusg: mss_clamp must be one of: custom, auto, none")
+	if s.MSSClamp != "" && !isOneOf(s.MSSClamp, "custom", "auto", "disabled") {
+		return fmt.Errorf("settingusg: mss_clamp must be one of: custom, auto, disabled")
 	}
 	return nil
 }
@@ -1941,8 +2010,8 @@ type IPSSuppression struct {
 // SettingIPS represents IDS/IPS and threat management settings for a UniFi site.
 //
 // Field value reference:
-//   - IPSMode: "disabled", "ids", "ips"
-//   - AdvancedFilteringPreference: "disabled", "manual", "auto"
+//   - IPSMode: "disabled", "ids", "ips", "ipsInline"
+//   - AdvancedFilteringPreference: "disabled", "manual"
 type SettingIPS struct {
 	ID                                 string            `json:"_id,omitempty"`
 	SiteID                             string            `json:"site_id,omitempty"`
@@ -1968,11 +2037,11 @@ func (s *SettingIPS) Validate() error {
 	if s.Key == "" {
 		return fmt.Errorf("settingips: key is required")
 	}
-	if s.IPSMode != "" && !isOneOf(s.IPSMode, "disabled", "ids", "ips") {
-		return fmt.Errorf("settingips: ips_mode must be one of: disabled, ids, ips")
+	if s.IPSMode != "" && !isOneOf(s.IPSMode, "disabled", "ids", "ips", "ipsInline") {
+		return fmt.Errorf("settingips: ips_mode must be one of: disabled, ids, ips, ipsInline")
 	}
-	if s.AdvancedFilteringPreference != "" && !isOneOf(s.AdvancedFilteringPreference, "disabled", "manual", "auto") {
-		return fmt.Errorf("settingips: advanced_filtering_preference must be one of: disabled, manual, auto")
+	if s.AdvancedFilteringPreference != "" && !isOneOf(s.AdvancedFilteringPreference, "disabled", "manual") {
+		return fmt.Errorf("settingips: advanced_filtering_preference must be one of: disabled, manual")
 	}
 	return nil
 }
@@ -1980,7 +2049,7 @@ func (s *SettingIPS) Validate() error {
 // SettingGuestAccess represents guest portal/hotspot settings for a UniFi site.
 //
 // Field value reference:
-//   - Auth: "none", "password", "hotspot", "radius", "custom"
+//   - Auth: "none", "hotspot", "facebook_wifi", "custom"
 //   - TemplateEngine: "angular", "jsp"
 type SettingGuestAccess struct {
 	ID                                 string   `json:"_id,omitempty"`
@@ -2027,8 +2096,8 @@ func (s *SettingGuestAccess) Validate() error {
 	if s.Key == "" {
 		return fmt.Errorf("settingguestaccess: key is required")
 	}
-	if s.Auth != "" && !isOneOf(s.Auth, "none", "password", "hotspot", "radius", "custom") {
-		return fmt.Errorf("settingguestaccess: auth must be one of: none, password, hotspot, radius, custom")
+	if s.Auth != "" && !isOneOf(s.Auth, "none", "hotspot", "facebook_wifi", "custom") {
+		return fmt.Errorf("settingguestaccess: auth must be one of: none, hotspot, facebook_wifi, custom")
 	}
 	if s.RestrictedSubnet1 != "" && !isValidCIDR(s.RestrictedSubnet1) {
 		return fmt.Errorf("settingguestaccess: restricted_subnet_1 must be a valid CIDR")
