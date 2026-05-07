@@ -218,12 +218,12 @@ var _ NetworkManager = (*NetworkClient)(nil)
 // # API Key Authentication
 //
 // When configured with an API key, the client is immediately ready to use.
-// Login() and Logout() become no-ops, and IsLoggedIn() always returns true.
+// Login() and Logout() become no-ops, and HasLocalSession() always returns true.
 // This mode avoids login rate limits and is recommended for Terraform providers.
 //
 // # Session Management (Username/Password)
 //
-// NetworkClient tracks login state locally via the IsLoggedIn method. However,
+// NetworkClient tracks login state locally via the HasLocalSession method. However,
 // server-side sessions can expire independently due to:
 //   - Session timeout on the controller
 //   - Controller restart
@@ -405,8 +405,8 @@ func (c *NetworkClient) Login(ctx context.Context) error {
 	}
 
 	token, err := c.fetchCSRFToken(ctx)
-	if err != nil && c.Logger != nil {
-		c.Logger.Printf("warning: failed to fetch CSRF token: %v", err)
+	if err != nil {
+		return fmt.Errorf("fetching CSRF token after login: %w", err)
 	}
 
 	c.mu.Lock()
@@ -1874,6 +1874,9 @@ func (c *NetworkClient) GetDevice(ctx context.Context, id string) (*DeviceConfig
 
 // ForgetDevice removes a device from the controller using the sitemgr command.
 func (c *NetworkClient) ForgetDevice(ctx context.Context, mac string) error {
+	if !isValidMAC(mac) {
+		return fmt.Errorf("forgetdevice: mac must be a valid MAC address")
+	}
 	cmd := map[string]any{
 		"cmd":  "delete-device",
 		"macs": []string{mac},

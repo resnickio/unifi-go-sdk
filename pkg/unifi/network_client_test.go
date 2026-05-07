@@ -5155,6 +5155,10 @@ func TestNetworkClientForgetDevice(t *testing.T) {
 	if receivedCmd["cmd"] != "delete-device" {
 		t.Errorf("expected cmd 'delete-device', got '%v'", receivedCmd["cmd"])
 	}
+
+	if err := client.ForgetDevice(context.Background(), "not-a-mac"); err == nil {
+		t.Error("ForgetDevice() with invalid MAC: expected error, got nil")
+	}
 }
 
 func TestNetworkClientSites(t *testing.T) {
