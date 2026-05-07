@@ -648,7 +648,7 @@ type FirewallPolicy struct {
 // PolicyEndpoint defines source or destination matching criteria for a firewall policy.
 //
 // Field value reference:
-//   - MatchingTarget: "ANY", "IP", "NETWORK", "DOMAIN", "REGION", "PORT_GROUP", "ADDRESS_GROUP"
+//   - MatchingTarget: "ANY", "APP", "APP_CATEGORY", "IP", "IID", "NETWORK", "REGION", "WEB"
 //   - MatchingTargetType: "SPECIFIC", "OBJECT"
 //   - PortMatchingType: "ANY", "SPECIFIC"
 type PolicyEndpoint struct {
@@ -668,8 +668,8 @@ type PolicyEndpoint struct {
 
 // Validate checks that PolicyEndpoint fields have valid values.
 func (p *PolicyEndpoint) Validate() error {
-	if p.MatchingTarget != "" && !isOneOf(p.MatchingTarget, "ANY", "IP", "NETWORK", "DOMAIN", "REGION", "PORT_GROUP", "ADDRESS_GROUP") {
-		return fmt.Errorf("policyendpoint: matching_target must be one of: ANY, IP, NETWORK, DOMAIN, REGION, PORT_GROUP, ADDRESS_GROUP")
+	if p.MatchingTarget != "" && !isOneOf(p.MatchingTarget, "ANY", "APP", "APP_CATEGORY", "IP", "IID", "NETWORK", "REGION", "WEB") {
+		return fmt.Errorf("policyendpoint: matching_target must be one of: ANY, APP, APP_CATEGORY, IP, IID, NETWORK, REGION, WEB")
 	}
 	if p.MatchingTargetType != "" && !isOneOf(p.MatchingTargetType, "SPECIFIC", "OBJECT") {
 		return fmt.Errorf("policyendpoint: matching_target_type must be one of: SPECIFIC, OBJECT")

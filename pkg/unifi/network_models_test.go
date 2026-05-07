@@ -527,7 +527,20 @@ func TestPolicyEndpointValidate(t *testing.T) {
 		{"valid matching target ANY", PolicyEndpoint{MatchingTarget: "ANY"}, ""},
 		{"valid matching target IP", PolicyEndpoint{MatchingTarget: "IP"}, ""},
 		{"valid matching target NETWORK", PolicyEndpoint{MatchingTarget: "NETWORK"}, ""},
+		{"valid matching target REGION", PolicyEndpoint{MatchingTarget: "REGION"}, ""},
+		{"valid matching target APP", PolicyEndpoint{MatchingTarget: "APP"}, ""},
+		{"valid matching target APP_CATEGORY", PolicyEndpoint{MatchingTarget: "APP_CATEGORY"}, ""},
+		{"valid matching target IID", PolicyEndpoint{MatchingTarget: "IID"}, ""},
+		{"valid matching target WEB", PolicyEndpoint{MatchingTarget: "WEB"}, ""},
 		{"invalid matching target", PolicyEndpoint{MatchingTarget: "INVALID"}, "matching_target must be one of"},
+		// The following values were once accepted by an earlier version of this
+		// SDK's validator, but were never accepted by the v9 controller's actual
+		// enum. A direct probe returned the canonical list:
+		// [APP, WEB, IP, APP_CATEGORY, NETWORK, IID, ANY, REGION]. These cases
+		// guard against re-introducing the wrong enum values in a future change.
+		{"rejected legacy DOMAIN", PolicyEndpoint{MatchingTarget: "DOMAIN"}, "matching_target must be one of"},
+		{"rejected legacy PORT_GROUP", PolicyEndpoint{MatchingTarget: "PORT_GROUP"}, "matching_target must be one of"},
+		{"rejected legacy ADDRESS_GROUP", PolicyEndpoint{MatchingTarget: "ADDRESS_GROUP"}, "matching_target must be one of"},
 		{"valid matching target type SPECIFIC", PolicyEndpoint{MatchingTargetType: "SPECIFIC"}, ""},
 		{"valid matching target type OBJECT", PolicyEndpoint{MatchingTargetType: "OBJECT"}, ""},
 		{"invalid matching target type", PolicyEndpoint{MatchingTargetType: "INVALID"}, "matching_target_type must be one of"},
